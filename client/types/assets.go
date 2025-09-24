@@ -10,8 +10,10 @@ type QueryOptions struct {
 	AdminMode bool `json:"admin_mode"`
 
 	// Listing options
-	CursorID string `json:"cursor"`    // Return assets whose ID is greater than the given ID.
-	Limit    int    `json:"page_size"` // Max number of assets to return
+	OrderBy        string `json:"order_by"` // Sort by this field (defaults to ID)
+	OrderDirection string `json:"order_direction"`
+	CursorID       string `json:"cursor"`    // Return assets whose ID is greater than the given ID.
+	Limit          int    `json:"page_size"` // Max number of assets to return
 
 	// Filtering by permissions
 	OwnerID           int32   `json:"owner_id"`
@@ -26,8 +28,10 @@ type QueryOptions struct {
 	Filters []Filter `json:"filters"`
 }
 
+// Filter based on the values given, e.g. Key = "Name", Operation = "=", Values = ["foo", "bar"].
+// Specifying multiple values is an implicit OR.
 type Filter struct {
 	Key       string
 	Operation string
-	Value     any
+	Values    []any
 }
