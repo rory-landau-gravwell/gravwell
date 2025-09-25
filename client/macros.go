@@ -11,28 +11,22 @@ package client
 import "github.com/gravwell/gravwell/v4/client/types"
 
 // ListMacros returns all macros accessible to the current user.
-func (c *Client) ListMacros(opts *types.QueryOptions) ([]types.Macro, error) {
+func (c *Client) ListMacros(opts *types.QueryOptions) (ret types.MacroListResponse, err error) {
 	if opts == nil {
 		opts = &types.QueryOptions{}
 	}
-	var macros []types.Macro
-	if err := c.postStaticURL(MACROS_LIST_URL, opts, &macros); err != nil {
-		return nil, err
-	}
-	return macros, nil
+	err = c.postStaticURL(MACROS_LIST_URL, opts, &ret)
+	return
 }
 
 // ListAllMacros (admin-only) returns all macros on the system.
-func (c *Client) ListAllMacros(opts *types.QueryOptions) ([]types.Macro, error) {
+func (c *Client) ListAllMacros(opts *types.QueryOptions) (ret types.MacroListResponse, err error) {
 	if opts == nil {
 		opts = &types.QueryOptions{}
 	}
 	opts.AdminMode = true // we'll reject this if the user isn't actually an admin
-	var macros []types.Macro
-	if err := c.postStaticURL(MACROS_LIST_URL, opts, &macros); err != nil {
-		return nil, err
-	}
-	return macros, nil
+	err = c.postStaticURL(MACROS_LIST_URL, opts, &ret)
+	return
 }
 
 // GetMacro returns a particular macro.

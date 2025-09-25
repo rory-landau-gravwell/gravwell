@@ -88,7 +88,7 @@ func TestMacros(t *testing.T) {
 			t.Fatal(err)
 		}
 		columns := []string{"UID", "Global", "Name"}
-		want := strings.TrimSpace(weave.ToCSV(macros, columns,
+		want := strings.TrimSpace(weave.ToCSV(macros.Results, columns,
 			weave.CSVOptions{}))
 
 		// run the test body
@@ -115,7 +115,7 @@ func TestMacros(t *testing.T) {
 
 		// ensure the macro DNE, reroll it if it does
 		for {
-			if slices.ContainsFunc(priorMacros, func(sm types.Macro) bool {
+			if slices.ContainsFunc(priorMacros.Results, func(sm types.Macro) bool {
 				return macroName == sm.Name
 			}) {
 				//reroll name
@@ -135,8 +135,8 @@ func TestMacros(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		if len(postMacros) != len(priorMacros)+1 {
-			t.Fatalf("expected post-create macros len(%v) == pre-create macros len(%v)+1 ", len(postMacros), len(priorMacros))
+		if len(postMacros.Results) != len(priorMacros.Results)+1 {
+			t.Fatalf("expected post-create macros len(%v) == pre-create macros len(%v)+1 ", len(postMacros.Results), len(priorMacros.Results))
 		}
 		// TODO parse out macro ID from stdout and ensure it exists in the postMacros list
 	})
@@ -150,7 +150,7 @@ func TestMacros(t *testing.T) {
 		}
 		columns := []string{"UID", "Global", "Name", "WriteAccess.GIDs", "Description", "Expansion", "Labels"}
 		var want string
-		if json, err := weave.ToJSON(macros, columns, weave.JSONOptions{}); err != nil {
+		if json, err := weave.ToJSON(macros.Results, columns, weave.JSONOptions{}); err != nil {
 			t.Fatal(err)
 		} else {
 			want = strings.TrimSpace(json)
@@ -174,12 +174,12 @@ func TestMacros(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		if len(priorMacros) < 1 {
+		if len(priorMacros.Results) < 1 {
 			t.Skip("no macros to delete")
 		}
 		// pick a macro for faux-deletion
-		toDeleteID := priorMacros[0].ID
-		t.Logf("Selecting macro %v (ID: %v) for faux-deletion", priorMacros[0].Name, priorMacros[0].ID)
+		toDeleteID := priorMacros.Results[0].ID
+		t.Logf("Selecting macro %v (ID: %v) for faux-deletion", priorMacros.Results[0].Name, priorMacros.Results[0].ID)
 
 		cmd := fmt.Sprintf("-u %s -p %s --insecure --"+ft.NoInteractive.Name()+" macros delete --"+ft.Dryrun.Name()+" --id=%d", user, pf, toDeleteID)
 		statusCode, _, stderr := executeCmd(t, cmd)
@@ -192,13 +192,13 @@ func TestMacros(t *testing.T) {
 		postMacros, err := testclient.ListMacros(nil)
 		if err != nil {
 			t.Fatal(err)
-		} else if len(postMacros) != len(priorMacros) {
+		} else if len(postMacros.Results) != len(priorMacros.Results) {
 			t.Fatalf("expected macro count to not change. post count: %v, pre count: %v",
-				len(postMacros), len(priorMacros))
+				len(postMacros.Results), len(priorMacros.Results))
 		}
 		// ensure the selected macro still exists
 		var found = false
-		for _, m := range postMacros {
+		for _, m := range postMacros.Results {
 			if m.ID == toDeleteID {
 				found = true
 				break
@@ -216,7 +216,7 @@ func TestMacros(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(priorMacros) < 1 {
+		if len(priorMacros.Results) < 1 {
 			t.Skip("no macros to delete")
 		}
 
@@ -232,9 +232,9 @@ func TestMacros(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(postMacros) != len(priorMacros) {
+		if len(postMacros.Results) != len(priorMacros.Results) {
 			t.Fatalf("expected macro count to not change. post count: %v, pre count: %v",
-				len(postMacros), len(priorMacros))
+				len(postMacros.Results), len(priorMacros.Results))
 		}
 	})
 
@@ -244,12 +244,12 @@ func TestMacros(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		if len(priorMacros) < 1 {
+		if len(priorMacros.Results) < 1 {
 			t.Skip("no macros to delete")
 		}
 		// pick a macro for deletion
-		toDeleteID := priorMacros[0].ID
-		t.Logf("Selecting macro %v (ID: %v) for deletion", priorMacros[0].Name, priorMacros[0].ID)
+		toDeleteID := priorMacros.Results[0].ID
+		t.Logf("Selecting macro %v (ID: %v) for deletion", priorMacros.Results[0].Name, priorMacros.Results[0].ID)
 
 		cmd := fmt.Sprintf("-u %s -p %s --insecure --"+ft.NoInteractive.Name()+" macros delete --id %v", user, pf, toDeleteID)
 		statusCode, _, stderr := executeCmd(t, cmd)
@@ -261,19 +261,19 @@ func TestMacros(t *testing.T) {
 		postMacros, err := testclient.ListMacros(nil)
 		if err != nil {
 			t.Fatal(err)
-		} else if len(postMacros) != len(priorMacros)-1 {
-			t.Fatalf("expected post-delete macros len (%v) == pre-delete macros len-1 (%v)", len(postMacros), len(priorMacros))
+		} else if len(postMacros.Results) != len(priorMacros.Results)-1 {
+			t.Fatalf("expected post-delete macros len (%v) == pre-delete macros len-1 (%v)", len(postMacros.Results), len(priorMacros.Results))
 		}
 		// ensure the correct macro was deleted
-		for _, m := range postMacros {
+		for _, m := range postMacros.Results {
 			if m.ID == toDeleteID {
 				t.Log("ID of deletion attempt found still alive.")
 				t.Log("priorMacros:\n")
-				for _, prior := range priorMacros {
+				for _, prior := range priorMacros.Results {
 					t.Logf("%v (ID: %v)\n", prior.Name, prior.ID)
 				}
 				t.Log("postMacros:\n")
-				for _, post := range postMacros {
+				for _, post := range postMacros.Results {
 					t.Logf("%v (ID: %v)\n", post.Name, post.ID)
 				}
 				t.FailNow()

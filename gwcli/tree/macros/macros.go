@@ -77,7 +77,8 @@ func listMacros(fs *pflag.FlagSet) ([]types.Macro, error) {
 	if all, err := fs.GetBool("all"); err != nil {
 		uniques.ErrGetFlag("macros list", err)
 	} else if all {
-		return connection.Client.ListAllMacros(nil)
+		r, err := connection.Client.ListAllMacros(nil)
+		return r.Results, err
 	}
 	if gid, err := fs.GetInt32("group"); err != nil {
 		uniques.ErrGetFlag("macros list", err)
@@ -87,7 +88,7 @@ func listMacros(fs *pflag.FlagSet) ([]types.Macro, error) {
 			return nil, err
 		}
 		var ret []types.Macro
-		for _, m := range macros {
+		for _, m := range macros.Results {
 			if m.GroupCanRead(gid) {
 				ret = append(ret, m)
 			}
@@ -95,7 +96,8 @@ func listMacros(fs *pflag.FlagSet) ([]types.Macro, error) {
 		return ret, nil
 	}
 
-	return connection.Client.ListMacros(nil)
+	r, err := connection.Client.ListMacros(nil)
+	return r.Results, err
 }
 
 //#region create
@@ -182,7 +184,8 @@ func newMacroEditAction() action.Pair {
 			return connection.Client.GetMacro(id)
 		},
 		FetchSub: func() ([]types.Macro, error) {
-			return connection.Client.ListMacros(nil)
+			r, err := connection.Client.ListMacros(nil)
+			return r.Results, err
 		},
 		GetFieldSub: func(item types.Macro, fieldKey string) (string, error) {
 			switch fieldKey {
@@ -239,11 +242,11 @@ func newMacroDeleteAction() action.Pair {
 			if err != nil {
 				return nil, err
 			}
-			slices.SortFunc(ms, func(m1, m2 types.Macro) int {
+			slices.SortFunc(ms.Results, func(m1, m2 types.Macro) int {
 				return strings.Compare(m1.Name, m2.Name)
 			})
-			var items = make([]scaffolddelete.Item[string], len(ms))
-			for i, m := range ms {
+			var items = make([]scaffolddelete.Item[string], len(ms.Results))
+			for i, m := range ms.Results {
 				items[i] = scaffolddelete.NewItem(
 					m.Name,
 					fmt.Sprintf("Expansion: '%v'\n%v",

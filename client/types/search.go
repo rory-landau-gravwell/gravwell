@@ -395,6 +395,15 @@ type Macro struct {
 	Expansion string
 }
 
+type MacroListResponse struct {
+	Results []Macro `json:"results"`
+
+	CursorNext  string `json:"cursor_next"`
+	CursorPrev  string `json:"cursor_prev"`
+	CurrentPage int    `json:"current_page"`
+	TotalCount  int    `json:"total_count"`
+}
+
 func CheckMacroName(name string) error {
 	for _, char := range name {
 		if !strings.Contains(AllowedMacroChars, string(char)) {
