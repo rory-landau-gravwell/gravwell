@@ -32,7 +32,7 @@ func (c *Client) CreateToken(tc types.TokenCreate) (tf types.TokenFull, err erro
 // ListTokens gets a list of tokens accessible to the user. If
 // non-nil, the QueryOptions will be applied for pagination,
 // filtering, etc.
-func (c *Client) ListTokens(opts *types.QueryOptions) (ts []types.Token, err error) {
+func (c *Client) ListTokens(opts *types.QueryOptions) (ts types.TokenListResponse, err error) {
 	if opts == nil {
 		opts = &types.QueryOptions{}
 	}

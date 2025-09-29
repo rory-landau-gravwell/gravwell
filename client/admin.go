@@ -870,8 +870,8 @@ func (c *Client) PurgeUser(id int32) error {
 	//API tokens
 	if toks, err := nc.ListTokens(&types.QueryOptions{IncludeDeleted: true}); err != nil {
 		return fmt.Errorf("failed to get user API tokens %w", err)
-	} else if len(toks) > 0 {
-		for _, t := range toks {
+	} else if len(toks.Results) > 0 {
+		for _, t := range toks.Results {
 			if t.OwnerID == id {
 				if err := nc.PurgeToken(t.ID); err != nil {
 					return fmt.Errorf("Failed to delete user token %v - %w", t.ID, err)
