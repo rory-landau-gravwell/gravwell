@@ -395,13 +395,11 @@ type Macro struct {
 	Expansion string
 }
 
+// MacroListResponse is what gets returned when you query a list of
+// macros.
 type MacroListResponse struct {
+	BaseListResponse
 	Results []Macro `json:"results"`
-
-	CursorNext  string `json:"cursor_next"`
-	CursorPrev  string `json:"cursor_prev"`
-	CurrentPage int    `json:"current_page"`
-	TotalCount  int    `json:"total_count"`
 }
 
 func CheckMacroName(name string) error {

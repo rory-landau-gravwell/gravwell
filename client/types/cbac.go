@@ -980,6 +980,12 @@ type Token struct {
 	Capabilities []string  `json:"capabilities"`
 }
 
+// TokenListResponse is the type returned when querying a list of tokens.
+type TokenListResponse struct {
+	BaseListResponse
+	Results []Token
+}
+
 // TokenCreate is the structure used to ask the API to make a new token, only the request parameters are present
 type TokenCreate struct {
 	Name         string    `json:"name"`
