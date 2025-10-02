@@ -576,30 +576,44 @@ func (c *Client) ExtractionSupportedEngines() (v []string, err error) {
 
 // GetExtractions returns the list of autoextraction definitions available
 // to the current user.
-func (c *Client) GetExtractions() (dfs []types.AXDefinition, err error) {
-	err = c.getStaticURL(extractionsUrl(), &dfs)
+func (c *Client) ListExtractions(opts *types.QueryOptions) (ret types.AXListResponse, err error) {
+	if opts == nil {
+		opts = &types.QueryOptions{}
+	}
+	err = c.postStaticURL(EXTRACTORS_LIST_URL, opts, &ret)
 	return
 }
 
 // GetExtraction returns a particular extraction by UUID
-func (c *Client) GetExtraction(uuid string) (d types.AXDefinition, err error) {
-	err = c.getStaticURL(extractionIdUrl(uuid), &d)
+func (c *Client) GetExtraction(id string) (d types.AX, err error) {
+	err = c.getStaticURL(extractionIdUrl(id), &d)
+	return
+}
+
+// FindExtraction returns the most appropriate extraction for a given tag
+func (c *Client) FindExtraction(tag string) (d types.AX, err error) {
+	err = c.getStaticURL(extractionFindUrl(tag), &d)
 	return
 }
 
 // DeleteExtraction deletes the specified autoextraction.
-func (c *Client) DeleteExtraction(uuid string) (wrs []types.WarnResp, err error) {
-	if err = c.deleteStaticURL(extractionIdUrl(uuid), nil); err == io.EOF {
+func (c *Client) DeleteExtraction(id string) (wrs []types.WarnResp, err error) {
+	if err = c.deleteStaticURL(extractionIdUrl(id), nil); err == io.EOF {
+		err = nil
+	}
+	return
+}
+
+// PurgeExtraction deletes the specified autoextraction.
+func (c *Client) PurgeExtraction(id string) (wrs []types.WarnResp, err error) {
+	if err = c.deleteStaticURL(extractionIdUrl(id), nil, ezParam("purge", "true")); err == io.EOF {
 		err = nil
 	}
 	return
 }
 
 // TestAddExtraction validates an autoextractor definition.
-func (c *Client) TestAddExtraction(d types.AXDefinition) (wrs []types.WarnResp, err error) {
-	if err = d.Validate(); err != nil {
-		return
-	}
+func (c *Client) TestAddExtraction(d types.AX) (wrs []types.WarnResp, err error) {
 	if err = c.postStaticURL(extractionsTestUrl(), d, nil); err == io.EOF {
 		err = nil
 	}
@@ -608,11 +622,8 @@ func (c *Client) TestAddExtraction(d types.AXDefinition) (wrs []types.WarnResp, 
 
 // AddExtraction installs an autoextractor definition, returning the UUID of the new
 // extraction or an error if it is invalid.
-func (c *Client) AddExtraction(d types.AXDefinition) (id uuid.UUID, wrs []types.WarnResp, err error) {
-	if err = d.Validate(); err != nil {
-		return
-	}
-	if err = c.postStaticURL(extractionsUrl(), d, &id); err == io.EOF {
+func (c *Client) AddExtraction(d types.AX) (result types.AX, wrs []types.WarnResp, err error) {
+	if err = c.postStaticURL(extractionsUrl(), d, &result); err == io.EOF {
 		err = nil
 	}
 	return
@@ -620,11 +631,8 @@ func (c *Client) AddExtraction(d types.AXDefinition) (id uuid.UUID, wrs []types.
 
 // UpdateExtraction modifies an existing autoextractor. The UUID field of the definition
 // passed in must match the UUID of an existing definition owned by the user.
-func (c *Client) UpdateExtraction(d types.AXDefinition) (wrs []types.WarnResp, err error) {
-	if err = d.Validate(); err != nil {
-		return
-	}
-	if err = c.methodStaticPushURL(http.MethodPut, extractionsUrl(), d, nil, nil, nil); err == io.EOF {
+func (c *Client) UpdateExtraction(d types.AX) (wrs []types.WarnResp, err error) {
+	if err = c.methodStaticPushURL(http.MethodPut, extractionIdUrl(d.ID), d, nil, nil, nil); err == io.EOF {
 		err = nil
 	}
 	return
@@ -881,13 +889,13 @@ func (c *Client) PurgeUser(id int32) error {
 	}
 
 	//extractors
-	if exts, err := nc.GetExtractions(); err != nil {
+	if exts, err := nc.ListExtractions(nil); err != nil {
 		return fmt.Errorf("Failed to get user autoextractors %w", err)
-	} else if len(exts) > 0 {
-		for _, e := range exts {
-			if e.UID == id {
-				if _, err := nc.DeleteExtraction(e.UUID.String()); err != nil {
-					return fmt.Errorf("Failed to delete user extraction %v - %w", e.UUID, err)
+	} else if len(exts.Results) > 0 {
+		for _, e := range exts.Results {
+			if e.OwnerID == id {
+				if _, err := nc.DeleteExtraction(e.ID); err != nil {
+					return fmt.Errorf("Failed to delete user extraction %v - %w", e.ID, err)
 				}
 			}
 		}

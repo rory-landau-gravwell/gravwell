@@ -141,7 +141,7 @@ type KitBuildRequest struct {
 	ScheduledSearches []int32           `json:",omitempty"`
 	Flows             []int32           `json:",omitempty"`
 	Macros            []string          `json:",omitempty"`
-	Extractors        []uuid.UUID       `json:",omitempty"`
+	Extractors        []string          `json:",omitempty"`
 	Files             []uuid.UUID       `json:",omitempty"`
 	SearchLibraries   []uuid.UUID       `json:",omitempty"`
 	Playbooks         []uuid.UUID       `json:",omitempty"`

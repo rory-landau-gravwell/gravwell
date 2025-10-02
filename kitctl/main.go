@@ -449,7 +449,7 @@ func packKit(args []string) {
 			}
 		// Other types just ship as-is
 		case kits.Extractor:
-			var x types.AXDefinition
+			var x types.AX
 			if x, err = readExtractor(wd, itm.Name); err != nil {
 				log.Fatalf("Could not read %v %v: %v", itm.Type.String(), itm.Name, err)
 			}
@@ -727,7 +727,7 @@ func unpackKitItems(wd string, rdr *kits.Reader) error {
 			}
 		// Other types just ship as-is
 		case kits.Extractor:
-			var p types.AXDefinition
+			var p types.AX
 			if err = json.NewDecoder(rdr).Decode(&p); err != nil {
 				return fmt.Errorf("Failed to decode extractor %v: %v", name, err)
 			}
