@@ -731,9 +731,6 @@ func unpackKitItems(wd string, rdr *kits.Reader) error {
 			if err = json.NewDecoder(rdr).Decode(&p); err != nil {
 				return fmt.Errorf("Failed to decode extractor %v: %v", name, err)
 			}
-			if err = p.Validate(); err != nil {
-				return fmt.Errorf("Failed to validate extractor %v: %v", name, err)
-			}
 			if err := writeExtractor(wd, name, p); err != nil {
 				return fmt.Errorf("Failed to write out %v %v: %v", tp.String(), name, err)
 			}
