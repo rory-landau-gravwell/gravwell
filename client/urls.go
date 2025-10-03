@@ -152,10 +152,11 @@ const (
 	KIT_BUILD_HISTORY_URL            = `/api/kits/build/history`
 	KIT_BUILD_HISTORY_ID_URL         = `/api/kits/build/history/%s`
 	EXTRACTORS_URL                   = `/api/autoextractors`
+	EXTRACTORS_LIST_URL              = `/api/autoextractors/list`
 	EXTRACTORS_UPLOAD_URL            = `/api/autoextractors/upload`
 	EXTRACTORS_TEST_URL              = `/api/autoextractors/test`
 	EXTRACTORS_ID_URL                = `/api/autoextractors/%s`
-	EXTRACTORS_SYNC_URL              = `/api/autoextractors/sync`
+	EXTRACTORS_FIND_URL              = `/api/autoextractors/find/%s`
 	EXTRACTORS_ENGINES_URL           = `/api/autoextractors/engines`
 	EXPLORE_GENERATE_URL             = `/api/explore/generate`
 	TEMPLATES_URL                    = "/api/templates"
@@ -560,8 +561,8 @@ func extractionIdUrl(id string) string {
 	return fmt.Sprintf(EXTRACTORS_ID_URL, id)
 }
 
-func extractionsSyncUrl() string {
-	return EXTRACTORS_SYNC_URL
+func extractionFindUrl(tag string) string {
+	return fmt.Sprintf(EXTRACTORS_FIND_URL, tag)
 }
 
 func extractionEnginesUrl() string {

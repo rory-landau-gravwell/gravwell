@@ -71,7 +71,7 @@ type GenerateAXRequest struct {
 // A GenerateAXResponse contains an autoextractor definition
 // and corresponding Element extractions as gathered from a single extraction module
 type GenerateAXResponse struct {
-	Extractor AXDefinition
+	Extractor AX
 	// Confidence is a range from 0 to 10, with 10 meaning "we are very confident"
 	// and 0 meaning "we didn't extract anything of worth".
 	// Some modules, like xml, will return values lower than 10 even if they extracted
