@@ -218,7 +218,7 @@ func readSearchLibrary(dir, name string) (x types.WireSearchLibrary, err error) 
  * Extractors
  **************************************************************************/
 
-func writeExtractor(dir string, name string, x types.AXDefinition) error {
+func writeExtractor(dir string, name string, x types.AX) error {
 	// Make sure the parent exists
 	p := filepath.Join(dir, "autoextractor")
 	if err := os.MkdirAll(p, 0755); err != nil {
@@ -244,7 +244,7 @@ func writeExtractor(dir string, name string, x types.AXDefinition) error {
 	return os.WriteFile(metaPath, mb, 0644)
 }
 
-func readExtractor(dir, name string) (x types.AXDefinition, err error) {
+func readExtractor(dir, name string) (x types.AX, err error) {
 	// Make sure the parent exists
 	p := filepath.Join(dir, "autoextractor")
 	paramsPath := filepath.Join(p, fmt.Sprintf("%v.params", name))
