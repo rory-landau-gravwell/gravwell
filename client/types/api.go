@@ -56,10 +56,12 @@ type ErrorObject struct {
 // BaseListResponse contains the common set of fields returned when
 // querying lists of assets.
 type BaseListResponse struct {
-	CursorNext  string `json:"cursor_next"`
-	CursorPrev  string `json:"cursor_prev"`
-	CurrentPage int    `json:"current_page"`
-	TotalCount  int    `json:"total_count"`
+	CursorNext       string            `json:"cursor_next"`
+	CursorPrev       string            `json:"cursor_prev"`
+	CurrentPage      int               `json:"current_page"`
+	TotalCount       int               `json:"total_count"`
+	Type             string            `json:"type"`
+	AvailableFilters []AvailableFilter `json:"available_filters"`
 }
 
 type VersionInfo struct {

@@ -31,7 +31,14 @@ type QueryOptions struct {
 // Filter based on the values given, e.g. Key = "Name", Operation = "=", Values = ["foo", "bar"].
 // Specifying multiple values is an implicit OR.
 type Filter struct {
-	Key       string
-	Operation string
-	Values    []any
+	Key       string `json:"key"`
+	Operation string `json:"operation"`
+	Values    []any  `json:"values"`
+}
+
+// AvailableFilter defines a filter which *could* be applied: a key, valid operations, and optionally a label.
+type AvailableFilter struct {
+	Key        string   `json:"key"`
+	Label      string   `json:"label"`
+	Operations []string `json:"operations"`
 }
