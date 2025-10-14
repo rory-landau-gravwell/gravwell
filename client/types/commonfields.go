@@ -33,6 +33,9 @@ type CommonFields struct {
 	Description string
 	Labels      []string
 	Version     int
+
+	// Auto-generated for the requesting user based on permissions of this object.
+	Can Actions
 }
 
 func (cf *CommonFields) CanRead(u *User) bool {
