@@ -959,13 +959,13 @@ func (c *Client) PurgeUser(id int32) error {
 	}
 
 	//query library
-	if sls, err := nc.ListSearchLibrary(); err != nil {
+	if sls, err := nc.ListSavedQueries(nil); err != nil {
 		return fmt.Errorf("Failed to get user search library list %w", err)
-	} else if len(sls) > 0 {
-		for _, sl := range sls {
-			if sl.UID == id {
-				if err := nc.DeleteSearchLibrary(sl.GUID); err != nil {
-					return fmt.Errorf("Failed to delete user search library %v %w", sl.GUID, err)
+	} else if len(sls.Results) > 0 {
+		for _, sl := range sls.Results {
+			if sl.OwnerID == id {
+				if err := nc.DeleteSavedQuery(sl.ID); err != nil {
+					return fmt.Errorf("Failed to delete user search library %v %w", sl.ID, err)
 				}
 			}
 		}

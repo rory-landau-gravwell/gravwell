@@ -143,7 +143,7 @@ type KitBuildRequest struct {
 	Macros            []string          `json:",omitempty"`
 	Extractors        []string          `json:",omitempty"`
 	Files             []uuid.UUID       `json:",omitempty"`
-	SearchLibraries   []uuid.UUID       `json:",omitempty"`
+	SearchLibraries   []string          `json:",omitempty"` // Saved Queries go here... compatibility for now.
 	Playbooks         []uuid.UUID       `json:",omitempty"`
 	Alerts            []uuid.UUID       `json:",omitempty"`
 	EmbeddedItems     []KitEmbeddedItem `json:",omitempty"`

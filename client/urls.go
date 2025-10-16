@@ -170,6 +170,7 @@ const (
 	USER_FILES_ID_DETAILS_URL        = "/api/files/%s/details"
 	LIBRARY_URL                      = "/api/library"
 	LIBRARY_ID_URL                   = "/api/library/%s"
+	LIBRARY_LIST_URL                 = "/api/library/list"
 	LIBS_URL                         = `/api/libs`
 	CAPABILITY_LIST_URL              = `/api/info/capabilities`
 	CAPABILITY_TEMPLATE_LIST_URL     = `/api/info/capabilities/templates`
@@ -605,8 +606,8 @@ func searchLibUrl() string {
 	return LIBRARY_URL
 }
 
-func searchLibIdUrl(id uuid.UUID) string {
-	return fmt.Sprintf(LIBRARY_ID_URL, id.String())
+func searchLibIdUrl(id string) string {
+	return fmt.Sprintf(LIBRARY_ID_URL, id)
 }
 
 func backupUrl() string {
