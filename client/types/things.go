@@ -447,76 +447,8 @@ func (uf *UserFile) JSONMetadata() (json.RawMessage, error) {
 	return json.RawMessage(b), err
 }
 
-// WireSearchLibrary is what we actually send back and forth over the API
-type WireSearchLibrary struct {
-	ThingHeader
-	SearchLibrary
-	Can     Actions
-	Updated time.Time
-}
-
 type Actions struct {
 	Delete bool
 	Modify bool
 	Share  bool
-}
-
-func (wsl WireSearchLibrary) Thing() (t Thing, err error) {
-	t.UUID = wsl.ThingUUID
-	t.UID = wsl.UID
-	t.GIDs = wsl.GIDs
-	t.Global = wsl.Global
-	t.WriteAccess = wsl.WriteAccess
-	if t.WriteAccess.GIDs == nil {
-		t.WriteAccess.GIDs = []int32{}
-	}
-	t.Updated = wsl.Updated
-
-	err = t.EncodeContents(wsl.SearchLibrary)
-	return
-}
-
-// SearchLibrary is a structure to store a search string and optional set of info
-// The GUI uses this to build up a search library with info about a search
-type SearchLibrary struct {
-	Name        string
-	Description string
-	Query       string `json:",omitempty"`
-	GUID        uuid.UUID
-	Labels      []string  `json:",omitempty"`
-	Metadata    RawObject `json:",omitempty"`
-}
-
-func (sl SearchLibrary) Equal(other SearchLibrary) (ok bool) {
-	ok = sl.Name == other.Name && sl.Description == other.Description && sl.Query == other.Query && sl.GUID == other.GUID
-	if !ok {
-		return
-	}
-	if ok = bytes.Equal(sl.Metadata, other.Metadata); !ok {
-		return
-	}
-	if ok = len(sl.Labels) == len(other.Labels); !ok {
-		return
-	}
-	for i := range sl.Labels {
-		if ok = (sl.Labels[i] == other.Labels[i]); !ok {
-			return
-		}
-	}
-	return
-}
-
-func (sl SearchLibrary) JSONMetadata() (json.RawMessage, error) {
-	b, err := json.Marshal(&struct {
-		Name        string
-		Description string
-		Query       string
-		UUID        string
-	}{
-		Name:        sl.Name,
-		Description: sl.Description,
-		Query:       sl.Query,
-		UUID:        sl.GUID.String(),
-	})
-	return json.RawMessage(b), err
 }
