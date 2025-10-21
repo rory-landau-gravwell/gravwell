@@ -15,10 +15,10 @@ import (
 	"os"
 	"sync"
 
-	"github.com/gravwell/gravwell/v3/debug"
-	"github.com/gravwell/gravwell/v3/ingest/log"
-	"github.com/gravwell/gravwell/v3/ingesters/base"
-	"github.com/gravwell/gravwell/v3/ingesters/utils"
+	"github.com/gravwell/gravwell/v4/debug"
+	"github.com/gravwell/gravwell/v4/ingest/log"
+	"github.com/gravwell/gravwell/v4/ingesters/base"
+	"github.com/gravwell/gravwell/v4/ingesters/utils"
 )
 
 func main() {
@@ -68,6 +68,7 @@ func main() {
 	buildThinkstHandlerConfig(cfg, src, fetcherTracker, lg, igst, ib, ctx, &wg)
 	buildOktaHandlerConfig(cfg, src, fetcherTracker, lg, igst, ib, ctx, &wg)
 	buildShodanHandlerConfig(cfg, src, fetcherTracker, lg, igst, ib, ctx, &wg)
+	buildMimecastHandlerConfig(cfg, src, fetcherTracker, lg, igst, ib, ctx, &wg)
 
 	// listen for signals so we can close gracefully
 	utils.WaitForQuit()
