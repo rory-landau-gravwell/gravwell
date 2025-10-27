@@ -80,9 +80,10 @@ const (
 	headerStart  = `[`
 	uuidParam    = `Ingester-UUID`
 
-	CACHE_MODE_DEFAULT  = "always"
-	CACHE_DEPTH_DEFAULT = 128
-	CACHE_SIZE_DEFAULT  = 1000
+	CACHE_MODE_DEFAULT     = "always"
+	CACHE_DEPTH_DEFAULT    = 128
+	CACHE_SIZE_DEFAULT     = 1000
+	MAX_ENTRY_SIZE_DEFAULT = 1024 * 1024 * 1024 * 10 //10mb todo: final value
 )
 
 var (
@@ -123,6 +124,7 @@ type IngestConfig struct {
 	Stats_Sample_Interval      string   `json:",omitempty"` // if set to > 0 duration then we periodically throw stats
 	Timestamp_Max_Past_Delta   string   // if set to > 0 (e.g. "1h"), set TS of entries further than this in the past to now
 	Timestamp_Max_Future_Delta string   // if set to > 0, set TS of entries further that this in the future to now.
+	Max_Entry_Size             int      `json:",omitempty"`
 }
 
 type IngestStreamConfig struct {
@@ -303,6 +305,10 @@ func (ic *IngestConfig) Verify() error {
 		if _, err := time.ParseDuration(ic.Timestamp_Max_Future_Delta); err != nil {
 			return fmt.Errorf("Could not parse Timestamp-Max-Future-Delta: %v", err)
 		}
+	}
+
+	if ic.Max_Entry_Size == 0 {
+		ic.Max_Entry_Size = MAX_ENTRY_SIZE_DEFAULT
 	}
 
 	return nil
