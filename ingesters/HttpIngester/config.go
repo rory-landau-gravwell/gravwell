@@ -26,7 +26,7 @@ import (
 
 const (
 	maxConfigSize  int64 = (1024 * 1024 * 2) //2MB, even this is crazy large
-	defaultMaxBody int   = 4 * 1024 * 1024   //4MB
+	defaultMaxBody int   = 1024 * 1024       //1MB
 	defaultLogLoc        = `/opt/gravwell/log/gravwell_http_ingester.log`
 
 	defaultMethod = http.MethodPost
@@ -194,6 +194,10 @@ func (c *cfgType) Verify() error {
 
 	if len(urls) == 0 {
 		return fmt.Errorf("No listeners specified")
+	}
+
+	if c.Max_Entry_Size < c.Max_Body {
+		return fmt.Errorf("Max-Entry-Size cannot be smaller than Max-Body")
 	}
 	return nil
 }
