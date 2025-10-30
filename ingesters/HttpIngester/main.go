@@ -341,6 +341,9 @@ func includeStdListeners(hnd *handler, igst *ingest.IngestMuxer, cfg *cfgType) (
 		if v.Method == `` {
 			v.Method = defaultMethod
 		}
+		if v.Debug_Posts {
+			hcfg.debugPosts = true
+		}
 
 		hcfg.pproc, err = cfg.Preprocessor.ProcessorSet(igst, v.Preprocessor)
 		if err != nil {

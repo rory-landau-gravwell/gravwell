@@ -229,7 +229,6 @@ func includeHecListeners(hnd *handler, igst *ingest.IngestMuxer, cfg *cfgType) (
 			rawLineBreaker: v.Raw_Line_Breaker,
 			name:           k,
 			maxSize:        fixupMaxSize(v.Max_Size),
-			debugPosts:     v.Debug_Posts,
 			tagRouter:      v.loadSourcetypeTagRouter(igst),
 			tokenRouter:    v.loadTokenTagRouter(igst),
 		}
@@ -295,6 +294,9 @@ func includeHecListeners(hnd *handler, igst *ingest.IngestMuxer, cfg *cfgType) (
 		hcfg.handler = hh.handleRaw
 		if err = hnd.addHandler(http.MethodPost, path.Join(bp, `raw`), hcfg); err != nil {
 			return fmt.Errorf("failed to add HEC-Compatible-Listener handler %w", err)
+		}
+		if v.Debug_Posts {
+			hcfg.debugPosts = true
 		}
 
 		debugout("HEC Handler URL %s handling %s\n", v.URL, v.Tag_Name)
