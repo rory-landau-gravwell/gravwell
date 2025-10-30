@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	DefaultMaxBuffer = 8 * 1024 * 1024 // Buffer up to 8 MB when looking for a regular expression.
+	DefaultMaxBuffer = 1024 * 1024 // Buffer up to 1 MB when looking for a regular expression.
 )
 
 type regexHandlerConfig struct {
