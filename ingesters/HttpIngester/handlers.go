@@ -434,7 +434,7 @@ func handleMulti(h *handler, cfg routeHandler, w http.ResponseWriter, r *http.Re
 			log.KV("bytes", byteCount), log.KV("entries", entriesCount),
 			log.KV("ms", time.Since(now).Milliseconds()),
 		}
-		h.igst.Info("HTTP multi-request", kvs...)
+		h.igst.Info("HTTP multi-part", kvs...)
 	}
 }
 
