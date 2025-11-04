@@ -147,6 +147,15 @@ func (c *cfgType) Verify() error {
 		if ingest.CheckTag(v.Tag_Name) != nil {
 			return errors.New("Invalid characters in the Tag-Name for " + k)
 		}
+		if v.Reader == string(lineReader) {
+			if v.Max_Line_Size == 0 {
+				v.Max_Line_Size = defaultMaxLineSize
+			}
+
+			if c.Max_Entry_Size < v.Max_Line_Size {
+				return fmt.Errorf("Listener %s Max-Line-Size (%d) cannot be larger than Max-Entry-Size (%d)", k, v.Max_Line_Size, c.Max_Entry_Size)
+			}
+		}
 		if v.Timezone_Override != "" {
 			if v.Assume_Local_Timezone {
 				// cannot do both
@@ -182,6 +191,15 @@ func (c *cfgType) Verify() error {
 		}
 		if ingest.CheckTag(v.Tag_Name) != nil {
 			return errors.New("Invalid characters in the Tag-Name for " + k)
+		}
+		if v.Reader == string(lineReader) {
+			if v.Max_Line_Size == 0 {
+				v.Max_Line_Size = defaultMaxLineSize
+			}
+
+			if c.Max_Entry_Size < v.Max_Line_Size {
+				return fmt.Errorf("Listener %s Max-Line-Size (%d) cannot be larger than Max-Entry-Size (%d)", k, v.Max_Line_Size, c.Max_Entry_Size)
+			}
 		}
 		if v.Timezone_Override != "" {
 			if v.Assume_Local_Timezone {

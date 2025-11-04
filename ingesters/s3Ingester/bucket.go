@@ -22,7 +22,7 @@ import (
 const (
 	maxMaxRetries      = 10
 	defaultMaxRetries  = 3
-	defaultMaxLineSize = 4 * 1024 * 1024
+	defaultMaxLineSize = 1024 * 1024
 	defaultRegion      = `us-east-1`
 )
 
