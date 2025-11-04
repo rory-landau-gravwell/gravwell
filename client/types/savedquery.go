@@ -2,13 +2,23 @@ package types
 
 import (
 	"encoding/json"
+	"time"
 )
 
 // SavedQuery is a stored Gravwell query. This replaces SearchLibrary in the old types.
 type SavedQuery struct {
 	CommonFields
 
-	Query string `db:"query"`
+	Query              string
+	SuggestedTimeframe SavedQueryTimeframe
+}
+
+type SavedQueryTimeframe struct {
+	Duration  string    `json:"durationString"`
+	End       time.Time `json:"end"`
+	Start     time.Time `json:"start"`
+	Timeframe string    `json:"timeframe"`
+	Timezone  string    `json:"timezone"`
 }
 
 type SavedQueryListResponse struct {
