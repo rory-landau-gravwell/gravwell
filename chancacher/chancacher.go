@@ -18,6 +18,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -112,8 +113,8 @@ func NewChanCacher(maxDepth int, cachePath string, maxSize int) (*ChanCacher, er
 			return nil, err
 		}
 
-		a := filepath.Join(c.cachePath, "cache_a")
-		b := filepath.Join(c.cachePath, "cache_b")
+		rPath := filepath.Join(c.cachePath, "cache_a")
+		wPath := filepath.Join(c.cachePath, "cache_b")
 
 		// remove old merge_* files if they exist. It's possible to
 		// kill an ingester before we have a chance to remove it after
@@ -124,32 +125,6 @@ func NewChanCacher(maxDepth int, cachePath string, maxSize int) (*ChanCacher, er
 		}
 		for _, v := range detritus {
 			os.Remove(v)
-		}
-
-		// check if we need to merge
-		var sizeA, sizeB int64
-		fi, err := os.Stat(a)
-		if err == nil {
-			sizeA = fi.Size()
-		}
-		fi, err = os.Stat(b)
-		if err == nil {
-			sizeB = fi.Size()
-		}
-
-		// if only one file has data in it, just shuffle the files
-		// around. If both have data, merge. If neither have data, no
-		// action is needed.
-		if sizeB != 0 && sizeA == 0 {
-			err := os.Rename(b, a)
-			if err != nil {
-				return nil, err
-			}
-		} else if sizeB != 0 && sizeA != 0 {
-			err := merge(a, b)
-			if err != nil {
-				return nil, err
-			}
 		}
 
 		// set a lock for these files
@@ -163,14 +138,41 @@ func NewChanCacher(maxDepth int, cachePath string, maxSize int) (*ChanCacher, er
 		}
 
 		// create r and w files
-		r, err := os.OpenFile(filepath.Join(c.cachePath, "cache_a"), os.O_CREATE|os.O_RDWR, 0640)
+		quarantineDir := filepath.Join(c.cachePath, "quarantine")
+		r, err := openCache(rPath, quarantineDir)
 		if err != nil {
 			return nil, err
 		}
 
-		w, err := os.OpenFile(filepath.Join(c.cachePath, "cache_b"), os.O_CREATE|os.O_RDWR, 0640)
+		w, err := openCache(wPath, quarantineDir)
 		if err != nil {
 			return nil, err
+		}
+
+		// check if we need to merge
+		var sizeR, sizeW int64
+		fi, err := r.Stat()
+		if err == nil {
+			sizeR = fi.Size()
+		}
+		fi, err = w.Stat()
+		if err == nil {
+			sizeW = fi.Size()
+		}
+
+		// if only one file has data in it, just shuffle the files
+		// around. If both have data, merge. If neither have data, no
+		// action is needed.
+		if sizeW != 0 && sizeR == 0 {
+			err := os.Rename(wPath, rPath)
+			if err != nil {
+				return nil, err
+			}
+		} else if sizeW != 0 && sizeR != 0 {
+			err := merge(rPath, wPath)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		if c.cacheR, err = NewFileCounter(r); err != nil {
@@ -506,4 +508,69 @@ func merge(a, b string) error {
 	// and move our temporary file to a
 	t.Close()
 	return os.Rename(t.Name(), a)
+}
+
+// Attempt to open / create a cache file. Will move cache in `quarantineDir` if
+// cache is already present in `cPath` and cannot be opened.
+// Returns file handler to the cache file.
+func openCache(cPath, quarantineDir string) (*os.File, error) {
+	r, err := os.OpenFile(cPath, os.O_CREATE|os.O_RDWR, 0640)
+	if err == nil {
+		return r, nil
+	}
+
+	// Only error we can realistically do something about, everything else is configuration
+	// related, should bubble up.
+	if errors.Is(err, os.ErrPermission) {
+		return quarantineCache(quarantineDir, cPath)
+	}
+
+	return nil, err
+}
+
+// Moves file in `cPath` to a `quarantineDir` folder.
+// Creates a new file in `cPath` and returns handle on it.
+// File moved to quarantineDir will follow naming convention:
+// `{quarantineDir}/{cacheBaseName}.{1,2,3...}`
+func quarantineCache(quarantineDir, cPath string) (*os.File, error) {
+	err := os.MkdirAll(quarantineDir, 0750)
+	if err != nil {
+		return nil, err
+	}
+
+	cName := filepath.Base(cPath)
+	quarantinePathBase := filepath.Join(quarantineDir, cName)
+
+	// Check if quarantine caches already exist
+	qCaches, err := filepath.Glob(fmt.Sprintf("%s.*", quarantinePathBase))
+	if err != nil {
+		return nil, err
+	}
+
+	newCPath := getQuarantineCacheName(quarantinePathBase, qCaches)
+	if err = os.Rename(cPath, newCPath); err != nil {
+		return nil, err
+	}
+
+	return os.OpenFile(cPath, os.O_CREATE|os.O_RDWR, 0640)
+}
+
+func getQuarantineCacheName(quarantinePathBase string, matches []string) string {
+	if len(matches) == 0 {
+		return fmt.Sprintf("%s.1", quarantinePathBase)
+	}
+
+	maxVal := 1
+	for _, m := range matches {
+		extRaw := filepath.Ext(m)
+		val, err := strconv.Atoi(extRaw[1:])
+
+		if err != nil {
+			continue
+		}
+
+		maxVal = max(maxVal, val)
+	}
+
+	return fmt.Sprintf("%s.%d", quarantinePathBase, maxVal)
 }
