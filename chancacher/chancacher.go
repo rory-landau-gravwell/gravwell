@@ -147,13 +147,13 @@ func NewChanCacher(maxDepth int, cachePath string, maxSize int) (*ChanCacher, er
 		}
 
 		// create r and w files
-		quarantineDir := filepath.Join(c.cachePath, "quarantine")
-		r, err := openCache(rPath, quarantineDir)
+		quarantineFolder := "quarantine"
+		r, err := openCache(rPath, quarantineFolder)
 		if err != nil {
 			return nil, err
 		}
 
-		w, err := openCache(wPath, quarantineDir)
+		w, err := openCache(wPath, quarantineFolder)
 		if err != nil {
 			return nil, err
 		}
@@ -519,10 +519,10 @@ func merge(a, b string) error {
 	return os.Rename(t.Name(), a)
 }
 
-// Attempt to open / create a cache file. Will move cache in `quarantineDir` if
-// cache is already present in `cPath` and cannot be opened.
+// Attempt to open / create a cache file. Will move cache under `quarantineFolder`,
+// inside `cPath`, if cache is already present in `cPath` and cannot be opened.
 // Returns file handler to the cache file.
-func openCache(cPath, quarantineDir string) (*os.File, error) {
+func openCache(cPath, quarantineFolder string) (*os.File, error) {
 	r, err := os.OpenFile(cPath, CacheFlagPermissions, CacheFilePerm)
 	if err == nil {
 		return r, nil
@@ -531,7 +531,7 @@ func openCache(cPath, quarantineDir string) (*os.File, error) {
 	// Only error we can realistically do something about, everything else is configuration
 	// related, should bubble up.
 	if errors.Is(err, os.ErrPermission) {
-		return quarantineCache(quarantineDir, cPath)
+		return quarantineCache(cPath, quarantineFolder)
 	}
 
 	return nil, err
@@ -541,22 +541,25 @@ func openCache(cPath, quarantineDir string) (*os.File, error) {
 // Creates a new file in `cPath` and returns handle on it.
 // File moved to quarantineDir will follow naming convention:
 // `{quarantineDir}/{cacheBaseName}.{1,2,3...}`
-func quarantineCache(quarantineDir, cPath string) (*os.File, error) {
+func quarantineCache(cPath, quarantineFolder string) (*os.File, error) {
+	cDir := filepath.Dir(cPath)
+	quarantineDir := filepath.Join(cDir, quarantineFolder)
+
 	err := os.MkdirAll(quarantineDir, CacheDirPerm)
 	if err != nil {
 		return nil, err
 	}
 
 	cName := filepath.Base(cPath)
-	quarantinePathBase := filepath.Join(quarantineDir, cName)
+	quarantineFilePathBase := filepath.Join(quarantineDir, cName)
 
 	// Check if quarantine caches already exist
-	qCaches, err := filepath.Glob(fmt.Sprintf("%s.*", quarantinePathBase))
+	qCaches, err := filepath.Glob(fmt.Sprintf("%s.*", quarantineFilePathBase))
 	if err != nil {
 		return nil, err
 	}
 
-	newCPath := getQuarantineCacheName(quarantinePathBase, qCaches)
+	newCPath := getQuarantineCacheName(quarantineFilePathBase, qCaches)
 	if err = os.Rename(cPath, newCPath); err != nil {
 		return nil, err
 	}
@@ -564,12 +567,12 @@ func quarantineCache(quarantineDir, cPath string) (*os.File, error) {
 	return os.OpenFile(cPath, CacheFlagPermissions, CacheFilePerm)
 }
 
-func getQuarantineCacheName(quarantinePathBase string, matches []string) string {
+func getQuarantineCacheName(quarantineFilePathBase string, matches []string) string {
 	if len(matches) == 0 {
-		return fmt.Sprintf("%s.1", quarantinePathBase)
+		return fmt.Sprintf("%s.1", quarantineFilePathBase)
 	}
 
-	maxVal := 1
+	var maxVal int
 	for _, m := range matches {
 		extRaw := filepath.Ext(m)
 		val, err := strconv.Atoi(extRaw[1:])
@@ -581,5 +584,5 @@ func getQuarantineCacheName(quarantinePathBase string, matches []string) string 
 		maxVal = max(maxVal, val)
 	}
 
-	return fmt.Sprintf("%s.%d", quarantinePathBase, maxVal)
+	return fmt.Sprintf("%s.%d", quarantineFilePathBase, maxVal+1)
 }

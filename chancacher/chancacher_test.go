@@ -776,6 +776,167 @@ func TestCacheOldEntries(t *testing.T) {
 	}
 }
 
+func Test_openCache(t *testing.T) {
+	cacheDir, err := os.MkdirTemp("", "chancachertest")
+	if err != nil {
+		t.Fatalf("could not create cacheDir: %v", err)
+	}
+	defer os.RemoveAll(cacheDir)
+
+	quarantineFolder := "quarantine"
+	quarantineFile := filepath.Join(cacheDir, quarantineFolder, "cache-a.1")
+	cacheFileName := filepath.Join(cacheDir, "cache-a")
+	initialCacheHandler, err := os.Create(cacheFileName)
+	if err != nil {
+		t.Fatalf("could not create initial cache file: %v", err)
+	}
+	defer initialCacheHandler.Close()
+	initialCacheStats, err := initialCacheHandler.Stat()
+	if err != nil {
+		t.Fatalf("could not get stats of initial cache file: %v", err)
+	}
+
+	// Trigger permission error flow
+	if err := initialCacheHandler.Chmod(0000); err != nil {
+		t.Fatalf("could not change permissions on initial cache file: %v", err)
+	}
+
+	finalCacheHandler, err := openCache(cacheFileName, quarantineFolder)
+	if err != nil {
+		t.Fatalf("could not create cache file: %v", err)
+	}
+	defer finalCacheHandler.Close()
+
+	quarantineFileStats, err := os.Stat(quarantineFile)
+	if err != nil {
+		t.Fatalf("could not get quarantine file stats: %v", err)
+	}
+
+	if !os.SameFile(quarantineFileStats, initialCacheStats) {
+		t.Fatal("initial file was modified when moved to quarantine location")
+	}
+
+	// Trigger some other error flow (file is a directory)
+	if err := os.RemoveAll(cacheFileName); err != nil {
+		t.Fatalf("could not remove initial cache file: %v", err)
+	}
+	if err := os.Mkdir(cacheFileName, CacheDirPerm); err != nil {
+		t.Fatalf("could not create initial cache file as directory: %v", err)
+	}
+
+	cacheH, err := openCache(cacheFileName, quarantineFolder)
+	if cacheH != nil {
+		cacheH.Close()
+		t.Fatalf("opened file when it should have bubbled error: %v", err)
+	}
+}
+
+func Test_quarantineCache(t *testing.T) {
+	cacheDir, err := os.MkdirTemp("", "chancachertest")
+	if err != nil {
+		t.Fatalf("could not create cacheDir: %v", err)
+	}
+	defer os.RemoveAll(cacheDir)
+
+	quarantineFolder := "quarantine"
+	quarantineDir := filepath.Join(cacheDir, quarantineFolder)
+	cacheFileName := filepath.Join(cacheDir, "cache-a")
+	initialCacheHandler, err := os.Create(cacheFileName)
+	if err != nil {
+		t.Fatalf("could not create initial cache file: %v", err)
+	}
+	defer initialCacheHandler.Close()
+
+	initialCacheStats, err := initialCacheHandler.Stat()
+	if err != nil {
+		t.Fatalf("could not get initial cache file stats: %v", err)
+	}
+
+	fHandler, err := quarantineCache(cacheFileName, quarantineFolder)
+	expectedQuarantineLocation := filepath.Join(quarantineDir, "cache-a.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer fHandler.Close()
+
+	expectedStat, err := os.Stat(cacheFileName)
+	if err != nil {
+		t.Fatalf("file %s failed to be created: %v", cacheFileName, err)
+	}
+	finalStat, err := fHandler.Stat()
+	if err != nil {
+		t.Fatalf("could not get result cache file handler stats: %v", err)
+	}
+
+	if !os.SameFile(expectedStat, finalStat) {
+		t.Fatal("result cache file is not the expected file")
+	}
+
+	quarantinedStat, err := os.Stat(expectedQuarantineLocation)
+	if err != nil {
+		t.Fatalf("cache file wasn't quarantined: %v", err)
+	}
+
+	if !os.SameFile(quarantinedStat, initialCacheStats) {
+		t.Fatal("initial file was modified when moved to quarantine location")
+	}
+}
+
+func Test_getQuarantineCacheName(t *testing.T) {
+	baseName := filepath.Join(os.TempDir(), "chancachertest", "quarantine", "cachetest")
+
+	// No previews quarantine files case
+	tests := []struct {
+		caseName    string
+		matches     []string
+		expectedRes string
+	}{
+		{
+			"empty quarantine folder",
+			[]string{},
+			fmt.Sprintf("%s.1", baseName),
+		},
+		{
+			"unrelated file in dir",
+			[]string{fmt.Sprintf("%s.backup", baseName)},
+			fmt.Sprintf("%s.1", baseName),
+		},
+		{
+			"some files, inserts at last position",
+			[]string{
+
+				fmt.Sprintf("%s.1", baseName),
+				fmt.Sprintf("%s.2", baseName),
+				fmt.Sprintf("%s.3", baseName),
+				fmt.Sprintf("%s.4", baseName),
+				fmt.Sprintf("%s.5", baseName),
+			},
+			fmt.Sprintf("%s.6", baseName),
+		},
+		{
+			"one file, inserts at last position",
+			[]string{fmt.Sprintf("%s.999", baseName)},
+			fmt.Sprintf("%s.1000", baseName),
+		},
+		{
+			"several files, some unrelated, inserts at last position",
+			[]string{
+				fmt.Sprintf("%s.19", baseName),
+				fmt.Sprintf("%s.backup2", baseName),
+				fmt.Sprintf("%s.backup", baseName),
+				fmt.Sprintf("%s.999", baseName),
+			},
+			fmt.Sprintf("%s.1000", baseName),
+		},
+	}
+
+	for _, test := range tests {
+		if result := getQuarantineCacheName(baseName, test.matches); result != test.expectedRes {
+			t.Fatalf("%s: unexpected name %s, expected %s", test.caseName, test.expectedRes, result)
+		}
+	}
+}
+
 func TestSpam(t *testing.T) {
 	dir := t.TempDir()
 	c, _ := NewChanCacher(100, dir, 1024*1024*1000)
