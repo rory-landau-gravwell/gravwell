@@ -580,7 +580,7 @@ func quarantineCache(cPath, quarantineFolder string, lgr log.IngestLogger) (*os.
 
 	newCPath := getQuarantineCacheName(quarantineFilePathBase, qCaches)
 
-	lgr.Warn("Attempting to quarantine file", log.KV("cache", cPath), log.KV("quarantineFile", newCPath))
+	lgr.Error("Moving cache to quarantine file", log.KV("cache", cPath), log.KV("quarantineFile", newCPath))
 	if err = os.Rename(cPath, newCPath); err != nil {
 		lgr.Error("Failed to quarantine cache", log.KV("cache", cPath), log.KV("quarantineFile", newCPath), log.KVErr(err))
 		return nil, err
