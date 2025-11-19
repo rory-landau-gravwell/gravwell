@@ -83,7 +83,7 @@ const (
 	CACHE_MODE_DEFAULT     = "always"
 	CACHE_DEPTH_DEFAULT    = 128
 	CACHE_SIZE_DEFAULT     = 1000
-	MAX_ENTRY_SIZE_DEFAULT = 1024 * 1024 //1mb, ui does not have a good time anything over ~500kb per entry over ~250 entries
+	MAX_ENTRY_SIZE_DEFAULT = 1024 * 1024 * 1024 //1gb
 )
 
 var (
