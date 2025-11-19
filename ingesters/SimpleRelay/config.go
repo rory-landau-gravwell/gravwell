@@ -160,7 +160,7 @@ func (c *cfgType) Verify() error {
 		if ingest.CheckTag(v.Tag_Name) != nil {
 			return errors.New("Invalid characters in the Tag-Name for " + k)
 		}
-		if c.Max_Entry_Size < v.Max_Buffer {
+		if v.Max_Buffer > c.Max_Entry_Size {
 			return fmt.Errorf("Listener %s Max-Buffer (%d) cannot be larger than Max-Entry-Size (%d)", k, v.Max_Buffer, c.Max_Entry_Size)
 		}
 		if v.Timezone_Override != "" {
@@ -191,7 +191,7 @@ func (c *cfgType) Verify() error {
 		if err != nil {
 			return err
 		}
-		if c.Max_Entry_Size < int(v.Max_Object_Size) {
+		if int(v.Max_Object_Size) > c.Max_Entry_Size {
 			return fmt.Errorf("Listener %s Max-Object-Size (%d) cannot be larger than Max-Entry-Size (%d)", k, v.Max_Object_Size, c.Max_Entry_Size)
 		}
 		for _, t := range tms {

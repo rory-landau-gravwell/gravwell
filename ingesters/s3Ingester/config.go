@@ -152,7 +152,7 @@ func (c *cfgType) Verify() error {
 				v.Max_Line_Size = defaultMaxLineSize
 			}
 
-			if c.Max_Entry_Size < v.Max_Line_Size {
+			if v.Max_Line_Size > c.Max_Entry_Size {
 				return fmt.Errorf("Listener %s Max-Line-Size (%d) cannot be larger than Max-Entry-Size (%d)", k, v.Max_Line_Size, c.Max_Entry_Size)
 			}
 		}
@@ -197,7 +197,7 @@ func (c *cfgType) Verify() error {
 				v.Max_Line_Size = defaultMaxLineSize
 			}
 
-			if c.Max_Entry_Size < v.Max_Line_Size {
+			if v.Max_Line_Size > c.Max_Entry_Size {
 				return fmt.Errorf("Listener %s Max-Line-Size (%d) cannot be larger than Max-Entry-Size (%d)", k, v.Max_Line_Size, c.Max_Entry_Size)
 			}
 		}

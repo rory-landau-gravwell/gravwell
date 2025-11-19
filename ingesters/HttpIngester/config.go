@@ -196,8 +196,8 @@ func (c *cfgType) Verify() error {
 		return fmt.Errorf("No listeners specified")
 	}
 
-	if c.Max_Entry_Size < c.Max_Body {
-		return fmt.Errorf("Max-Entry-Size cannot be smaller than Max-Body")
+	if c.Max_Body > c.Max_Entry_Size {
+		return fmt.Errorf("Max-Body (%d) cannot be larger than Max-Entry-Size (%d)", c.Max_Body, c.Max_Entry_Size)
 	}
 	return nil
 }
