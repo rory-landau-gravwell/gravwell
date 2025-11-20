@@ -21,30 +21,32 @@ var (
 	logTimeout time.Duration = time.Second
 )
 
+const DefaultLogDepth = 5
+
 // Errorf send an error entry down the line with the gravwell tag
 func (im *IngestMuxer) Errorf(format string, args ...interface{}) error {
-	return im.ErrorfWithDepth(4, format, args...)
+	return im.ErrorfWithDepth(DefaultLogDepth, format, args...)
 }
 
 func (im *IngestMuxer) Warnf(format string, args ...interface{}) error {
-	return im.WarnfWithDepth(4, format, args...)
+	return im.WarnfWithDepth(DefaultLogDepth, format, args...)
 }
 
 func (im *IngestMuxer) Infof(format string, args ...interface{}) error {
-	return im.InfofWithDepth(4, format, args...)
+	return im.InfofWithDepth(DefaultLogDepth, format, args...)
 }
 
 // Error send an error entry down the line with the gravwell tag
 func (im *IngestMuxer) Error(msg string, args ...rfc5424.SDParam) error {
-	return im.ErrorWithDepth(4, msg, args...)
+	return im.ErrorWithDepth(DefaultLogDepth, msg, args...)
 }
 
 func (im *IngestMuxer) Warn(msg string, args ...rfc5424.SDParam) error {
-	return im.WarnWithDepth(4, msg, args...)
+	return im.WarnWithDepth(DefaultLogDepth, msg, args...)
 }
 
 func (im *IngestMuxer) Info(msg string, args ...rfc5424.SDParam) error {
-	return im.InfoWithDepth(4, msg, args...)
+	return im.InfoWithDepth(DefaultLogDepth, msg, args...)
 }
 
 func (im *IngestMuxer) WarnfWithDepth(depth int, format string, args ...interface{}) error {
