@@ -7,5 +7,4 @@
 ```sh
 rm -f packages.go
 scriggo import -f packages.Scriggofile -o packages.go
-
 ```
