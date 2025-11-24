@@ -110,10 +110,11 @@ const (
 	LICENSE_SKU_URL                  = `/api/license/sku`
 	LICENSE_SERIAL_URL               = `/api/license/serial`
 	LICENSE_UPDATE_URL               = `/api/license/update`
-	RESOURCES_LIST_URL               = "/api/resources"
-	RESOURCES_GUID_URL               = "/api/resources/%s"
-	RESOURCES_GUID_RAW_URL           = "/api/resources/%s/raw"
-	RESOURCES_GUID_CLONE_URL         = "/api/resources/%s/clone"
+	RESOURCES_URL                    = "/api/resources"
+	RESOURCES_LIST_URL               = "/api/resources/list"
+	RESOURCES_ID_URL                 = "/api/resources/%s"
+	RESOURCES_ID_RAW_URL             = "/api/resources/%s/raw"
+	RESOURCES_ID_CLONE_URL           = "/api/resources/%s/clone"
 	RESOURCES_LOOKUP_URL             = "/api/resources/lookup/%s"
 	SCHEDULED_SEARCH_URL             = "/api/scheduledsearches"
 	SCHEDULED_SEARCH_ALL_URL         = "/api/scheduledsearches/all"
@@ -377,15 +378,15 @@ func licenseUpdateUrl() string {
 }
 
 func resourcesUrl() string {
-	return RESOURCES_LIST_URL
+	return RESOURCES_URL
 }
 
-func resourcesGuidUrl(guid string) string {
-	return fmt.Sprintf(RESOURCES_GUID_URL, guid)
+func resourcesIddUrl(guid string) string {
+	return fmt.Sprintf(RESOURCES_ID_URL, guid)
 }
 
-func resourcesGuidRawUrl(guid string) string {
-	return fmt.Sprintf(RESOURCES_GUID_RAW_URL, guid)
+func resourcesIdRawUrl(guid string) string {
+	return fmt.Sprintf(RESOURCES_ID_RAW_URL, guid)
 }
 
 func resourcesLookupUrl(name string) string {
@@ -393,7 +394,7 @@ func resourcesLookupUrl(name string) string {
 }
 
 func resourcesCloneUrl(guid string) string {
-	return fmt.Sprintf(RESOURCES_GUID_CLONE_URL, guid)
+	return fmt.Sprintf(RESOURCES_ID_CLONE_URL, guid)
 }
 
 func scheduledSearchUrl() string {

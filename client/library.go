@@ -35,6 +35,7 @@ func (c *Client) ListAllSavedQueries(opts *types.QueryOptions) (wsl types.SavedQ
 	if opts == nil {
 		opts = &types.QueryOptions{}
 	}
+	opts.AdminMode = true
 	err = c.postStaticURL(LIBRARY_LIST_URL, opts, &wsl)
 	return
 }
