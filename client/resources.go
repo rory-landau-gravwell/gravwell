@@ -31,7 +31,7 @@ func (c *Client) CreateResource(r types.Resource) (types.Resource, error) {
 	return resp, nil
 }
 
-// GetResourceList returns information about all resources the user can access.
+// ListResources returns information about all resources the user can access.
 func (c *Client) ListResources(opts *types.QueryOptions) (rm types.ResourceListResponse, err error) {
 	if opts == nil {
 		opts = &types.QueryOptions{}
@@ -40,8 +40,8 @@ func (c *Client) ListResources(opts *types.QueryOptions) (rm types.ResourceListR
 	return
 }
 
-// GetAllResourceList is an admin-only API to pull back the entire resource list.
-// Non-administrators will receive the same list as returned by GetResourceList.
+// ListAllResources is an admin-only API to pull back the entire resource list.
+// Non-administrators will receive the same list as returned by ListResources.
 func (c *Client) ListAllResources(opts *types.QueryOptions) (rm types.ResourceListResponse, err error) {
 	if opts == nil {
 		opts = &types.QueryOptions{}
@@ -145,7 +145,7 @@ func (c *Client) PurgeResource(id string) error {
 	return c.deleteStaticURL(resourcesIddUrl(id), nil, ezParam("purge", "true"))
 }
 
-// UpdateMetadata sets the specified resource's metadata.
+// UpdateResourceMetadata sets the specified resource's metadata.
 func (c *Client) UpdateResourceMetadata(id string, metadata types.Resource) error {
 	return c.putStaticURL(resourcesIddUrl(id), metadata)
 }
