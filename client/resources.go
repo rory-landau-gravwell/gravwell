@@ -192,13 +192,13 @@ func (c *Client) LookupResource(name string) (string, error) {
 
 // CloneResource creates a copy of an existing resource (specified by ID) with the
 // Name field set to the newName parameter.
-func (c *Client) CloneResource(id string, newName string) (*types.Resource, error) {
+func (c *Client) CloneResource(id string, newName string) (types.Resource, error) {
 	spec := struct{ Name string }{
 		Name: newName,
 	}
 	var resp types.Resource
 	if err := c.postStaticURL(resourcesCloneUrl(id), spec, &resp); err != nil {
-		return nil, err
+		return resp, err
 	}
-	return &resp, nil
+	return resp, nil
 }
