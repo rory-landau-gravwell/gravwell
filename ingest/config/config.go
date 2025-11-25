@@ -309,6 +309,8 @@ func (ic *IngestConfig) Verify() error {
 
 	if ic.Max_Entry_Size == 0 {
 		ic.Max_Entry_Size = MAX_ENTRY_SIZE_DEFAULT
+	} else if ic.Max_Entry_Size < 0 || ic.Max_Entry_Size > MAX_ENTRY_SIZE_DEFAULT {
+		return fmt.Errorf("Invalid Max-Entry-Size %d", ic.Max_Entry_Size)
 	}
 
 	return nil
