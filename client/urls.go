@@ -381,7 +381,7 @@ func resourcesUrl() string {
 	return RESOURCES_URL
 }
 
-func resourcesIddUrl(guid string) string {
+func resourcesIdUrl(id string) string {
 	return fmt.Sprintf(RESOURCES_ID_URL, guid)
 }
 

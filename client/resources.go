@@ -137,23 +137,23 @@ func (c *Client) PopulateResourceFromReader(id string, data io.Reader) (err erro
 
 // DeleteResource removes a resource by ID by marking it deleted in the database.
 func (c *Client) DeleteResource(id string) error {
-	return c.deleteStaticURL(resourcesIddUrl(id), nil)
+	return c.deleteStaticURL(resourcesIdUrl(id), nil)
 }
 
 // PurgeResource removes a resource by ID entirely.
 func (c *Client) PurgeResource(id string) error {
-	return c.deleteStaticURL(resourcesIddUrl(id), nil, ezParam("purge", "true"))
+	return c.deleteStaticURL(resourcesIdUrl(id), nil, ezParam("purge", "true"))
 }
 
 // UpdateResourceMetadata sets the specified resource's metadata.
 func (c *Client) UpdateResourceMetadata(id string, metadata types.Resource) error {
-	return c.putStaticURL(resourcesIddUrl(id), metadata)
+	return c.putStaticURL(resourcesIdUrl(id), metadata)
 }
 
 // GetResourceMetadata gets the specified resource's metadata.
 func (c *Client) GetResourceMetadata(id string) (types.Resource, error) {
 	var metadata types.Resource
-	err := c.getStaticURL(resourcesIddUrl(id), &metadata)
+	err := c.getStaticURL(resourcesIdUrl(id), &metadata)
 	return metadata, err
 }
 
