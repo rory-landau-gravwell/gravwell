@@ -382,19 +382,19 @@ func resourcesUrl() string {
 }
 
 func resourcesIdUrl(id string) string {
-	return fmt.Sprintf(RESOURCES_ID_URL, guid)
+	return fmt.Sprintf(RESOURCES_ID_URL, id)
 }
 
-func resourcesIdRawUrl(guid string) string {
-	return fmt.Sprintf(RESOURCES_ID_RAW_URL, guid)
+func resourcesIdRawUrl(id string) string {
+	return fmt.Sprintf(RESOURCES_ID_RAW_URL, id)
 }
 
 func resourcesLookupUrl(name string) string {
 	return fmt.Sprintf(RESOURCES_LOOKUP_URL, name)
 }
 
-func resourcesCloneUrl(guid string) string {
-	return fmt.Sprintf(RESOURCES_ID_CLONE_URL, guid)
+func resourcesCloneUrl(id string) string {
+	return fmt.Sprintf(RESOURCES_ID_CLONE_URL, id)
 }
 
 func scheduledSearchUrl() string {
