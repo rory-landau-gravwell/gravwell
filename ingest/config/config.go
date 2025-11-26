@@ -50,6 +50,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gravwell/gravwell/v3/ingest/entry"
 	"github.com/gravwell/gravwell/v3/ingest/log"
 	"github.com/gravwell/gravwell/v3/ingest/log/rotate"
 	"github.com/gravwell/gravwell/v3/timegrinder"
@@ -83,7 +84,7 @@ const (
 	CACHE_MODE_DEFAULT     = "always"
 	CACHE_DEPTH_DEFAULT    = 128
 	CACHE_SIZE_DEFAULT     = 1000
-	MAX_ENTRY_SIZE_DEFAULT = 1024 * 1024 * 1024 //1gb
+	MAX_ENTRY_SIZE_DEFAULT = int(entry.MaxDataSize) //1gb
 )
 
 var (
