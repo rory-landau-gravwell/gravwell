@@ -868,7 +868,7 @@ func (c *Client) PurgeUser(id int32) error {
 	}
 
 	//macros
-	if ms, err := nc.ListAllMacros(nil); err != nil {
+	if ms, err := nc.ListMacros(nil); err != nil {
 		return fmt.Errorf("Failed to list macros %w", err)
 	} else if len(ms.Results) > 0 {
 		for _, p := range ms.Results {
@@ -907,13 +907,13 @@ func (c *Client) PurgeUser(id int32) error {
 	}
 
 	//resources
-	if rsr, err := nc.GetResourceList(); err != nil {
+	if rsr, err := nc.ListResources(nil); err != nil {
 		return fmt.Errorf("Failed to get user resource list %w", err)
-	} else if len(rsr) > 0 {
-		for _, r := range rsr {
-			if r.UID == id {
-				if err := nc.DeleteResource(r.GUID); err != nil {
-					return fmt.Errorf("Failed to delete user resource %v %w", r.GUID, err)
+	} else if len(rsr.Results) > 0 {
+		for _, r := range rsr.Results {
+			if r.OwnerID == id {
+				if err := nc.DeleteResource(r.ID); err != nil {
+					return fmt.Errorf("Failed to delete user resource %v %w", r.ID, err)
 				}
 			}
 		}

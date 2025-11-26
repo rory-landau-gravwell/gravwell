@@ -255,10 +255,6 @@ func (pbr *KitBuildRequest) Validate() error {
 	}
 	for i := range pbr.Resources {
 		pbr.Resources[i] = strings.TrimSpace(pbr.Resources[i]) //clean it
-		//attempt to parse it
-		if _, err := uuid.Parse(pbr.Resources[i]); err != nil {
-			return err
-		}
 	}
 	for i := range pbr.ScheduledSearches {
 		if pbr.ScheduledSearches[i] <= 0 {
