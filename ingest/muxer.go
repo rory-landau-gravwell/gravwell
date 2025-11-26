@@ -302,7 +302,9 @@ func newIngestMuxer(c MuxerConfig) (*IngestMuxer, error) {
 	if len(c.Tags) > int(entry.MaxTagId) {
 		return nil, ErrTooManyTags
 	}
-	if c.MaxEntrySize > MAX_ENTRY_SIZE || c.MaxEntrySize <= 0 {
+	if c.MaxEntrySize == 0 {
+		c.MaxEntrySize = MAX_ENTRY_SIZE
+	} else if c.MaxEntrySize > MAX_ENTRY_SIZE || c.MaxEntrySize < 0 {
 		return nil, ErrInvalidMaxEntrySize
 	}
 
