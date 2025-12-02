@@ -139,6 +139,11 @@ func (c *cfgType) Verify() error {
 		if err != nil {
 			return err
 		}
+
+		if !v.Multiline && c.Max_Body > c.Max_Entry_Size {
+			return fmt.Errorf("Max-Body (%d) cannot be larger than Max-Entry-Size (%d) without enabling Multiline for Listener '%s'", c.Max_Body, c.Max_Entry_Size, k)
+		}
+
 		rt := newRoute(v.Method, pth)
 		if orig, ok := urls[rt]; ok {
 			return fmt.Errorf("%s %s duplicated in %s (was in %s)", v.Method, v.URL, k, orig)
@@ -165,6 +170,11 @@ func (c *cfgType) Verify() error {
 		if err != nil {
 			return err
 		}
+
+		if v.Max_Size > c.Max_Entry_Size {
+			return fmt.Errorf("Max-Size (%d) cannot be larger than Max-Entry-Size (%d)", v.Max_Size, c.Max_Entry_Size)
+		}
+
 		rt := newRoute(http.MethodPost, pth)
 		if orig, ok := urls[rt]; ok {
 			return fmt.Errorf("URL %s duplicated in %s (was in %s)", v.URL, k, orig)
