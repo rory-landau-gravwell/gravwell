@@ -163,7 +163,6 @@ func NewChanCacher(maxDepth int, cachePath string, maxSize int, lgr log.IngestLo
 				return nil, err
 			}
 		} else if sizeW != 0 && sizeR != 0 {
-			err := merge(rPath, wPath)
 			err := merge(rPath, wPath, c.lgr)
 			if err != nil {
 				return nil, err
