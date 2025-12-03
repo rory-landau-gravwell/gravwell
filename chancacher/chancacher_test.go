@@ -818,7 +818,7 @@ func Test_validateCache(t *testing.T) {
 	}
 
 	// Verify original file is gone
-	if _, err := os.Stat(cacheFileName); !os.IsNotExist(err) {
+	if _, err := os.Stat(cacheFileName); errors.Is(err, os.ErrNotExist) {
 		t.Fatal("original cache file should have been moved to quarantine")
 	}
 
