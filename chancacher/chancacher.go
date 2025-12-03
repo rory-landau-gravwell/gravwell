@@ -143,6 +143,17 @@ func NewChanCacher(maxDepth int, cachePath string, maxSize int, lgr log.IngestLo
 			os.Remove(v)
 		}
 
+		// create r and w files
+		r, err := openCache(rPath, quarantineFolder, c.lgr)
+		if err != nil {
+			return nil, err
+		}
+
+		w, err := openCache(wPath, quarantineFolder, c.lgr)
+		if err != nil {
+			return nil, err
+		}
+
 		// check if we need to merge
 		var sizeR, sizeW int64
 		fi, err := os.Stat(rPath)
@@ -158,11 +169,13 @@ func NewChanCacher(maxDepth int, cachePath string, maxSize int, lgr log.IngestLo
 		// around. If both have data, merge. If neither have data, no
 		// action is needed.
 		if sizeW != 0 && sizeR == 0 {
+			fmt.Println("Moving W to R")
 			err := os.Rename(wPath, rPath)
 			if err != nil {
 				return nil, err
 			}
 		} else if sizeW != 0 && sizeR != 0 {
+			fmt.Println("Merging W and R")
 			err := merge(rPath, wPath, c.lgr)
 			if err != nil {
 				return nil, err
@@ -177,17 +190,6 @@ func NewChanCacher(maxDepth int, cachePath string, maxSize int, lgr log.IngestLo
 		}
 		if !locked {
 			return nil, fmt.Errorf("could not get file lock!")
-		}
-
-		// create r and w files
-		r, err := openCache(rPath, quarantineFolder, c.lgr)
-		if err != nil {
-			return nil, err
-		}
-
-		w, err := openCache(wPath, quarantineFolder, c.lgr)
-		if err != nil {
-			return nil, err
 		}
 
 		if c.cacheR, err = NewFileCounter(r); err != nil {
@@ -460,11 +462,13 @@ func (c *ChanCacher) Size() int {
 // with the resulting file in a.
 func merge(rPath, wPath string, lgr log.IngestLogger) error {
 	fr, err := openCache(rPath, quarantineFolder, lgr)
+	// fr, err := os.Open(rPath)
 	if err != nil {
 		return err
 	}
 	defer fr.Close()
 
+	// fw, err := os.Open(wPath)
 	fw, err := openCache(wPath, quarantineFolder, lgr)
 	if err != nil {
 		return err
