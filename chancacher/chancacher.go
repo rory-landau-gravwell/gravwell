@@ -460,7 +460,6 @@ func (c *ChanCacher) Size() int {
 // with the resulting file in a.
 func merge(rPath, wPath string, lgr log.IngestLogger) error {
 	fr, err := openCache(rPath, quarantineFolder, lgr)
-	// fr, err := os.Open(rPath)
 	if err != nil {
 		return err
 	}
