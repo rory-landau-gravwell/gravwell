@@ -72,6 +72,9 @@ const CacheFilePerm = 0640
 // CacheFlagPermissions permissions on cache files when opening
 const CacheFlagPermissions = os.O_CREATE | os.O_RDWR
 
+// quarantineFolder folder where faulty cache files will be stored
+const quarantineFolder = "quarantine"
+
 // NewChanCacher creates a new ChanCacher with maximum depth, and optional backing file.
 // If maxDepth == 0, the ChanCacher will be unbuffered. If maxDepth == -1, the
 // ChanCacher depth will be set to MaxDepth. To enable a backing store,
@@ -161,6 +164,7 @@ func NewChanCacher(maxDepth int, cachePath string, maxSize int, lgr log.IngestLo
 			}
 		} else if sizeW != 0 && sizeR != 0 {
 			err := merge(rPath, wPath)
+			err := merge(rPath, wPath, c.lgr)
 			if err != nil {
 				return nil, err
 			}
@@ -177,7 +181,6 @@ func NewChanCacher(maxDepth int, cachePath string, maxSize int, lgr log.IngestLo
 		}
 
 		// create r and w files
-		quarantineFolder := "quarantine"
 		r, err := openCache(rPath, quarantineFolder, c.lgr)
 		if err != nil {
 			return nil, err
@@ -456,20 +459,21 @@ func (c *ChanCacher) Size() int {
 
 // Merge two gob encoded files into a single file. Paths a and b are specified,
 // with the resulting file in a.
-func merge(a, b string) error {
-	fa, err := os.Open(a)
+func merge(rPath, wPath string, lgr log.IngestLogger) error {
+	fr, err := openCache(rPath, quarantineFolder, lgr)
+	// fr, err := os.Open(rPath)
 	if err != nil {
 		return err
 	}
-	defer fa.Close()
+	defer fr.Close()
 
-	fb, err := os.Open(b)
+	fw, err := openCache(wPath, quarantineFolder, lgr)
 	if err != nil {
 		return err
 	}
-	defer fb.Close()
+	defer fw.Close()
 
-	t, err := os.CreateTemp(filepath.Dir(a), "merge")
+	t, err := os.CreateTemp(filepath.Dir(rPath), "merge")
 	if err != nil {
 		return err
 	}
@@ -478,10 +482,10 @@ func merge(a, b string) error {
 
 	enc := gob.NewEncoder(t)
 
-	adec := gob.NewDecoder(fa)
+	rdec := gob.NewDecoder(fr)
 	var v interface{}
 	for {
-		err = adec.Decode(&v)
+		err = rdec.Decode(&v)
 		if err != nil {
 			if err != io.EOF {
 				return err
@@ -497,9 +501,9 @@ func merge(a, b string) error {
 		}
 	}
 
-	bdec := gob.NewDecoder(fb)
+	wdec := gob.NewDecoder(fw)
 	for {
-		err = bdec.Decode(&v)
+		err = wdec.Decode(&v)
 		if err != nil {
 			if err != io.EOF {
 				return err
@@ -515,15 +519,15 @@ func merge(a, b string) error {
 		}
 	}
 
-	// remove a, b
-	fa.Close()
-	os.Remove(a)
-	fb.Close()
-	os.Remove(b)
+	// remove r, w
+	fr.Close()
+	os.Remove(rPath)
+	fw.Close()
+	os.Remove(wPath)
 
-	// and move our temporary file to a
+	// and move our temporary file to r
 	t.Close()
-	return os.Rename(t.Name(), a)
+	return os.Rename(t.Name(), rPath)
 }
 
 // Attempt to open / create a cache file. Will move cache under `quarantineFolder`,
