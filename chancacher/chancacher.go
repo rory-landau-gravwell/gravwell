@@ -143,6 +143,16 @@ func NewChanCacher(maxDepth int, cachePath string, maxSize int, lgr log.IngestLo
 			os.Remove(v)
 		}
 
+		// set a lock for these files
+		c.fileLock = flock.New(filepath.Join(c.cachePath, "lock"))
+		locked, err := c.fileLock.TryLock()
+		if err != nil {
+			return nil, err
+		}
+		if !locked {
+			return nil, fmt.Errorf("could not get file lock!")
+		}
+
 		// Validate caches (if they exist) of previous instances.
 		err = validateCache(rPath, quarantineFolder, c.lgr)
 		if err != nil {
@@ -186,16 +196,6 @@ func NewChanCacher(maxDepth int, cachePath string, maxSize int, lgr log.IngestLo
 		w, err := os.OpenFile(wPath, CacheFlagPermissions, CacheFilePerm)
 		if err != nil {
 			return nil, err
-		}
-
-		// set a lock for these files
-		c.fileLock = flock.New(filepath.Join(c.cachePath, "lock"))
-		locked, err := c.fileLock.TryLock()
-		if err != nil {
-			return nil, err
-		}
-		if !locked {
-			return nil, fmt.Errorf("could not get file lock!")
 		}
 
 		if c.cacheR, err = NewFileCounter(r); err != nil {
@@ -539,7 +539,7 @@ func merge(rPath, wPath string) error {
 // Attempt to open / create a cache file. Will move cache under quarantineFolder,
 // inside cPath, if cache is already present in cPath and cannot be opened or parsed.
 func validateCache(cPath, quarantineFolder string, lgr log.IngestLogger) error {
-	c, err := os.OpenFile(cPath, os.O_RDONLY, CacheFilePerm)
+	c, err := os.OpenFile(cPath, CacheFlagPermissions, CacheFilePerm)
 	if err != nil {
 		// Nothing to validate
 		if errors.Is(err, os.ErrNotExist) {
