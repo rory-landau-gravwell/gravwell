@@ -145,6 +145,9 @@ func (c *cfgType) Verify() error {
 		if !v.Multiline && c.Max_Body > c.Max_Entry_Size {
 			return fmt.Errorf("Max-Body (%d) cannot be larger than Max-Entry-Size (%d) without enabling Multiline for Listener '%s'", c.Max_Body, c.Max_Entry_Size, k)
 		}
+		if v.Multiline && v.Buffer_Size > c.Max_Entry_Size {
+			return fmt.Errorf("Buffer-Size (%d) for Listener '%s' cannot be larger than Max-Entry-Size (%d)", v.Buffer_Size, k, c.Max_Entry_Size)
+		}
 
 		rt := newRoute(v.Method, pth)
 		if orig, ok := urls[rt]; ok {
