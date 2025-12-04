@@ -33,6 +33,7 @@ const (
 
 	defaultMaxConnections        = 1024 * 10 // about 10k connections, any modern OS should be able to handle this
 	defaultMaxConcurrentRequests = 1024 * 16 // HTTP2 means concurrent requests on a connection, 16k concurrent request is A LOT
+	defaultBufferSize            = 1024 * 1024
 )
 
 type gbl struct {
@@ -69,6 +70,7 @@ type lst struct {
 	Attach_URL_Parameter      []string
 	Preprocessor              []string
 	Debug_Posts               bool // whether we are going to log on the gravwell tag about received requests
+	Buffer_Size               int
 }
 
 type cfgType struct {
@@ -172,7 +174,7 @@ func (c *cfgType) Verify() error {
 		}
 
 		if v.Max_Size > c.Max_Entry_Size {
-			return fmt.Errorf("Max-Size (%d) cannot be larger than Max-Entry-Size (%d)", v.Max_Size, c.Max_Entry_Size)
+			return fmt.Errorf("Max-Size (%d) for HEC-Compatible-Listener '%s' cannot be larger than Max-Entry-Size (%d)", v.Max_Size, k, c.Max_Entry_Size)
 		}
 
 		rt := newRoute(http.MethodPost, pth)
@@ -318,6 +320,12 @@ func (v *lst) validate(name string) (string, error) {
 	v.URL = pth
 	if v.Method == `` {
 		v.Method = defaultMethod
+	}
+
+	if v.Buffer_Size == 0 {
+		v.Buffer_Size = defaultBufferSize
+	} else if v.Buffer_Size < 0 {
+		return "", fmt.Errorf("Invalid Buffer-Size (%d) cannot be negative", v.Buffer_Size)
 	}
 
 	return pth, nil

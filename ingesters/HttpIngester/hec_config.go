@@ -77,6 +77,8 @@ func (h *hecCompatible) validate(name string) (string, error) {
 		return ``, errors.New("No tokens specified, missing TokenValue and Routed-Token-Value")
 	}
 
+	h.Max_Size = int(fixupMaxSize(h.Max_Size))
+
 	//check the Tag_Match member
 	if _, err = h.sourcetypeTagMatchers(); err != nil {
 		return ``, fmt.Errorf("HEC-Compatible-Listener %s has invalid Tag-Match %w", name, err)
