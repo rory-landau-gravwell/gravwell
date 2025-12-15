@@ -72,7 +72,6 @@ func (ru *ResourceUpdate) Close() {
 type Resource struct {
 	CommonFields
 
-	Domain      int16 // Webserver domain of this resource. Only webservers in this domain can access it.
 	Size        uint64
 	Hash        string
 	ContentType string // Guessed at update time if possible
