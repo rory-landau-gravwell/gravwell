@@ -285,8 +285,8 @@ func (c *Client) GetUserMap() (map[int32]string, error) {
 }
 
 // GetGroup returns information about the specified group.
-func (c *Client) GetGroup(id int32) (types.Group, error) {
-	var gp types.Group
+func (c *Client) GetGroup(id int32) (types.GroupWithCBAC, error) {
+	var gp types.GroupWithCBAC
 	if err := c.getStaticURL(groupIdUrl(id), &gp); err != nil {
 		return gp, err
 	}

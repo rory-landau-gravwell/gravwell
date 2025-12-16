@@ -529,6 +529,12 @@ type Group struct {
 	SearchPriority int
 }
 
+// GroupWithCBAC is just the Group struct plus CBAC information. Only available via admin APIs.
+type GroupWithCBAC struct {
+	Group
+	CBAC CBACExpandedRules
+}
+
 func (g *Group) GetOld() GroupDetails {
 	return GroupDetails{
 		GID:  g.ID,
