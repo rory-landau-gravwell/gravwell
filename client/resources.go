@@ -145,6 +145,11 @@ func (c *Client) PurgeResource(id string) error {
 	return c.deleteStaticURL(resourcesIdUrl(id), nil, ezParam("purge", "true"))
 }
 
+// CleanupResources (admin-only) purges all deleted resources for all users.
+func (c *Client) CleanupResources() error {
+	return c.deleteStaticURL(RESOURCES_URL, nil)
+}
+
 // UpdateResourceMetadata sets the specified resource's metadata.
 func (c *Client) UpdateResourceMetadata(id string, metadata types.Resource) error {
 	return c.putStaticURL(resourcesIdUrl(id), metadata)
