@@ -290,12 +290,22 @@ func ProcessContext(obj *s3.Object, ctx context.Context, svc *s3.S3, bucket stri
 	}
 	defer r.Body.Close()
 	s3rtt = time.Since(now)
+	var evs entry.EVBlock
+	bucketValue, err := entry.NewEnumeratedValue("bucket", bucket)
+	if err == nil {
+		evs.Add(bucketValue)
+	}
+
+	keyValue, err := entry.NewEnumeratedValue("key", *obj.Key)
+	if err == nil {
+		evs.Add(keyValue)
+	}
 
 	switch rdr {
 	case lineReader:
-		err = processLinesContext(ctx, r.Body, maxLineSize, tg, src, tag, proc)
+		err = processLinesContext(ctx, r.Body, maxLineSize, tg, src, tag, &evs, proc)
 	case cloudtrailReader:
-		err = processCloudtrailContext(ctx, r.Body, tg, src, tag, proc)
+		err = processCloudtrailContext(ctx, r.Body, tg, src, tag, &evs, proc)
 	default:
 		err = errors.New("no reader set")
 	}
@@ -306,7 +316,7 @@ func ProcessContext(obj *s3.Object, ctx context.Context, svc *s3.S3, bucket stri
 	return
 }
 
-func processLinesContext(ctx context.Context, rdr io.Reader, maxLineSize int, tg *timegrinder.TimeGrinder, src net.IP, tag entry.EntryTag, proc *processors.ProcessorSet) (err error) {
+func processLinesContext(ctx context.Context, rdr io.Reader, maxLineSize int, tg *timegrinder.TimeGrinder, src net.IP, tag entry.EntryTag, block *entry.EVBlock, proc *processors.ProcessorSet) (err error) {
 	sc := bufio.NewScanner(rdr)
 	sc.Buffer(nil, maxLineSize)
 	for sc.Scan() {
@@ -323,6 +333,7 @@ func processLinesContext(ctx context.Context, rdr io.Reader, maxLineSize int, tg
 			SRC:  src, //may be nil, ingest muxer will handle if it is
 			Tag:  tag,
 			Data: bytes.Clone(bts), //scanner re-uses the buffer
+			EVB:  *block,
 		}
 		if ctx != nil {
 			err = proc.ProcessContext(&ent, ctx)
@@ -337,7 +348,7 @@ func processLinesContext(ctx context.Context, rdr io.Reader, maxLineSize int, tg
 	return
 }
 
-func processCloudtrailContext(ctx context.Context, rdr io.Reader, tg *timegrinder.TimeGrinder, src net.IP, tag entry.EntryTag, proc *processors.ProcessorSet) (err error) {
+func processCloudtrailContext(ctx context.Context, rdr io.Reader, tg *timegrinder.TimeGrinder, src net.IP, tag entry.EntryTag, block *entry.EVBlock, proc *processors.ProcessorSet) (err error) {
 	var obj json.RawMessage
 	dec := json.NewDecoder(rdr)
 
@@ -368,6 +379,7 @@ func processCloudtrailContext(ctx context.Context, rdr io.Reader, tg *timegrinde
 			SRC:  src,                         //may be nil, ingest muxer will handle if it is
 			Data: append([]byte(nil), val...), //scanner re-uses the buffer
 			Tag:  tag,
+			EVB:  *block,
 		}
 		if ctx != nil {
 			cberr = proc.ProcessContext(&ent, ctx)
