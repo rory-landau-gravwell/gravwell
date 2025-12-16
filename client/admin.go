@@ -81,9 +81,9 @@ func (c *Client) DeleteUser(id int32) error {
 	return nil
 }
 
-// GetUserInfo (admin-only) gets information about a specific user.
-func (c *Client) GetUserInfo(id int32) (types.User, error) {
-	udet := types.User{}
+// GetUserInfo (admin-only) gets information about a specific user, including CBAC info
+func (c *Client) GetUserInfo(id int32) (types.UserWithCBAC, error) {
+	udet := types.UserWithCBAC{}
 	if err := c.methodStaticURL(http.MethodGet, usersInfoUrl(id), &udet); err != nil {
 		return udet, err
 	}

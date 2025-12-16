@@ -38,11 +38,6 @@ type TokenSigningKey struct {
 	Expiration time.Time
 }
 
-type UserBackup struct {
-	Groups []Group
-	Users  []User
-}
-
 // Session contains all the information needed to authenticate.
 type Session struct {
 	ID          uint64 `json:",omitempty"`
@@ -436,12 +431,16 @@ type User struct {
 	Admin               bool
 	Locked              bool
 	Groups              []Group
-	Hash                []byte
-	CBAC                CBACRules
 	MFA                 MFAUserConfig
 	SSOUser             bool
 	DefaultSearchGroups []Group
 	SearchPriority      int
+}
+
+// UserWithCBAC is just the User struct plus CBAC information. Only available via admin APIs.
+type UserWithCBAC struct {
+	User
+	CBAC CBACExpandedRules
 }
 
 // IsGroupMember returns true if the user is a member of group with
@@ -497,10 +496,8 @@ func (u *User) GetOld() *UserDetails {
 		TS:      u.LastLogin,
 		Admin:   u.Admin,
 		SSOUser: u.SSOUser,
-		CBAC:    u.CBAC,
 		// Secrets may have already been cleared
-		MFA:  u.MFA,
-		Hash: u.Hash,
+		MFA: u.MFA,
 	}
 	// This is goofy...
 	if len(u.DefaultSearchGroups) > 0 {
@@ -529,7 +526,6 @@ type Group struct {
 	DeletedAt      time.Time
 	Name           string
 	Description    string
-	CBAC           CBACRules
 	SearchPriority int
 }
 
@@ -538,6 +534,5 @@ func (g *Group) GetOld() GroupDetails {
 		GID:  g.ID,
 		Name: g.Name,
 		Desc: g.Description,
-		CBAC: g.CBAC,
 	}
 }
