@@ -78,6 +78,7 @@ func CheckProcessor(id string) error {
 	case SyslogRouterProcessor:
 	case TagSrcRouterProcessor:
 	case RegexReplaceProcessor:
+	case RegexDropProcessor:
 	default:
 		return checkProcessorOS(id)
 	}
@@ -146,7 +147,9 @@ func ProcessorLoadConfig(vc *config.VariableConfig) (cfg interface{}, err error)
 	case TagSrcRouterProcessor:
 		cfg, err = TagSrcRouterLoadConfig(vc)
 	case RegexReplaceProcessor:
-		cfg, err = RegexExtractLoadConfig(vc)
+		cfg, err = RegexReplaceLoadConfig(vc)
+	case RegexDropProcessor:
+		cfg, err = RegexDropLoadConfig(vc)
 	default:
 		cfg, err = processorLoadConfigOS(vc)
 	}
@@ -311,11 +314,17 @@ func newProcessor(vc *config.VariableConfig, tgr Tagger) (p Processor, err error
 		}
 		p, err = NewTagSrcRouter(cfg, tgr)
 	case RegexReplaceProcessor:
-		var cfg RegexExtractConfig
+		var cfg RegexReplaceConfig
 		if err = vc.MapTo(&cfg); err != nil {
 			return
 		}
-		p, err = NewRegexExtractor(cfg)
+		p, err = NewRegexReplacer(cfg)
+	case RegexDropProcessor:
+		var cfg RegexDropConfig
+		if err = vc.MapTo(&cfg); err != nil {
+			return
+		}
+		p, err = NewRegexDropper(cfg)
 	default:
 		p, err = newProcessorOS(vc, tgr)
 	}
