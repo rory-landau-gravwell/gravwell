@@ -278,7 +278,7 @@ var (
 	awsUrlRegex = regexp.MustCompile(`s3[-\.]?([a-zA-Z\-0-9]+)?\.amazonaws\.com`)
 )
 
-func ProcessContext(obj *s3.Object, ctx context.Context, svc *s3.S3, bucket string, rdr reader, tg *timegrinder.TimeGrinder, src net.IP, tag entry.EntryTag, proc *processors.ProcessorSet, maxLineSize int) (sz int64, s3rtt, rtt time.Duration, err error) {
+func ProcessContext(obj *s3.Object, ctx context.Context, svc *s3.S3, bucket string, rdr reader, tg *timegrinder.TimeGrinder, src net.IP, tag entry.EntryTag, proc *processors.ProcessorSet, maxLineSize int, includeEV bool) (sz int64, s3rtt, rtt time.Duration, err error) {
 	var r *s3.GetObjectOutput
 	now := time.Now()
 	r, err = svc.GetObject(&s3.GetObjectInput{
@@ -291,14 +291,9 @@ func ProcessContext(obj *s3.Object, ctx context.Context, svc *s3.S3, bucket stri
 	defer r.Body.Close()
 	s3rtt = time.Since(now)
 	var evs entry.EVBlock
-	bucketValue, err := entry.NewEnumeratedValue("bucket", bucket)
-	if err == nil {
-		evs.Add(bucketValue)
-	}
-
-	keyValue, err := entry.NewEnumeratedValue("key", *obj.Key)
-	if err == nil {
-		evs.Add(keyValue)
+	if includeEV {
+		evs.Add(entry.EnumeratedValue{Name: "bucket", Value: entry.StringEnumData(bucket)})
+		evs.Add(entry.EnumeratedValue{Name: "key", Value: entry.StringEnumData(*obj.Key)})
 	}
 
 	switch rdr {
