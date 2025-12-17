@@ -138,10 +138,21 @@ func (c *Client) UserChangePass(id int32, orig, pass string) error {
 // SetDefaultSearchGroups will set the specified user's default search groups.
 // Admins can set any user's default search group, but regular users can only set their own.
 func (c *Client) SetDefaultSearchGroups(uid int32, gids []int32) error {
-	udet := types.User{}
-	if err := c.methodStaticURL(http.MethodGet, usersInfoUrl(uid), &udet); err != nil {
+	me, err := c.MyInfo()
+	if err != nil {
 		return err
 	}
+	udet := me
+	if uid != me.ID {
+		if !me.Admin {
+			return errors.New("Only admins can change another user's default search groups")
+		} else {
+			if err := c.methodStaticURL(http.MethodGet, usersInfoUrl(uid), &udet); err != nil {
+				return err
+			}
+		}
+	}
+
 	req := types.UpdateUser{
 		Username:            udet.Username,
 		Name:                udet.Name,
@@ -156,10 +167,23 @@ func (c *Client) SetDefaultSearchGroups(uid int32, gids []int32) error {
 // GetDefaultSearchGroups returns the specified users default search groups.
 // Admins can get any user's default search groups, but regular users can only get their own.
 func (c *Client) GetDefaultSearchGroups(uid int32) (gids []int32, err error) {
-	udet := types.User{}
-	if err = c.methodStaticURL(http.MethodGet, usersInfoUrl(uid), &udet); err != nil {
+	var me types.User
+	me, err = c.MyInfo()
+	if err != nil {
 		return
 	}
+	udet := me
+	if uid != me.ID {
+		if !me.Admin {
+			err = errors.New("Only admins can get another user's default search groups")
+			return
+		} else {
+			if err = c.methodStaticURL(http.MethodGet, usersInfoUrl(uid), &udet); err != nil {
+				return
+			}
+		}
+	}
+
 	for _, g := range udet.DefaultSearchGroups {
 		gids = append(gids, g.ID)
 	}
@@ -175,10 +199,21 @@ func (c *Client) DeleteDefaultSearchGroups(uid int32) error {
 // UpdateUserInfo changes basic information about the specified user.
 // Admins can set any user's info, but regular users can only set their own.
 func (c *Client) UpdateUserInfo(id int32, user, name, email string) error {
-	udet := types.User{}
-	if err := c.methodStaticURL(http.MethodGet, usersInfoUrl(id), &udet); err != nil {
+	me, err := c.MyInfo()
+	if err != nil {
 		return err
 	}
+	udet := me
+	if id != me.ID {
+		if !me.Admin {
+			return errors.New("Only admins can change another user's info")
+		} else {
+			if err := c.methodStaticURL(http.MethodGet, usersInfoUrl(id), &udet); err != nil {
+				return err
+			}
+		}
+	}
+
 	var gids []int32
 	for _, g := range udet.DefaultSearchGroups {
 		gids = append(gids, g.ID)
@@ -240,7 +275,7 @@ func (c *Client) DeleteUserFromGroup(uid, gid int32) error {
 	return c.deleteStaticURL(usersGroupIdUrl(uid, gid), nil)
 }
 
-// GetUserGroups returns information about groups to which the user belongs.
+// GetUserGroups (admin-only) returns information about groups to which the user belongs.
 func (c *Client) GetUserGroups(uid int32) ([]types.Group, error) {
 	var udet types.User
 	if err := c.getStaticURL(usersInfoUrl(uid), &udet); err != nil {
