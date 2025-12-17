@@ -124,7 +124,13 @@ type CapabilitySet struct {
 	Grants []byte
 }
 
-// CapabilityState is the expanded set of capabilities that is exchanged between clients the the API
+// CBACExpandedRules contain the more human/UI-friendly CapabilityState and TagAccess structs.
+type CBACExpandedRules struct {
+	Capabilities CapabilityState
+	Tags         TagAccess
+}
+
+// CapabilityState is the expanded set of capabilities that is exchanged between clients and the API
 // The grants specified using the full name of a capability to make the API more explicit
 type CapabilityState struct {
 	Grants []string
