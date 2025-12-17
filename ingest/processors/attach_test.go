@@ -1,5 +1,5 @@
 /*************************************************************************
- * Copyright 2018 Gravwell, Inc. All rights reserved.
+ * Copyright 2025 Gravwell, Inc. All rights reserved.
  * Contact: <legal@gravwell.io>
  *
  * This software may be modified and distributed under the terms of the
@@ -12,6 +12,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/gravwell/gcfg"
 	"github.com/gravwell/gravwell/v3/ingest/config"
 	"github.com/gravwell/gravwell/v3/ingest/entry"
 )
@@ -152,42 +153,20 @@ func TestAttachProcessorHostname(t *testing.T) {
 }
 
 func TestAttachProcessorUUID(t *testing.T) {
+	// $UUID is not supported in the preprocessor version of attach
+	// It should return an error when attempting to use it
 	cfg := attachTestConfig{}
 	if err := config.LoadConfigBytes(&cfg, []byte(uuidAttachConfig)); err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
 	vc := cfg.Preprocessor["uuid"]
-	attachCfg, err := AttachLoadConfig(vc)
-	if err != nil {
-		t.Fatalf("Failed to load attach config: %v", err)
+	_, err := AttachLoadConfig(vc)
+	if err == nil {
+		t.Fatal("Expected error when using $UUID in preprocessor attach config")
 	}
-
-	processor, err := NewAttachProcessor(attachCfg)
-	if err != nil {
-		t.Fatalf("Failed to create processor: %v", err)
-	}
-
-	ent := &entry.Entry{
-		Tag:  1,
-		TS:   entry.Now(),
-		Data: []byte("test data"),
-	}
-
-	result, err := processor.Process([]*entry.Entry{ent})
-	if err != nil {
-		t.Fatalf("Process failed: %v", err)
-	}
-
-	if len(result) != 1 {
-		t.Fatalf("Expected 1 result, got %d", len(result))
-	}
-
-	// Just verify UUID is present and non-empty
-	if val, ok := result[0].GetEnumeratedValue("id"); !ok {
-		t.Error("Expected 'id' enumerated value")
-	} else if s, ok := val.(string); !ok || len(s) == 0 {
-		t.Errorf("Expected non-empty UUID, got %v", val)
+	if err != ErrAttachUUIDNotSupported {
+		t.Fatalf("Expected ErrAttachUUIDNotSupported, got: %v", err)
 	}
 }
 
@@ -387,6 +366,72 @@ func TestAttachProcessorConfigInvalidType(t *testing.T) {
 	err = processor.Config("invalid type")
 	if err == nil {
 		t.Error("Config with invalid type should return error")
+	}
+}
+
+func TestAttachProcessorManualUUID(t *testing.T) {
+	// To avoid manually constructing gcfg.Idx (which is complex),
+	// we load a valid config and then inject $UUID.
+	cfg := attachTestConfig{}
+	if err := config.LoadConfigBytes(&cfg, []byte(validAttachConfig)); err != nil {
+		t.Fatalf("Failed to load valid config: %v", err)
+	}
+
+	vc := cfg.Preprocessor["attach1"]
+	attachCfg, err := AttachLoadConfig(vc)
+	if err != nil {
+		t.Fatalf("Failed to load attach config: %v", err)
+	}
+
+	// Inject $UUID into the valid config
+	// We use "foo" which we know exists in validAttachConfig
+	val := []string{"$UUID"}
+	attachCfg.Vals[attachCfg.Idx("foo")] = &val
+
+	_, err = NewAttachProcessor(attachCfg)
+	if err == nil {
+		t.Fatal("Expected error when using $UUID in manual attach config")
+	}
+	if err != ErrAttachUUIDNotSupported {
+		t.Fatalf("Expected ErrAttachUUIDNotSupported, got: %v", err)
+	}
+}
+
+func TestAttachProcessorConfigUUID(t *testing.T) {
+	// Create a valid processor first
+	cfg := attachTestConfig{}
+	if err := config.LoadConfigBytes(&cfg, []byte(validAttachConfig)); err != nil {
+		t.Fatalf("Failed to load valid config: %v", err)
+	}
+
+	vc := cfg.Preprocessor["attach1"]
+	attachCfg, err := AttachLoadConfig(vc)
+	if err != nil {
+		t.Fatalf("Failed to load attach config: %v", err)
+	}
+
+	p, err := NewAttachProcessor(attachCfg)
+	if err != nil {
+		t.Fatalf("Failed to create processor: %v", err)
+	}
+
+	// Now try to reconfigure with a UUID config
+	// We reuse the valid config but inject $UUID
+	val := []string{"$UUID"}
+	// We need a copy of the config map to avoid modifying the original if it was shared (it's not deeper than this test)
+	// But to be safe and clean:
+	uuidCfg := attachCfg
+	// Deep copy the vals map or just modify since validCfg isn't used after
+	uuidCfg.Vals = make(map[gcfg.Idx]*[]string)
+	for k, v := range attachCfg.Vals {
+		uuidCfg.Vals[k] = v
+	}
+	uuidCfg.Vals[uuidCfg.Idx("foo")] = &val
+
+	if err := p.Config(uuidCfg); err == nil {
+		t.Fatal("Expected error when reconfiguring with $UUID")
+	} else if err != ErrAttachUUIDNotSupported {
+		t.Fatalf("Expected ErrAttachUUIDNotSupported, got: %v", err)
 	}
 }
 
