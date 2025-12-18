@@ -32,7 +32,7 @@ type SQSS3Config struct {
 	ID               string `json:"-"` //do not ship this as part of a config report
 	Secret           string `json:"-"` //do not ship this as part of a config report
 	Credentials_Type string
-	IncludeEV        bool
+	AttachMetadata   bool
 }
 
 type SQSS3Listener struct {

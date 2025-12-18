@@ -94,7 +94,7 @@ func main() {
 			Credentials_Type: v.Credentials_Type,
 			ID:               v.ID,
 			Secret:           v.Secret,
-			IncludeEV:        v.Include_EV,
+			AttachMetadata:   v.Attach_Metadata,
 		}
 		if bcfg.Tag, err = igst.GetTag(v.Tag_Name); err != nil {
 			ib.Logger.FatalCode(0, "failed to get established tag",
@@ -136,7 +136,7 @@ func main() {
 			ID:               v.ID,
 			Secret:           v.Secret,
 			FileFilters:      v.File_Filters,
-			IncludeEV:        v.Include_EV,
+			AttachMetadata:   v.Attach_Metadata,
 		}
 		if scfg.Tag, err = igst.GetTag(v.Tag_Name); err != nil {
 			ib.Logger.FatalCode(0, "failed to get established tag",
