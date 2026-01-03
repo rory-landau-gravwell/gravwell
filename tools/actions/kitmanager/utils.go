@@ -132,11 +132,13 @@ func initVars(cmd string) (err error) {
 				return
 			}
 			hostUrl = uri.String()
-		} else if authToken == "" {
+		}
+		if authToken == "" {
 			if authToken, err = getToken(); err != nil {
 				return
 			}
-		} else if kitId == "" {
+		}
+		if kitId == "" {
 			if kitId, err = getStringFromStdin("Kit ID"); err != nil {
 				return
 			}
@@ -373,7 +375,7 @@ func getInstallLabels() (labels []string, err error) {
 
 func getGroupsFromList(cli *client.Client, kitGroups string) (groups []int32, err error) {
 	var strs []string
-	// parse the gropus using a CSV parser
+	// parse the groups using a CSV parser
 	if strs, err = parseCSV(kitGroups); err != nil {
 		err = fmt.Errorf("error parsing kit groups: %w", err)
 		return

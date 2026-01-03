@@ -143,7 +143,7 @@ func generateKitBuildRequest(cli *client.Client, kbrBase types.KitBuildRequest) 
 		return
 	}
 	//extractors
-	if getKitExtractors(cli, label, kbrBase, &kbr); err != nil {
+	if err = getKitExtractors(cli, label, kbrBase, &kbr); err != nil {
 		return
 	}
 	//files
@@ -243,7 +243,7 @@ func getKitTemplates(cli *client.Client, label string, orig types.KitBuildReques
 		return
 	}
 	for _, t := range templates {
-		if containsLabel(t.Labels, label) || containsUUID(kbr.Templates, t.ThingUUID) {
+		if containsLabel(t.Labels, label) || containsUUID(orig.Templates, t.ThingUUID) {
 			kbr.Templates = append(kbr.Templates, t.ThingUUID)
 		}
 	}

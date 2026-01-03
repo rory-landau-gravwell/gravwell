@@ -66,7 +66,7 @@ func main() {
 	}
 
 	// not a list, go make sure the kit specified exists
-	// now rip thorugh each one looking for our kit ID
+	// now rip through each one looking for our kit ID
 	var kbr types.KitBuildRequest
 	for _, v := range kbrs {
 		if v.ID == kitId {
