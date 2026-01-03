@@ -77,7 +77,7 @@ func syncKit(cli *client.Client, kbrBase types.KitBuildRequest) (err error) {
 		fmt.Printf("Failed to remove temporary kit file %s: %v\n", pth, lerr)
 	}
 
-	fmt.Printf("Kit %s synced to %s\n", kbr.ID, fout.Name())
+	fmt.Printf("Kit %s synced to %s\n", kbr.ID, kitDir)
 	return
 }
 
