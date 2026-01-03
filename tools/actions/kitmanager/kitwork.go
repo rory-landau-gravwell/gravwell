@@ -179,7 +179,7 @@ func generateKitBuildRequest(cli *client.Client, kbrBase types.KitBuildRequest) 
 	if kbr.Cover != "" {
 		var cover uuid.UUID
 		if cover, err = uuid.Parse(kbr.Cover); err != nil {
-			err = fmt.Errorf("invalid Cover UUID %s %w", kbr.Cover, err)
+			err = fmt.Errorf("invalid Cover UUID %s: %w", kbr.Cover, err)
 			return
 		}
 		if !containsUUID(kbr.Files, cover) {
