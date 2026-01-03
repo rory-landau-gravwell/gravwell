@@ -151,7 +151,7 @@ func generateKitBuildRequest(cli *client.Client, kbrBase types.KitBuildRequest) 
 		return
 	}
 	//playbooks
-	if getKitPlaybooks(cli, label, kbrBase, &kbr); err != nil {
+	if err = getKitPlaybooks(cli, label, kbrBase, &kbr); err != nil {
 		return
 	}
 
@@ -379,12 +379,12 @@ func deployKit(cli *client.Client, kbr types.KitBuildRequest) (err error) {
 	// create a temp file for the kit
 	var fout *os.File
 	if fout, err = os.CreateTemp(os.TempDir(), kbr.ID); err != nil {
-		err = fmt.Errorf("failed to create temp file for kit download: %w", err)
+		err = fmt.Errorf("failed to create temp file for kit pack: %w", err)
 		return
 	}
 	pth := fout.Name() // get the file name for the temp file
 	if err = fout.Close(); err != nil {
-		err = fmt.Errorf("failed to close kit temp file: %w", err)
+		err = fmt.Errorf("failed to close temp kit pack file: %w", err)
 		return
 	}
 	defer os.Remove(pth) // clean up the temp file when done
