@@ -159,7 +159,7 @@ func generateKitBuildRequest(cli *client.Client, kbrBase types.KitBuildRequest) 
 	if kbr.Icon != "" {
 		var icon uuid.UUID
 		if icon, err = uuid.Parse(kbr.Icon); err != nil {
-			err = fmt.Errorf("invalid Icon UUID %s %w", kbr.Icon, err)
+			err = fmt.Errorf("invalid Icon UUID %s: %w", kbr.Icon, err)
 			return
 		}
 		if !containsUUID(kbr.Files, icon) {
@@ -169,7 +169,7 @@ func generateKitBuildRequest(cli *client.Client, kbrBase types.KitBuildRequest) 
 	if kbr.Banner != "" {
 		var banner uuid.UUID
 		if banner, err = uuid.Parse(kbr.Banner); err != nil {
-			err = fmt.Errorf("invalid Banner UUID %s %w", kbr.Banner, err)
+			err = fmt.Errorf("invalid Banner UUID %s: %w", kbr.Banner, err)
 			return
 		}
 		if !containsUUID(kbr.Files, banner) {
@@ -179,7 +179,7 @@ func generateKitBuildRequest(cli *client.Client, kbrBase types.KitBuildRequest) 
 	if kbr.Cover != "" {
 		var cover uuid.UUID
 		if cover, err = uuid.Parse(kbr.Cover); err != nil {
-			err = fmt.Errorf("invalid Cover UUID %s %w", kbr.Cover, err)
+			err = fmt.Errorf("invalid Cover UUID %s: %w", kbr.Cover, err)
 			return
 		}
 		if !containsUUID(kbr.Files, cover) {
@@ -193,14 +193,11 @@ func generateKitBuildRequest(cli *client.Client, kbrBase types.KitBuildRequest) 
 }
 
 func unpackKitFile(pth, targetDir string) (err error) {
-	// cd into the target directory
-	if err = os.Chdir(targetDir); err != nil {
-		err = fmt.Errorf("failed to change to target kit directory %s: %w", targetDir, err)
-		return
-	}
 	// call the kitctl unpack command
 	var stdoutStderr []byte
 	cmd := exec.Command(kitCtl, "-zero-hash", "unpack", pth)
+	// set working directory to target dir
+	cmd.Dir = targetDir
 	if stdoutStderr, err = cmd.CombinedOutput(); err != nil {
 		err = fmt.Errorf("failed to unpack kit file %s: %v\nCommand Output: %s", pth, err, stdoutStderr)
 	}
@@ -208,7 +205,6 @@ func unpackKitFile(pth, targetDir string) (err error) {
 }
 
 func getSearchLibraryItems(cli *client.Client, label string, orig types.KitBuildRequest, kbr *types.KitBuildRequest) (err error) {
-
 	var items []types.WireSearchLibrary
 	if items, err = cli.ListSearchLibrary(); err != nil {
 		err = fmt.Errorf("failed to get search library items: %w", err)
@@ -380,13 +376,6 @@ func getKitPlaybooks(cli *client.Client, label string, orig types.KitBuildReques
 // deployKit DOES NOT increment the version number
 func deployKit(cli *client.Client, kbr types.KitBuildRequest) (err error) {
 	fmt.Printf("Deploying kit %s version %v\n", kbr.ID, kbr.Version)
-
-	// cd into the target directory
-	if err = os.Chdir(kitDir); err != nil {
-		err = fmt.Errorf("failed to change to target kit directory %s: %w", kitDir, err)
-		return
-	}
-
 	// create a temp file for the kit
 	var fout *os.File
 	if fout, err = os.CreateTemp(os.TempDir(), kbr.ID); err != nil {
@@ -403,6 +392,7 @@ func deployKit(cli *client.Client, kbr types.KitBuildRequest) (err error) {
 	// call the kitctl pack command
 	var stdoutStderr []byte
 	cmd := exec.Command(kitCtl, "pack", pth)
+	cmd.Dir = kitDir // set working directory to kit dir
 	if stdoutStderr, err = cmd.CombinedOutput(); err != nil {
 		err = fmt.Errorf("failed to pack kit file %s: %v\nCommand Output: %s", pth, err, stdoutStderr)
 		return
