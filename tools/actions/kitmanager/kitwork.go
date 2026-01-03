@@ -151,7 +151,7 @@ func generateKitBuildRequest(cli *client.Client, kbrBase types.KitBuildRequest) 
 		return
 	}
 	//playbooks
-	if getKitPlaybooks(cli, label, kbrBase, &kbr); err != nil {
+	if err = getKitPlaybooks(cli, label, kbrBase, &kbr); err != nil {
 		return
 	}
 
