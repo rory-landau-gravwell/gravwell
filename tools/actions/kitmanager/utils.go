@@ -98,7 +98,7 @@ func initVars(cmd string) (err error) {
 		kitWriteGroups = *fKitWriteGroups
 	}
 
-	// do some dumb loops to determine of the boolean flags are set
+	// do some dumb loops to determine if the boolean flags are set
 	flag.Visit(func(f *flag.Flag) {
 		switch f.Name {
 		case "kit-global":
