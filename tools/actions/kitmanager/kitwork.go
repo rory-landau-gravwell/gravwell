@@ -408,7 +408,7 @@ func deployKit(cli *client.Client, kbr types.KitBuildRequest) (err error) {
 		return
 	}
 
-	// push the kit to the servera
+	// push the kit to the server
 	var state types.KitState
 	if state, err = cli.UploadKit(pth); err != nil {
 		err = fmt.Errorf("failed to upload kit file to server: %w", err)
