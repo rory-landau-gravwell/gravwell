@@ -395,7 +395,7 @@ func deployKit(cli *client.Client, kbr types.KitBuildRequest) (err error) {
 	}
 	pth := fout.Name() // get the file name for the temp file
 	if err = fout.Close(); err != nil {
-		err = fmt.Errorf("failed to close kit temp file: %w", err)
+		err = fmt.Errorf("failed to close temp kit pack file: %w", err)
 		return
 	}
 	defer os.Remove(pth) // clean up the temp file when done
