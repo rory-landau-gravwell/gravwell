@@ -390,7 +390,7 @@ func deployKit(cli *client.Client, kbr types.KitBuildRequest) (err error) {
 	// create a temp file for the kit
 	var fout *os.File
 	if fout, err = os.CreateTemp(os.TempDir(), kbr.ID); err != nil {
-		err = fmt.Errorf("failed to create temp file for kit download: %w", err)
+		err = fmt.Errorf("failed to create temp file for kit pack: %w", err)
 		return
 	}
 	pth := fout.Name() // get the file name for the temp file
