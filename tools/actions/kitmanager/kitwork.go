@@ -400,7 +400,7 @@ func deployKit(cli *client.Client, kbr types.KitBuildRequest) (err error) {
 	}
 	defer os.Remove(pth) // clean up the temp file when done
 
-	// call the kitctl unpack command
+	// call the kitctl pack command
 	var stdoutStderr []byte
 	cmd := exec.Command(kitCtl, "pack", pth)
 	if stdoutStderr, err = cmd.CombinedOutput(); err != nil {
