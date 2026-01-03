@@ -87,7 +87,7 @@ func main() {
 			fatalf("Error deploying kit: %v\n", err)
 		}
 	default:
-		fatalf("unknon command %s\n", cmd)
+		fatalf("unknown command %s\n", cmd)
 	}
 }
 
