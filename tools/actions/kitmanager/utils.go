@@ -39,7 +39,7 @@ const (
 
 	commandsStr = `Available Commands:
   list         List available kits
-  sync	       Sync a kit from a remote Gravwell instance
+  sync         Sync a kit from a remote Gravwell instance
   deploy       Deploy a kit from a directory`
 )
 
@@ -179,7 +179,7 @@ func ensureKitDir() error {
 			return fmt.Errorf("error creating kit directory '%s': %w", kitDir, err)
 		}
 	} else if !fi.IsDir() {
-		return fmt.Errorf("Kit directory path '%s' exists but is not a directory", kitDir)
+		return fmt.Errorf("kit directory path '%s' exists but is not a directory", kitDir)
 	}
 	return nil
 }
