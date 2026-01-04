@@ -432,7 +432,7 @@ func deployKit(cli *client.Client, kbr types.KitBuildRequest) (err error) {
 		},
 	}
 
-	// install the kit with an empty KitConfig so that existing parameters are kept
+	// install the kit using the specified KitConfig values
 	if err = cli.InstallKit(state.UUID, cfg); err != nil {
 		err = fmt.Errorf("failed to install kit on server: %w", err)
 		return
