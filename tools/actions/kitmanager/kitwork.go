@@ -60,14 +60,17 @@ func syncKit(cli *client.Client, kbrBase types.KitBuildRequest) (err error) {
 	if _, err = io.Copy(fout, resp.Body); err != nil {
 		err = fmt.Errorf("failed to download kit to temp file: %w", err)
 		fout.Close()
+		os.Remove(pth)
 		return
 	} else if err = fout.Close(); err != nil {
+		os.Remove(pth)
 		err = fmt.Errorf("failed to close kit temp file: %w", err)
 		return
 	}
 
 	// call kitctl to unpack the kit to the target directory
 	if err = unpackKitFile(pth, kitDir); err != nil {
+		os.Remove(pth)
 		err = fmt.Errorf("failed to unpack kit file: %w", err)
 		return
 	}

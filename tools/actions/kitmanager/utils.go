@@ -160,7 +160,7 @@ func initVars(cmd string) (err error) {
 	// if kitCtl was set then verify it exists and is executable
 	if kitCtl != `` {
 		if fi, err := os.Stat(kitCtl); err != nil {
-			return fmt.Errorf("Error accessing kitctl binary '%s': %w", kitCtl, err)
+			return fmt.Errorf("error accessing kitctl binary '%s': %w", kitCtl, err)
 		} else if fi.IsDir() {
 			return fmt.Errorf("kitctl path '%s' is a directory, not a binary", kitCtl)
 		} else if fi.Mode()&0111 == 0 {
@@ -173,10 +173,10 @@ func initVars(cmd string) (err error) {
 func ensureKitDir() error {
 	// if kitDir does not exist attempt to make it
 	if fi, err := os.Stat(kitDir); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("Error accessing kit directory '%s': %w", kitDir, err)
+		return fmt.Errorf("error accessing kit directory '%s': %w", kitDir, err)
 	} else if os.IsNotExist(err) {
 		if err := os.MkdirAll(kitDir, 0750); err != nil {
-			return fmt.Errorf("Error creating kit directory '%s': %w", kitDir, err)
+			return fmt.Errorf("error creating kit directory '%s': %w", kitDir, err)
 		}
 	} else if !fi.IsDir() {
 		return fmt.Errorf("Kit directory path '%s' exists but is not a directory", kitDir)
