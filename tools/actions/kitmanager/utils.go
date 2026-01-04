@@ -179,7 +179,7 @@ func ensureKitDir() error {
 			return fmt.Errorf("Error creating kit directory '%s': %w", kitDir, err)
 		}
 	} else if !fi.IsDir() {
-		return fmt.Errorf("Kit directory path '%s' exists but is not a directory", kitDir)
+		return fmt.Errorf("kit directory path '%s' exists but is not a directory", kitDir)
 	}
 	return nil
 }
