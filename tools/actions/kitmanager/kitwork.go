@@ -20,8 +20,8 @@ import (
 	"github.com/gravwell/gravwell/v3/client/types"
 )
 
-// syncKit reaches out to the remote Gravwell instance and performs a kit build using the exisiting kit build request
-// as a template.  It scans all the types and looks for any items that contain the kit label and addes them to the KBR.
+// syncKit reaches out to the remote Gravwell instance and performs a kit build using the existing kit build request
+// as a template.  It scans all the types and looks for any items that contain the kit label and adds them to the KBR.
 func syncKit(cli *client.Client, kbrBase types.KitBuildRequest) (err error) {
 
 	var kbr types.KitBuildRequest
