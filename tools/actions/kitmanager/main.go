@@ -36,11 +36,11 @@ func main() {
 	// check which command we are running
 	switch cmd {
 	case "list": // thing to do here
-	case "sync":
+	case "pull":
 		if err = ensureKitDir(); err != nil {
 			fatalf("Error with kit directory: %v\n", err)
 		}
-	case "deploy":
+	case "push":
 		if err = ensureKitDir(); err != nil {
 			fatalf("Error with kit directory: %v\n", err)
 		}
@@ -78,12 +78,12 @@ func main() {
 		fatalf("Failed to find kit build with ID '%s'\n", kitId)
 	}
 	switch cmd {
-	case `sync`:
-		if err = syncKit(cli, kbr); err != nil {
+	case `pull`:
+		if err = pullKit(cli, kbr); err != nil {
 			fatalf("Error syncing kit: %v\n", err)
 		}
-	case `deploy`:
-		if err = deployKit(cli, kbr); err != nil {
+	case `push`:
+		if err = pushKit(cli, kbr); err != nil {
 			fatalf("Error deploying kit: %v\n", err)
 		}
 	default:

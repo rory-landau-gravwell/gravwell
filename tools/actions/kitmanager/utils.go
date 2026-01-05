@@ -39,8 +39,8 @@ const (
 
 	commandsStr = `Available Commands:
   list         List available kits
-  sync         Sync a kit from a remote Gravwell instance
-  deploy       Deploy a kit from a directory`
+  pull         Pull a kit from a remote Gravwell instance
+  push         Push a kit built from a local directory`
 )
 
 var (

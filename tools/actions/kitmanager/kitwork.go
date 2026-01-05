@@ -20,10 +20,10 @@ import (
 	"github.com/gravwell/gravwell/v3/client/types"
 )
 
-// syncKit reaches out to the remote Gravwell instance and performs a kit build using the existing kit build request
+// pullKit reaches out to the remote Gravwell instance and performs a kit build using the existing kit build request
 // as a template.  It scans all the types and looks for any items that contain the kit label and adds them to the KBR.
-func syncKit(cli *client.Client, kbrBase types.KitBuildRequest) (err error) {
-
+// It then performs the build, initiates the download, and unpacks the kit to the local kit directory using kitctl.
+func pullKit(cli *client.Client, kbrBase types.KitBuildRequest) (err error) {
 	var kbr types.KitBuildRequest
 	if kbr, err = generateKitBuildRequest(cli, kbrBase); err != nil {
 		err = fmt.Errorf("failed to build kit build request: %w", err)
@@ -375,9 +375,10 @@ func getKitPlaybooks(cli *client.Client, label string, orig types.KitBuildReques
 	return
 }
 
-// deployKit builds the kit from the kit directory and pushes it to the server
-// deployKit DOES NOT increment the version number
-func deployKit(cli *client.Client, kbr types.KitBuildRequest) (err error) {
+// pushKit builds the kit from the kit directory and pushes it to the server
+// pushKit DOES NOT increment the version number and does not depend on the remote system kit build process.
+// It simply packs the local kit directory using kitctl and pushes it to the server for installation.
+func pushKit(cli *client.Client, kbr types.KitBuildRequest) (err error) {
 	fmt.Printf("Deploying kit %s version %v\n", kbr.ID, kbr.Version)
 	// create a temp file for the kit
 	var fout *os.File
