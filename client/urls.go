@@ -91,8 +91,9 @@ const (
 	SEARCH_CTRL_ENTRIES_URL          = `/api/searchctrl/%s/renderer/%s`
 	SEARCH_CTRL_IMPORT_URL           = `/api/searchctrl/import`
 	SEARCH_CTRL_LAUNCH_URL           = `/api/searchctrl/launch`
-	SEARCH_HISTORY_URL               = `/api/searchhistory/%s/%d`
-	SEARCH_HISTORY_ALL_URL           = `/api/searchhistory/all`
+	SEARCH_HISTORY_URL               = `/api/searchhistory`
+	SEARCH_HISTORY_LIST_URL          = `/api/searchhistory/list`
+	SEARCH_HISTORY_ID_URL            = `/api/searchhistory/%s`
 	NOTIFICATIONS_URL                = `/api/notifications`
 	NOTIFICATIONS_ID_URL             = `/api/notifications/%d`
 	NOTIFICATIONS_SELF_TARGETED_URL  = `/api/notifications/targeted/self`
@@ -241,8 +242,12 @@ func usersGroupIdUrl(uid, gid int32) string {
 	return fmt.Sprintf(USERS_GROUP_ID_URL, uid, gid)
 }
 
-func searchHistoryUrl(action string, id int32) string {
-	return fmt.Sprintf(SEARCH_HISTORY_URL, action, id)
+func searchHistoryIdUrl(id string) string {
+	return fmt.Sprintf(SEARCH_HISTORY_ID_URL, id)
+}
+
+func searchHistoryListUrl() string {
+	return SEARCH_HISTORY_LIST_URL
 }
 
 func groupUrl() string {

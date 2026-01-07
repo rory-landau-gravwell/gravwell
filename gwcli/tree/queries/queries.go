@@ -51,32 +51,37 @@ func past() action.Pair {
 		short   string = "display search history"
 		long    string = "display past searches made by your user"
 	)
-	var defaultColumns = []string{"UID", "GIDs", "EffectiveQuery"}
+	var defaultColumns = []string{"OwnerID", "UserQuery", "EffectiveQuery"}
 
 	return scaffoldlist.NewListAction(
 		short, long,
-		types.SearchLog{},
-		func(fs *pflag.FlagSet) ([]types.SearchLog, error) {
+		types.SearchHistoryEntry{},
+		func(fs *pflag.FlagSet) ([]types.SearchHistoryEntry, error) {
 			var (
-				toRet []types.SearchLog
+				toRet []types.SearchHistoryEntry
 				err   error
 			)
 
+			opts := &types.QueryOptions{}
 			if count, e := fs.GetInt("count"); e != nil {
 				return nil, uniques.ErrGetFlag(pastUse, err)
 			} else if count > 0 {
-				toRet, err = connection.Client.GetSearchHistoryRange(0, count)
-			} else {
-				toRet, err = connection.Client.GetSearchHistory()
+				opts.Limit = count
 			}
 
-			// check for explicit no records error
-			if err != nil && strings.Contains(err.Error(), "No record") {
-				clilog.Writer.Debugf("no records error: %v", err)
-				return []types.SearchLog{}, nil
+			resp, err := connection.Client.ListSearchHistory(opts)
+			if err != nil {
+				// check for explicit no records error
+				if strings.Contains(err.Error(), "No record") {
+					clilog.Writer.Debugf("no records error: %v", err)
+					return []types.SearchHistoryEntry{}, nil
+				}
+				return nil, err
 			}
+
+			toRet = resp.Results
 			clilog.Writer.Debugf("found %v prior searches", len(toRet))
-			return toRet, err
+			return toRet, nil
 		},
 		scaffoldlist.Options{
 			Use: pastUse, AddtlFlags: flags,
