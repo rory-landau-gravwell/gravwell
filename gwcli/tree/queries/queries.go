@@ -64,7 +64,7 @@ func past() action.Pair {
 
 			opts := &types.QueryOptions{}
 			if count, e := fs.GetInt("count"); e != nil {
-				return nil, uniques.ErrGetFlag(pastUse, err)
+				return nil, uniques.ErrGetFlag(pastUse, e)
 			} else if count > 0 {
 				opts.Limit = count
 			}
