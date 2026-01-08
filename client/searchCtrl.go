@@ -125,7 +125,7 @@ func (c *Client) ListSearchDetails() ([]types.SearchInfo, error) {
 }
 
 // GetSearchHistoryEntry retrieves a single search history entry by ID.
-// Use the include_deleted parameter to include deleted entries.
+// Use the includeDeleted parameter to include deleted entries.
 func (c *Client) GetSearchHistoryEntry(id string, includeDeleted bool) (types.SearchHistoryEntry, error) {
 	var entry types.SearchHistoryEntry
 	params := []urlParam{}
