@@ -7,7 +7,12 @@ import (
 type AssetType string
 
 const (
-	AssetMacro AssetType = "macro"
+	AssetMacro      AssetType = "macro"
+	AssetToken      AssetType = "token"
+	AssetAX         AssetType = "ax"
+	AssetSavedQuery AssetType = "saved_query"
+	AssetResource   AssetType = "resource"
+	AssetTemplate   AssetType = "template"
 )
 
 type CommonFields struct {

@@ -955,13 +955,13 @@ func (c *Client) PurgeUser(id int32) error {
 	}
 
 	//templates
-	if tmpls, err := nc.ListTemplates(); err != nil {
+	if tmpls, err := nc.ListTemplates(nil); err != nil {
 		return fmt.Errorf("Failed to get user templates %w", err)
-	} else if len(tmpls) > 0 {
-		for _, t := range tmpls {
-			if t.UID == id {
-				if err := nc.DeleteTemplate(t.GUID); err != nil {
-					return fmt.Errorf("Failed to delete user template %v %w", t.GUID, err)
+	} else if len(tmpls.Results) > 0 {
+		for _, t := range tmpls.Results {
+			if t.OwnerID == id {
+				if err := nc.DeleteTemplate(t.ID); err != nil {
+					return fmt.Errorf("Failed to delete user template %v %w", t.OwnerID, err)
 				}
 			}
 		}

@@ -162,6 +162,7 @@ const (
 	EXTRACTORS_ENGINES_URL           = `/api/autoextractors/engines`
 	EXPLORE_GENERATE_URL             = `/api/explore/generate`
 	TEMPLATES_URL                    = "/api/templates"
+	TEMPLATES_LIST_URL               = "/api/templates/list"
 	TEMPLATES_ID_URL                 = "/api/templates/%s"
 	TEMPLATES_ID_DETAILS_URL         = "/api/templates/%s/details"
 	PIVOTS_URL                       = "/api/pivots"
@@ -582,6 +583,10 @@ func exploreGenerateUrl() string {
 
 func templatesUrl() string {
 	return TEMPLATES_URL
+}
+
+func templateUrl(id string) string {
+	return fmt.Sprintf(TEMPLATES_ID_URL, id)
 }
 
 func templatesGuidUrl(guid uuid.UUID) string {
