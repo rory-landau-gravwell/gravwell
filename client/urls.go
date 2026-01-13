@@ -589,10 +589,6 @@ func templateUrl(id string) string {
 	return fmt.Sprintf(TEMPLATES_ID_URL, id)
 }
 
-func templatesGuidUrl(guid uuid.UUID) string {
-	return fmt.Sprintf(TEMPLATES_ID_URL, guid)
-}
-
 func pivotsUrl() string {
 	return PIVOTS_URL
 }
