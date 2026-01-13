@@ -961,7 +961,7 @@ func (c *Client) PurgeUser(id int32) error {
 		for _, t := range tmpls.Results {
 			if t.OwnerID == id {
 				if err := nc.DeleteTemplate(t.ID); err != nil {
-					return fmt.Errorf("Failed to delete user template %v %w", t.OwnerID, err)
+					return fmt.Errorf("Failed to delete user template %v %w", t.ID, err)
 				}
 			}
 		}
