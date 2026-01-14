@@ -993,12 +993,14 @@ type TokenCreate struct {
 	Capabilities []string  `json:"capabilities"`
 }
 
+// TokenRegeneration is the structure used to request regeneration of an existing token
 type TokenRegeneration struct {
 	Expires time.Time `json:"expiresAt,omitempty"`
 }
 
 // TokenFull represents the response value for a token create request
-// this type is the only type that contains the token value and is ONLY provided when creating a new token
+// this type is the only type that contains the token value and is
+// ONLY provided when creating a new token or regenerating a token
 type TokenFull struct {
 	Token
 	Value string `json:"token"`
