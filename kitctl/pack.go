@@ -289,10 +289,10 @@ func writeTemplate(dir string, name string, x types.PackedUserTemplate) error {
 	// Now drop two files: .meta and .query
 	queryPath := filepath.Join(p, fmt.Sprintf("%v.query", name))
 	metaPath := filepath.Join(p, fmt.Sprintf("%v.meta", name))
-	if err := os.WriteFile(queryPath, []byte(x.Data.Query), 0644); err != nil {
+	if err := os.WriteFile(queryPath, []byte(x.Query), 0644); err != nil {
 		return err
 	}
-	x.Data.Query = ``
+	x.Query = ``
 	mb, err := json.MarshalIndent(x, "", "	")
 	if err != nil {
 		return err
@@ -317,7 +317,7 @@ func readTemplate(dir, name string) (x types.PackedUserTemplate, err error) {
 	// Now read the contents and insert it
 	bts, err = os.ReadFile(queryPath)
 	if err == nil {
-		x.Data.Query = string(bts)
+		x.Query = string(bts)
 	} else if os.IsNotExist(err) {
 		err = nil
 	}

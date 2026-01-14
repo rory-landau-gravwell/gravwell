@@ -113,157 +113,33 @@ func (t *Thing) DecodeContents(obj interface{}) error {
 	return nil
 }
 
-// TemplateContents is what goes in the template's Contents field. This is entirely
-// the domain of the GUI.
-type TemplateContents struct {
-	Query     string             `json:"query,omitempty"`
-	Variables []TemplateVariable `json:"variables"`
-}
-
-type TemplateVariable struct {
-	Name         string `json:"name"`
-	Label        string `json:"label"`
-	Description  string `json:"description"`
-	Required     bool   `json:"required"`
-	DefaultValue string `json:"defaultValue"`
-	PreviewValue string `json:"previewValue"`
-}
-
-// UserTemplate is what is stored in the "thing" object, it is encoded into Contents
-type UserTemplate struct {
-	GUID        uuid.UUID
-	Name        string
-	Description string
-	Contents    TemplateContents
-	Labels      []string
-}
-
-func (t UserTemplate) WireUserTemplate(thing Thing) WireUserTemplate {
-	return WireUserTemplate{
-		GUID:        t.GUID,
-		ThingHeader: thing.Header(),
-		Updated:     thing.Updated,
-		Labels:      t.Labels,
-		Name:        t.Name,
-		Description: t.Description,
-		Contents:    t.Contents,
-	}
-}
-
-// WireUserTemplate is constructed from the UserTemplate and the details in the Thing
-// struct. This is what we send to the user via the API.
-type WireUserTemplate struct {
-	ThingHeader
-	GUID        uuid.UUID
-	Name        string
-	Description string
-	Contents    TemplateContents
-	Updated     time.Time
-	Labels      []string
-}
-
-func (w WireUserTemplate) UserTemplate() (ut UserTemplate) {
-	return UserTemplate{
-		GUID:        w.GUID,
-		Name:        w.Name,
-		Description: w.Description,
-		Contents:    w.Contents,
-		Labels:      w.Labels,
-	}
-}
-
-func (w WireUserTemplate) Thing() (t Thing, err error) {
-	t.UUID = w.ThingUUID
-	t.UID = w.UID
-	t.GIDs = w.GIDs
-	t.Global = w.Global
-	t.WriteAccess = w.WriteAccess
-	if t.WriteAccess.GIDs == nil {
-		t.WriteAccess.GIDs = []int32{}
-	}
-	t.Updated = w.Updated
-	//do not set the synced value
-	err = t.EncodeContents(w.UserTemplate())
-	return
-}
-
 // PackedUserTemplate type used for templates in packages
 type PackedUserTemplate struct {
-	UUID        string
+	ID          string
 	Name        string
 	Description string
-	Data        TemplateContents
+	Query       string
+	Variables   []TemplateVariable
 	Labels      []string
 }
 
-type oldTemplateContents struct {
-	Query               string `json:"query"`
-	Variable            string `json:"variable"`
-	VariableLabel       string `json:"variableLabel"`
-	VariableDescription string `json:"variableDescription"`
-	Required            bool   `json:"required"`
-	TestValue           string `json:"testValue"`
-}
-
-type newPackedUserTemplate PackedUserTemplate
-type oldPackedUserTemplate struct {
-	UUID        string
-	Name        string
-	Description string
-	Data        oldTemplateContents
-	Labels      []string
-}
-
-func (t UserTemplate) Pack() (put PackedUserTemplate) {
-	if put.UUID = t.GUID.String(); put.UUID == `` {
-		put.UUID = uuid.New().String()
-	}
+func (t Template) Pack() (put PackedUserTemplate) {
+	put.ID = t.ID
 	put.Name = t.Name
 	put.Description = t.Description
-	put.Data = t.Contents
+	put.Query = t.Query
+	put.Variables = t.Variables
 	put.Labels = t.Labels
 	return
 }
 
-func (put *PackedUserTemplate) UnmarshalJSON(data []byte) error {
-	// First try the current type
-	var nt newPackedUserTemplate
-	if err := json.Unmarshal(data, &nt); err != nil {
-		// something is majorly wrong.
-		return err
-	}
-	if len(nt.Data.Variables) > 0 {
-		*put = PackedUserTemplate(nt)
-		return nil
-	}
-	// If there are no variables in the result, try the old way.
-	var ot oldPackedUserTemplate
-	if err := json.Unmarshal(data, &ot); err != nil {
-		// something is majorly wrong.
-		return err
-	}
-	put.UUID = ot.UUID
-	put.Name = ot.Name
-	put.Description = ot.Description
-	put.Labels = ot.Labels
-	put.Data.Query = ot.Data.Query
-	put.Data.Variables = []TemplateVariable{{
-		Name:         ot.Data.Variable,
-		Label:        ot.Data.VariableLabel,
-		Description:  ot.Data.VariableDescription,
-		Required:     ot.Data.Required,
-		DefaultValue: ot.Data.TestValue,
-	}}
-	return nil
-}
-
 func (put *PackedUserTemplate) JSONMetadata() (json.RawMessage, error) {
 	b, err := json.Marshal(&struct {
-		UUID        string
+		ID          string
 		Name        string
 		Description string
 	}{
-		UUID:        put.UUID,
+		ID:          put.ID,
 		Name:        put.Name,
 		Description: put.Description,
 	})
