@@ -135,7 +135,7 @@ type KitBuildRequest struct {
 	MinVersion        CanonicalVersion  `json:",omitempty"`
 	MaxVersion        CanonicalVersion  `json:",omitempty"`
 	Dashboards        []uint64          `json:",omitempty"`
-	Templates         []uuid.UUID       `json:",omitempty"`
+	Templates         []string          `json:",omitempty"`
 	Pivots            []uuid.UUID       `json:",omitempty"`
 	Resources         []string          `json:",omitempty"`
 	ScheduledSearches []int32           `json:",omitempty"`
@@ -272,8 +272,8 @@ func (pbr *KitBuildRequest) Validate() error {
 		}
 	}
 	for i := range pbr.Templates {
-		if pbr.Templates[i] == uuid.Nil {
-			return errors.New("Zero UUID in templates list")
+		if pbr.Templates[i] == "" {
+			return errors.New("Invalid template ID")
 		}
 	}
 	for i := range pbr.Pivots {
