@@ -1,0 +1,36 @@
+//go:build linux
+
+/*************************************************************************
+ * Copyright 2026 Gravwell, Inc. All rights reserved.
+ * Contact: <legal@gravwell.io>
+ *
+ * This software may be modified and distributed under the terms of the
+ * BSD 2-clause license. See the LICENSE file for details.
+ **************************************************************************/
+
+// Package fs provides utilities related to the OS file system.
+package fs
+
+import (
+	"errors"
+	"os"
+)
+
+const (
+	temporaryDir         string = `/run/`
+	temporaryDirFallBack string = `/dev/shm/`
+)
+
+var tempDir string
+
+func tempDirImpl() string {
+	if tempDir != "" {
+		return tempDir
+	}
+
+	if f, err := os.Stat(temporaryDir); errors.Is(err, os.ErrNotExist) || !f.IsDir() {
+		tempDir = temporaryDirFallBack
+	}
+
+	return tempDir
+}
