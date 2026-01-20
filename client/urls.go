@@ -50,7 +50,6 @@ const (
 	USERS_LOCKED_URL                 = `/api/users/%d/locked`
 	USERS_DASHBOARD_URL              = `/api/users/%d/dashboards`
 	USERS_PREFS_URL                  = `/api/users/%d/preferences`
-	USERS_ALL_PREFS_URL              = `/api/users/preferences`
 	USERS_ADMIN_URL                  = `/api/users/%d/admin`
 	USERS_ADMIN_SU_PATH              = `/api/users/su/%d`
 	USER_SESSIONS_URL                = `/api/users/%d/sessions`
@@ -206,6 +205,9 @@ const (
 	ALERTS_ID_SAMPLE_URL             = `/api/alerts/%s/sample`
 	ALERTS_VALIDATE_DISPATCHER_URL   = `/api/alerts/validate/dispatcher`
 	ALERTS_VALIDATE_CONSUMER_URL     = `/api/alerts/validate/consumer`
+	USER_PREFERENCES_URL             = `/api/userpreferences`
+	USER_PREFERENCES_LIST_URL        = `/api/userpreferences/list`
+	USER_PREFERENCES_ID_URL          = `/api/userpreferences/%s`
 	// Special APIs for installing licenses
 	LICENSE_INIT_UPLOAD = `/license`
 	LICENSE_INIT_STATUS = `/license/status`
@@ -349,10 +351,6 @@ func sessionsUrl(id int32) string {
 
 func preferencesUrl(id int32) string {
 	return fmt.Sprintf(USERS_PREFS_URL, id)
-}
-
-func allPreferencesUrl() string {
-	return USERS_ALL_PREFS_URL
 }
 
 func notificationsUrl(id uint64) string {
@@ -738,4 +736,8 @@ func mfaClearAllUrl() string {
 
 func mfaGenerateRecoveryCodesUrl() string {
 	return MFA_RECOVERY_GENERATE_PATH
+}
+
+func userPreferenceUrl(id string) string {
+	return fmt.Sprintf(USER_PREFERENCES_ID_URL, id)
 }

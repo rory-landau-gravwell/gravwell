@@ -439,46 +439,6 @@ func (c *Client) Sessions(id int32) ([]types.Session, error) {
 
 }
 
-// GetPreferences fetches the preferences structure for the user and unpacks them into obj.
-func (c *Client) GetPreferences(id int32, obj interface{}) error {
-	return c.getStaticURL(preferencesUrl(id), obj)
-}
-
-// DeletePreferences clear's the specified user's preferences.
-func (c *Client) DeletePreferences(id int32) error {
-	return c.deleteStaticURL(preferencesUrl(id), nil)
-}
-
-// GetMyPreferences gets the current user's preferences into obj.
-func (c *Client) GetMyPreferences(obj interface{}) error {
-	if c.userDetails.ID == 0 {
-		return ErrNotSynced
-	}
-	return c.GetPreferences(c.userDetails.ID, obj)
-}
-
-// PutPreferences updates the specified user's preferences with obj.
-func (c *Client) PutPreferences(id int32, obj interface{}) error {
-	return c.putStaticURL(preferencesUrl(id), obj)
-}
-
-// PutMyPreferences updates the current user's preferences with obj.
-func (c *Client) PutMyPreferences(obj interface{}) error {
-	if c.userDetails.ID == 0 {
-		return ErrNotSynced
-	}
-	return c.putStaticURL(preferencesUrl(c.userDetails.ID), obj)
-}
-
-// GetAllPreferences (admin-only) fetches preferences for all users.
-func (c *Client) GetAllPreferences() (types.UserPreferences, error) {
-	var prefs types.UserPreferences
-	if err := c.getStaticURL(allPreferencesUrl(), &prefs); err != nil {
-		return nil, err
-	}
-	return prefs, nil
-}
-
 // GetLicenseInfo returns information about the currently installed license.
 func (c *Client) GetLicenseInfo() (li types.LicenseInfo, err error) {
 	err = c.getStaticURL(licenseInfoUrl(), &li)
@@ -1007,8 +967,16 @@ func (c *Client) PurgeUser(id int32) error {
 	}
 
 	//preferences
-	if err := nc.DeletePreferences(id); err != nil {
-		return fmt.Errorf("Failed to purge user preferences %d %w", id, err)
+	if prefs, err := nc.ListUserPreferences(nil); err != nil {
+		return fmt.Errorf("Failed to get user preferences list %w", err)
+	} else if len(prefs.Results) > 0 {
+		for _, p := range prefs.Results {
+			if p.OwnerID == id {
+				if err := nc.DeleteUserPreference(p.ID); err != nil {
+					return fmt.Errorf("Failed to delete user preference %v %w", p.ID, err)
+				}
+			}
+		}
 	}
 
 	if err := nc.Close(); err != nil {
