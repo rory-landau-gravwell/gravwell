@@ -115,7 +115,7 @@ func (c *Client) DeleteGuiPreferences(id int32) error {
 	return c.deleteStaticURL(preferencesUrl(id), nil)
 }
 
-// PutPreferences updates the Data field of the preferences object
+// PutGuiPreferences updates the Data field of the preferences object
 // named `prefs` belonging to the specified user.
 func (c *Client) PutGuiPreferences(id int32, obj interface{}) error {
 	return c.putStaticURL(preferencesUrl(id), obj)
