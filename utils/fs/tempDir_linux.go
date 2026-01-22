@@ -21,16 +21,14 @@ const (
 	temporaryDirFallBack string = `/dev/shm/`
 )
 
-var tempDir string
+var tempDir = temporaryDir
 
-func tempDirImpl() string {
-	if tempDir != "" {
-		return tempDir
-	}
-
-	if f, err := os.Stat(temporaryDir); errors.Is(err, os.ErrNotExist) || !f.IsDir() {
+func init() {
+	if f, err := os.Stat(tempDir); errors.Is(err, os.ErrNotExist) || !f.IsDir() {
 		tempDir = temporaryDirFallBack
 	}
+}
 
+func tempDirImpl() string {
 	return tempDir
 }

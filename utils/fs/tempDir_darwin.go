@@ -11,5 +11,5 @@
 package fs
 
 func tempDirImpl() string {
-	return `/tmp/`
+	return "/tmp/"
 }

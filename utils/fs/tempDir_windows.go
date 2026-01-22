@@ -19,19 +19,15 @@ const (
 	temporaryDirFallBack string = `C:\ProgramData\`
 )
 
-var tempDir string
+var tempDir string = temporaryDirFallBack
 
-func tempDirImpl() string {
-	if tempDir != "" {
-		return tempDir
-	}
-
+func init() {
 	// Use the ProgramData environment variable (typically C:\ProgramData)
 	if pd := os.Getenv("ProgramData"); pd != "" {
 		tempDir = filepath.Clean(pd) + string(filepath.Separator)
-	} else {
-		tempDir = temporaryDirFallBack
 	}
+}
 
+func tempDirImpl() string {
 	return tempDir
 }
