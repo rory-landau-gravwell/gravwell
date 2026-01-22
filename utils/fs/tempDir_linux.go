@@ -12,7 +12,6 @@
 package fs
 
 import (
-	"errors"
 	"os"
 )
 
