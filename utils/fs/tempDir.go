@@ -16,7 +16,7 @@ package fs
 // Linux systems often mount /run/ and /dev/shm/ as RAM-backed tmpfs filesystems
 // for better performance.
 //
-// On macOS, this returns /tmp/. 
+// On macOS, this returns /tmp/.
 //
 // On Windows, this returns the ProgramData directory (typically C:\ProgramData).
 // See: https://learn.microsoft.com/en-us/windows/win32/shell/knownfolderid#FOLDERID_ProgramData

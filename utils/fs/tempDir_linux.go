@@ -24,7 +24,7 @@ const (
 var tempDir = temporaryDir
 
 func init() {
-	if f, err := os.Stat(tempDir); errors.Is(err, os.ErrNotExist) || !f.IsDir() {
+	if f, err := os.Stat(tempDir); err != nil || !f.IsDir() {
 		tempDir = temporaryDirFallBack
 	}
 }
