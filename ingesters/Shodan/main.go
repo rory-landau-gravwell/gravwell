@@ -25,7 +25,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path"
+	"path/filepath"
 	"runtime/debug"
 	"sync"
 	"syscall"
@@ -90,7 +90,7 @@ func init() {
 	lg = log.New(os.Stderr) // DO NOT close this, it will prevent backtraces from firing
 	lg.SetAppname(appName)
 	if *stderrOverride != `` {
-		fp := path.Join(fs.TempDir(), *stderrOverride)
+		fp := filepath.Join(fs.TempDir(), *stderrOverride)
 		fout, err := os.Create(fp)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to create %s: %v\n", fp, err)
