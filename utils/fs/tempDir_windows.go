@@ -22,9 +22,13 @@ const (
 var tempDir string = temporaryDirFallBack
 
 func init() {
-	// Use the ProgramData environment variable (typically C:\ProgramData)
+	// Use the ProgramData environment variable (typically C:\ProgramData\)
 	if pd := os.Getenv("ProgramData"); pd != "" {
-		tempDir = filepath.Clean(pd) + string(filepath.Separator)
+		tempDir = filepath.Clean(pd)
+	}
+
+	if tempDir[len(tempDir)-1] != filepath.Separator {
+		tempDir += string(filepath.Separator)
 	}
 }
 
