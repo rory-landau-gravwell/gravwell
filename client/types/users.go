@@ -67,15 +67,6 @@ func DecodeSession(b []byte) (*Session, error) {
 	return &s, nil
 }
 
-type UserPreference struct {
-	UID     int32
-	Name    string
-	Updated time.Time
-	Data    []byte
-	Synced  bool
-}
-type UserPreferences []UserPreference
-
 type UserSessions struct {
 	UID      int32
 	User     string
@@ -348,13 +339,6 @@ func (ud *UserDetails) ClearSecrets() {
 	ud.MFA.ClearSecrets()
 }
 
-func (ups UserPreferences) MarshalJSON() ([]byte, error) {
-	if len(ups) == 0 {
-		return emptyList, nil
-	}
-	return json.Marshal([]UserPreference(ups))
-}
-
 // MarshalJSON marshaller hacks to get it to return [] on empty lists
 func (ud UserDetails) MarshalJSON() ([]byte, error) {
 	type alias UserDetails
@@ -541,4 +525,15 @@ func (g *Group) GetOld() GroupDetails {
 		Name: g.Name,
 		Desc: g.Description,
 	}
+}
+
+type UserPreference struct {
+	CommonFields
+
+	Data []byte
+}
+
+type UserPreferenceResponse struct {
+	BaseListResponse
+	Results []UserPreference `json:"results"`
 }

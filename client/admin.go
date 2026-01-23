@@ -439,46 +439,6 @@ func (c *Client) Sessions(id int32) ([]types.Session, error) {
 
 }
 
-// GetPreferences fetches the preferences structure for the user and unpacks them into obj.
-func (c *Client) GetPreferences(id int32, obj interface{}) error {
-	return c.getStaticURL(preferencesUrl(id), obj)
-}
-
-// DeletePreferences clear's the specified user's preferences.
-func (c *Client) DeletePreferences(id int32) error {
-	return c.deleteStaticURL(preferencesUrl(id), nil)
-}
-
-// GetMyPreferences gets the current user's preferences into obj.
-func (c *Client) GetMyPreferences(obj interface{}) error {
-	if c.userDetails.ID == 0 {
-		return ErrNotSynced
-	}
-	return c.GetPreferences(c.userDetails.ID, obj)
-}
-
-// PutPreferences updates the specified user's preferences with obj.
-func (c *Client) PutPreferences(id int32, obj interface{}) error {
-	return c.putStaticURL(preferencesUrl(id), obj)
-}
-
-// PutMyPreferences updates the current user's preferences with obj.
-func (c *Client) PutMyPreferences(obj interface{}) error {
-	if c.userDetails.ID == 0 {
-		return ErrNotSynced
-	}
-	return c.putStaticURL(preferencesUrl(c.userDetails.ID), obj)
-}
-
-// GetAllPreferences (admin-only) fetches preferences for all users.
-func (c *Client) GetAllPreferences() (types.UserPreferences, error) {
-	var prefs types.UserPreferences
-	if err := c.getStaticURL(allPreferencesUrl(), &prefs); err != nil {
-		return nil, err
-	}
-	return prefs, nil
-}
-
 // GetLicenseInfo returns information about the currently installed license.
 func (c *Client) GetLicenseInfo() (li types.LicenseInfo, err error) {
 	err = c.getStaticURL(licenseInfoUrl(), &li)
@@ -914,12 +874,12 @@ func (c *Client) PurgeUser(id int32) error {
 	}
 
 	//macros
-	if ms, err := nc.ListMacros(nil); err != nil {
+	if ms, err := nc.ListMacros(&types.QueryOptions{OwnerID: id, IncludeDeleted: true}); err != nil {
 		return fmt.Errorf("Failed to list macros %w", err)
 	} else if len(ms.Results) > 0 {
 		for _, p := range ms.Results {
 			if p.OwnerID == id {
-				if err = nc.DeleteMacro(p.ID); err != nil {
+				if err = nc.PurgeMacro(p.ID); err != nil {
 					return fmt.Errorf("Failed to delete user macro %v - %w", p.ID, err)
 				}
 			}
@@ -927,7 +887,7 @@ func (c *Client) PurgeUser(id int32) error {
 	}
 
 	//API tokens
-	if toks, err := nc.ListTokens(&types.QueryOptions{IncludeDeleted: true}); err != nil {
+	if toks, err := nc.ListTokens(&types.QueryOptions{OwnerID: id, IncludeDeleted: true}); err != nil {
 		return fmt.Errorf("failed to get user API tokens %w", err)
 	} else if len(toks.Results) > 0 {
 		for _, t := range toks.Results {
@@ -940,12 +900,12 @@ func (c *Client) PurgeUser(id int32) error {
 	}
 
 	//extractors
-	if exts, err := nc.ListExtractions(nil); err != nil {
+	if exts, err := nc.ListExtractions(&types.QueryOptions{OwnerID: id, IncludeDeleted: true}); err != nil {
 		return fmt.Errorf("Failed to get user autoextractors %w", err)
 	} else if len(exts.Results) > 0 {
 		for _, e := range exts.Results {
 			if e.OwnerID == id {
-				if _, err := nc.DeleteExtraction(e.ID); err != nil {
+				if _, err := nc.PurgeExtraction(e.ID); err != nil {
 					return fmt.Errorf("Failed to delete user extraction %v - %w", e.ID, err)
 				}
 			}
@@ -953,12 +913,12 @@ func (c *Client) PurgeUser(id int32) error {
 	}
 
 	//resources
-	if rsr, err := nc.ListResources(nil); err != nil {
+	if rsr, err := nc.ListResources(&types.QueryOptions{OwnerID: id, IncludeDeleted: true}); err != nil {
 		return fmt.Errorf("Failed to get user resource list %w", err)
 	} else if len(rsr.Results) > 0 {
 		for _, r := range rsr.Results {
 			if r.OwnerID == id {
-				if err := nc.DeleteResource(r.ID); err != nil {
+				if err := nc.PurgeResource(r.ID); err != nil {
 					return fmt.Errorf("Failed to delete user resource %v %w", r.ID, err)
 				}
 			}
@@ -966,12 +926,12 @@ func (c *Client) PurgeUser(id int32) error {
 	}
 
 	//templates
-	if tmpls, err := nc.ListTemplates(nil); err != nil {
+	if tmpls, err := nc.ListTemplates(&types.QueryOptions{OwnerID: id, IncludeDeleted: true}); err != nil {
 		return fmt.Errorf("Failed to get user templates %w", err)
 	} else if len(tmpls.Results) > 0 {
 		for _, t := range tmpls.Results {
 			if t.OwnerID == id {
-				if err := nc.DeleteTemplate(t.ID); err != nil {
+				if err := nc.PurgeTemplate(t.ID); err != nil {
 					return fmt.Errorf("Failed to delete user template %v %w", t.ID, err)
 				}
 			}
@@ -1005,12 +965,12 @@ func (c *Client) PurgeUser(id int32) error {
 	}
 
 	//query library
-	if sls, err := nc.ListSavedQueries(nil); err != nil {
+	if sls, err := nc.ListSavedQueries(&types.QueryOptions{OwnerID: id, IncludeDeleted: true}); err != nil {
 		return fmt.Errorf("Failed to get user search library list %w", err)
 	} else if len(sls.Results) > 0 {
 		for _, sl := range sls.Results {
 			if sl.OwnerID == id {
-				if err := nc.DeleteSavedQuery(sl.ID); err != nil {
+				if err := nc.PurgeSavedQuery(sl.ID); err != nil {
 					return fmt.Errorf("Failed to delete user search library %v %w", sl.ID, err)
 				}
 			}
@@ -1018,8 +978,16 @@ func (c *Client) PurgeUser(id int32) error {
 	}
 
 	//preferences
-	if err := nc.DeletePreferences(id); err != nil {
-		return fmt.Errorf("Failed to purge user preferences %d %w", id, err)
+	if prefs, err := nc.ListUserPreferences(&types.QueryOptions{OwnerID: id, IncludeDeleted: true}); err != nil {
+		return fmt.Errorf("Failed to get user preferences list %w", err)
+	} else if len(prefs.Results) > 0 {
+		for _, p := range prefs.Results {
+			if p.OwnerID == id {
+				if err := nc.PurgeUserPreference(p.ID); err != nil {
+					return fmt.Errorf("Failed to delete user preference %v %w", p.ID, err)
+				}
+			}
+		}
 	}
 
 	if err := nc.Close(); err != nil {
