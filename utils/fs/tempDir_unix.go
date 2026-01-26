@@ -1,4 +1,4 @@
-//go:build linux
+//go:build unix
 
 /*************************************************************************
  * Copyright 2026 Gravwell, Inc. All rights reserved.
@@ -8,7 +8,6 @@
  * BSD 2-clause license. See the LICENSE file for details.
  **************************************************************************/
 
-// Package fs provides utilities related to the OS file system.
 package fs
 
 import (
@@ -16,11 +15,10 @@ import (
 )
 
 const (
-	temporaryDir         string = `/run/`
-	temporaryDirFallBack string = `/dev/shm/`
+	temporaryDirFallBack string = "/tmp/"
 )
 
-var tempDir = temporaryDir
+var tempDir = "/opt/gravwell/run/"
 
 func init() {
 	if f, err := os.Stat(tempDir); err != nil || !f.IsDir() {

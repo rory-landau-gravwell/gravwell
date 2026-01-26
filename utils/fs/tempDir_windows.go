@@ -12,26 +12,8 @@ package fs
 
 import (
 	"os"
-	"path/filepath"
 )
-
-const (
-	temporaryDirFallBack string = `C:\ProgramData\`
-)
-
-var tempDir string = temporaryDirFallBack
-
-func init() {
-	// Use the ProgramData environment variable (typically C:\ProgramData\)
-	if pd := os.Getenv("ProgramData"); pd != "" {
-		tempDir = filepath.Clean(pd)
-	}
-
-	if tempDir[len(tempDir)-1] != filepath.Separator {
-		tempDir += string(filepath.Separator)
-	}
-}
 
 func tempDirImpl() string {
-	return tempDir
+	return os.TempDir()
 }

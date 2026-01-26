@@ -12,16 +12,11 @@ package fs
 // TempDir returns a consistent platform-specific temporary directory for Gravwell.
 // The returned path is guaranteed to be the same across multiple runs on the same system.
 //
-// On Linux, this returns /run/ (or /dev/shm/ as a fallback if /run/ doesn't exist).
-// Linux systems often mount /run/ and /dev/shm/ as RAM-backed tmpfs filesystems
-// for better performance.
+// On Unix-based systems (Linux, macOS), this returns /opt/gravwell/run/ (or /tmp/ as fallback
+// if /opt/gravwell/run doesn't exist). This path is used for non-install scripts like ingesters,
+// indexers, and other runtime components.
 //
-// On macOS, this returns /tmp/.
-//
-// On Windows, this returns the ProgramData directory (typically C:\ProgramData).
-// See: https://learn.microsoft.com/en-us/windows/win32/shell/knownfolderid#FOLDERID_ProgramData
-//
-// Windows and mac don't have RAM-backed temporary directories like Linux's /run/ or /dev/shm/.
+// On Windows, this returns the OS's temporary directory via os.TempDir().
 func TempDir() string {
 	return tempDirImpl()
 }
