@@ -42,7 +42,7 @@ func (c *Client) CreateSecret(sc types.SecretCreate) (sf types.Secret, err error
 	return
 }
 
-// SecretInfo fetches information about a particular Secret.
+// GetSecret fetches information about a particular Secret.
 // The actual secret string will not be returned.
 func (c *Client) GetSecret(id string) (s types.Secret, err error) {
 	err = c.getStaticURL(secretIdUrl(id), &s)
