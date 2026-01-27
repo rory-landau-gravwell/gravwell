@@ -10,7 +10,8 @@ package types
 
 // Secret is the metadata associated with a secret. It contains
 // ownership information but not the associated value. This is the
-// only type that will be *returned* by any APIs.
+// primary type that will be returned by standard user APIs; the SecretFull
+// type is only returned via a special searchagent-specific endpoint.
 type Secret struct {
 	CommonFields
 }
