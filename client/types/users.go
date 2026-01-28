@@ -530,7 +530,7 @@ func (g *Group) GetOld() GroupDetails {
 type UserPreference struct {
 	CommonFields
 
-	Data []byte
+	Data RawObject
 }
 
 type UserPreferenceResponse struct {
