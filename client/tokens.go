@@ -64,12 +64,6 @@ func (c *Client) UpdateToken(id string, tr types.TokenCreate) (t types.Token, er
 	return
 }
 
-func (c *Client) RegenToken(id string, tr types.TokenRegeneration) (t types.TokenFull, err error) {
-	err = c.methodStaticPushURL(http.MethodPatch, tokenIdUrl(id), tr, &t, []int{http.StatusOK}, nil)
-	return
-}
-
-// DeleteToken marks a token as deleted.
 func (c *Client) DeleteToken(id string) (err error) {
 	return c.methodStaticPushURL(http.MethodDelete, tokenIdUrl(id), nil, nil, []int{http.StatusNoContent}, nil)
 }
