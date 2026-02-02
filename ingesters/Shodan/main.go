@@ -39,7 +39,6 @@ import (
 	"github.com/gravwell/gravwell/v4/ingest/entry"
 	"github.com/gravwell/gravwell/v4/ingest/log"
 	"github.com/gravwell/gravwell/v4/ingesters/version"
-	"github.com/gravwell/gravwell/v4/utils/fs"
 	"github.com/gravwell/jsonparser"
 
 	gravwelldebug "github.com/gravwell/gravwell/v4/debug"
