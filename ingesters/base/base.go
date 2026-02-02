@@ -93,7 +93,7 @@ func Init(ibc IngesterBaseConfig) (ib IngesterBase, err error) {
 
 	var fp string
 	if pth := filepath.Clean(*stderrOverride); pth != `` && pth != `.` {
-		fp = filepath.Join(fs.TempDir(), pth)
+		fp = filepath.Join(os.TempDir(), pth)
 		ib.emitUUID = true
 	}
 	cb := func(w io.Writer) {
