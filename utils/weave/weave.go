@@ -685,8 +685,3 @@ func buildColumnMap(st any, columns []string) (columnMap map[string][]int) {
 	}
 	return
 }
-
-// main enables weave to be built so its stringer capabilities can be used for go generate.
-func main() {
-
-}
