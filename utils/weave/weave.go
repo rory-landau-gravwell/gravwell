@@ -41,11 +41,28 @@ func errFailedKindAssert(assertType string, kind string) error {
 // As Go variable names cannot include '.', you must provide a rune to replace them with.
 // This should probably be '_'.
 //
+// If prefix is set, each variable (left-side) will be prefixed with the package name and struct name.
+//
 // ! StringMapStruct does *not* return valid Go.
 // It only returns the body of a const(<>) declaration.
 //
+//	type too struct {
+//		mu fauxInt
+//		yu int16
+//	}
+//
+// will turn into:
+//
+//	mu string = "mu"
+//	yu string = "yu"
+//
+// or
+//
+//	weave_too_mu string = "mu"
+//	weave_too_yu string = "yu"
+//
 // Leverages StructFields under the hood.
-func StringMapStruct(st any, dotReplacement rune) (string, error) {
+func StringMapStruct(st any, dotReplacement rune, prefix bool) (string, error) {
 
 	cols, err := StructFields(st, false)
 	if err != nil {
@@ -54,7 +71,11 @@ func StringMapStruct(st any, dotReplacement rune) (string, error) {
 	var sb strings.Builder
 
 	for _, col := range cols {
-		sanitized := strings.ReplaceAll(col, ".", string(dotReplacement))
+		var sanitized string = col
+		if prefix {
+			sanitized = reflect.TypeOf(st).String() + string(dotReplacement) + sanitized
+		}
+		sanitized = strings.ReplaceAll(sanitized, ".", string(dotReplacement))
 		fmt.Fprintf(&sb, "%s string = \"%s\"\n", sanitized, col)
 	}
 	// chip the last newline

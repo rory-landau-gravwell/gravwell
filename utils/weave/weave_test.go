@@ -47,24 +47,37 @@ func TestStringMapStruct(t *testing.T) {
 		name          string
 		in            any
 		dot           rune
+		prefix        bool
 		expectedError bool
 		expected      string
 	}{
-		{"single int", 5, '_', true, ""},
-		{"alias", fauxInt(3), '_', true, ""},
-		{"flat struct", too{}, '_', false,
+		{"single int",
+			5, '_', false, true, ""},
+		{"alias",
+			fauxInt(3), '_', true, true, ""},
+		{"flat struct",
+			too{}, '_', false, false,
 			"mu string = \"mu\"\n" +
 				"yu string = \"yu\""},
-		{"nested struct ('_')", outer{}, '_', false,
-			`inner_foo string = "inner.foo"
-inner_too_mu string = "inner.too.mu"
-inner_too_yu string = "inner.too.yu"
-a string = "a"
-b string = "b"
-c string = "c"
-d string = "d"
-Exported string = "Exported"`},
-		{"nested struct ('-')", outer{}, '-', false,
+		{"flat_struct with prefix",
+			too{}, '_', true, false,
+			"weave_too_mu string = \"mu\"\n" +
+				"weave_too_yu string = \"yu\""},
+		{"flat-struct-with-prefix",
+			too{}, '-', true, false,
+			"weave-too-mu string = \"mu\"\n" +
+				"weave-too-yu string = \"yu\""},
+		{"nested_struct-with-prefix",
+			outer{}, '_', true, false,
+			`weave_outer_inner_foo string = "inner.foo"
+weave_outer_inner_too_mu string = "inner.too.mu"
+weave_outer_inner_too_yu string = "inner.too.yu"
+weave_outer_a string = "a"
+weave_outer_b string = "b"
+weave_outer_c string = "c"
+weave_outer_d string = "d"
+weave_outer_Exported string = "Exported"`},
+		{"nested-struct", outer{}, '-', false, false,
 			`inner-foo string = "inner.foo"
 inner-too-mu string = "inner.too.mu"
 inner-too-yu string = "inner.too.yu"
@@ -77,7 +90,7 @@ Exported string = "Exported"`},
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := StringMapStruct(tt.in, tt.dot)
+			actual, err := StringMapStruct(tt.in, tt.dot, tt.prefix)
 			if err != nil {
 				if tt.expectedError {
 					return
@@ -85,7 +98,7 @@ Exported string = "Exported"`},
 				t.Fatal(err)
 			}
 			if actual != tt.expected {
-				t.Fatalf("Expected: '%s'\n, Actual: '%s'", tt.expected, actual)
+				t.Fatalf("Expected: '%s'\nActual: '%s'", tt.expected, actual)
 			}
 		})
 	}
