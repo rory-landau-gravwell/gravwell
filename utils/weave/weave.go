@@ -6,7 +6,9 @@
  * BSD 2-clause license. See the LICENSE file for details.
  **************************************************************************/
 
-// Package weave consumes arbitrary structs, orchestrating them into a specified format and returning the formatted string.
+// Package weave transmogrifies Go structs into alternatives forms.
+// It is primarily used for orchestrating arbitrary types into a specified format (CSV, JSON).
+// The package also contains functionality for generating flat string mappings of dot-qualified struct fields.
 package weave
 
 import (
@@ -140,7 +142,8 @@ func typeIsAnonymous(t reflect.Type) bool {
 //	const (
 //		struct1_field1 = "field1"
 //		struct1_field2 = "field2"
-//		struct2_field1 = "field1"
+//		struct2_nestedStruct_field1 = "nestedStruct.field1"
+//		struct2_nestedStruct_field2 = "nestedStruct.field2"
 //	)
 //
 // Leverages StringMapStruct.
