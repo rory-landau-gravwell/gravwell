@@ -25,11 +25,8 @@ import (
 //#region errors
 
 const (
-	ErrNotAStruct         string = "given value is not a struct or pointer to a struct"
-	ErrStructIsNil        string = "given value is nil"
-	ErrInvalidPackageName string = "package name must be a valid Go identifier. " +
-		"See https://go.dev/ref/spec#Identifiers for more information"
-	ErrDuplicateType string = "structs must be unique to produce valid code"
+	ErrNotAStruct  string = "given value is not a struct or pointer to a struct"
+	ErrStructIsNil string = "given value is nil"
 )
 
 func errFailedKindAssert(assertType string, kind string) error {
@@ -41,13 +38,17 @@ func errFailedKindAssert(assertType string, kind string) error {
 // StringMapStruct maps the given struct's field to string versions of that field.
 // Includes all fields, exported and unexported.
 //
+// Consider GoFormatStruct instead, as that will call this *and* return valid Go.
+//
+// sts is any collection of unique struct types. It must not contain duplicate types.
+//
 // As Go variable names cannot include '.', you must provide a rune to replace them with.
 // This should probably be '_'.
 //
 // If includeStructPrefix, each variable (left-side) will be prefixed with the package name and struct name.
+// Anonymous structs will be named as anonX to ensure valid identifiers.
 //
-// ! StringMapStruct does *not* return valid Go.
-// It only returns the body of a const(<>) declaration.
+// ex:
 //
 //	type too struct {
 //		mu fauxInt
@@ -65,44 +66,58 @@ func errFailedKindAssert(assertType string, kind string) error {
 //	weave_too_yu string = "yu"
 //
 // Leverages StructFields and reflection under the hood.
-func StringMapStruct(st any, dotReplacement rune, includeStructPrefix bool) (string, error) {
-	// get field representations
-	dqFields, err := StructFields(st, false)
-	if err != nil {
-		return "", err
-	}
-
+func StringMapStruct(sts []any, dotReplacement rune, includeStructPrefix bool) (string, error) {
 	var (
-		sb        strings.Builder
-		anonCount uint // the number of anonymous structs we've seen; used to index them for uniqueness
+		sb strings.Builder
+		// the number of anonymous structs we've seen; used to index them for uniqueness
+		anonCount uint
+		// set of known structs to prevent invalid code from duplications
+		seen map[string]bool = make(map[string]bool, len(sts))
 	)
-	// string-map fields
-	for _, field := range dqFields {
-		var sanitized string = field
+
+	for _, st := range sts {
+		{ // duplicate check
+			TOStr := reflect.TypeOf(st).String()
+			if _, found := seen[TOStr]; found {
+				return "", errors.New("structs must be unique to produce valid code. Duplicate type: " + TOStr)
+			}
+			seen[TOStr] = true
+		}
+		// get field representations
+		dqFields, err := StructFields(st, false)
+		if err != nil {
+			return "", err
+		}
+		if len(dqFields) == 0 {
+			continue
+		}
+		// generate prefix, with an eye for top-level anonymous structs
+		var prefix string
 		if includeStructPrefix {
-			// need to check for anonymous structs,
-			// as their type will be "struct {x type, y type, ...}" which cannot be used as an identifier.
-			// Instead, we coerce them to anon<idx>.
-			var prfx string
 			to := reflect.TypeOf(st)
+			// anonymous structs' ToString will be "struct {x type, y type, ...}".
+			// This a valid identifier does not make.
+			// Instead, we coerce them to anon<idx>.
 			if typeIsAnonymous(to) {
-				prfx = "anon" + strconv.FormatUint(uint64(anonCount), 10)
+				prefix = "anon" + strconv.FormatUint(uint64(anonCount), 10)
 				anonCount += 1
 			} else {
-				prfx = to.String()
+				prefix = to.String()
 			}
-			sanitized = prfx + string(dotReplacement) + sanitized
+			prefix += string(dotReplacement)
 		}
-		sanitized = strings.ReplaceAll(sanitized, ".", string(dotReplacement))
-		fmt.Fprintf(&sb, "%s string = \"%s\"\n", sanitized, field)
+		// coerce and write each field
+		for _, dqField := range dqFields {
+			var variableForm string = dqField
+			variableForm = strings.ReplaceAll(prefix+variableForm, ".", string(dotReplacement))
+			fmt.Fprintf(&sb, "%s string = \"%s\"\n", variableForm, dqField)
+		}
+		// add an extra newline between elements
+		sb.WriteRune('\n')
 	}
 
-	// chip the last newline
-	s := sb.String()
-	if len(s) > 0 && s[len(s)-1] == '\n' {
-		s = s[:len(s)-1]
-	}
-	return s, nil
+	// chip newlines
+	return strings.TrimSpace(sb.String()), nil
 }
 
 // Returns if the type is named or not.
@@ -135,7 +150,8 @@ func GoFormatStruct(sts []any, dotReplacement rune, pkg string) (string, error) 
 	var pkgIdentifier = regexp.MustCompile(`^[\pL_]\w*$`)
 
 	if !pkgIdentifier.MatchString(pkg) {
-		return "", errors.New(ErrInvalidPackageName)
+		return "", errors.New("package name must be a valid Go identifier. " +
+			"See https://go.dev/ref/spec#Identifiers for more information")
 	}
 
 	var sb strings.Builder
@@ -144,23 +160,12 @@ func GoFormatStruct(sts []any, dotReplacement rune, pkg string) (string, error) 
 		"package " + pkg + "\n\n" +
 		"const (\n")
 
-	// maintain a set of known structs to prevent invalid code from duplications
-	var seen map[string]bool = make(map[string]bool, len(sts))
-
-	// fetch stringifications for each type
-	for _, st := range sts {
-		// check for duplication
-		if _, found := seen[reflect.TypeOf(st).String()]; found {
-			return "", errors.New(ErrDuplicateType)
-		}
-		seen[reflect.TypeOf(st).String()] = true
-		// stringify
-		mapped, err := StringMapStruct(st, dotReplacement, true)
-		if err != nil {
-			return "", fmt.Errorf("failed to map %v: %w", reflect.TypeOf(st), err)
-		}
-		sb.WriteString(mapped + "\n")
+	// string-map
+	maps, err := StringMapStruct(sts, dotReplacement, true)
+	if err != nil {
+		return "", err
 	}
+	sb.WriteString(maps)
 
 	sb.WriteString(")")
 
