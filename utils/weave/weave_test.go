@@ -87,6 +87,25 @@ b string = "b"
 c string = "c"
 d string = "d"
 Exported string = "Exported"`},
+		{"empty_anonymous_struct_no_prefix", struct{}{}, '_', false, false, ""},
+		{"empty_anonymous_struct_prefix", struct{}{}, '_', true, false, ""},
+		{"anonymous_struct_no_prefix", struct {
+			fauxInt
+			a int
+		}{}, '_', false, false, `fauxInt string = "fauxInt"
+a string = "a"`},
+		{"nested_anonymous_structs_prefix", struct {
+			s struct{}
+			b struct {
+				a   string
+				str string
+				st  struct {
+					z int
+				}
+			}
+		}{}, '_', true, false, `anon0_b_a string = "b.a"
+anon1_b_str string = "b.str"
+anon2_b_st_z string = "b.st.z"`},
 	}
 
 	for _, tt := range tests {
