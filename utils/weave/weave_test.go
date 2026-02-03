@@ -21,6 +21,24 @@ import (
 	"github.com/charmbracelet/lipgloss/table"
 )
 
+func TestGenerateFieldMap(t *testing.T) {
+	expected := `inner_foo string = "inner.foo"
+inner_too_mu string = "inner.too.mu"
+inner_too_yu string = "inner.too.yu"
+a string = "a"
+b string = "b"
+c string = "c"
+d string = "d"
+Exported string = "Exported"`
+	if flatVals, err := StringifyStruct(outer{}, '_'); err != nil {
+		t.Fatal(err)
+	} else if flatVals != expected {
+		t.Fatalf("Expected: '%s'\n, Actual: '%s'", expected, flatVals)
+	}
+
+	// TODO add additional tests
+}
+
 type fauxInt int
 
 type too struct {
