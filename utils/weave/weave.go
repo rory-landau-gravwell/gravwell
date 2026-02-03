@@ -130,7 +130,7 @@ func typeIsAnonymous(t reflect.Type) bool {
 	return t.Name() == "" && t.PkgPath() == ""
 }
 
-// GoFormatStruct returns a Go package with the given structs' fields string-mapped as constants.
+// GoFormatStructs returns a Go package with the given structs' fields string-mapped as constants.
 // Includes package and type prefix in variables names.
 //
 // ex:
@@ -144,7 +144,7 @@ func typeIsAnonymous(t reflect.Type) bool {
 //	)
 //
 // Leverages StringMapStruct.
-func GoFormatStruct(sts []any, dotReplacement rune, pkg string) (string, error) {
+func GoFormatStructs(sts []any, dotReplacement rune, pkg string) (string, error) {
 	// unicode property(/ies) sourced from the Perl docs: https://perldoc.perl.org/perlunicode#Unicode-Character-Properties
 	// NOTE: does not currently match some special characters despite being valid for Go's identifier rules.
 	var pkgIdentifier = regexp.MustCompile(`^[\pL_]\w*$`)

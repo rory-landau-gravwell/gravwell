@@ -1875,7 +1875,7 @@ func TestGoFormatStruct(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, gotErr := GoFormatStruct(tt.sts, tt.dotReplacement, tt.pkg)
+			got, gotErr := GoFormatStructs(tt.sts, tt.dotReplacement, tt.pkg)
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("GoFormatStruct() failed: %v", gotErr)
