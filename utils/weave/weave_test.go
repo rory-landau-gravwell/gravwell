@@ -21,24 +21,6 @@ import (
 	"github.com/charmbracelet/lipgloss/table"
 )
 
-func TestGenerateFieldMap(t *testing.T) {
-	expected := `inner_foo string = "inner.foo"
-inner_too_mu string = "inner.too.mu"
-inner_too_yu string = "inner.too.yu"
-a string = "a"
-b string = "b"
-c string = "c"
-d string = "d"
-Exported string = "Exported"`
-	if flatVals, err := StringifyStruct(outer{}, '_'); err != nil {
-		t.Fatal(err)
-	} else if flatVals != expected {
-		t.Fatalf("Expected: '%s'\n, Actual: '%s'", expected, flatVals)
-	}
-
-	// TODO add additional tests
-}
-
 type fauxInt int
 
 type too struct {
@@ -58,6 +40,55 @@ type outer struct {
 	c        *float32
 	d        string
 	Exported float64
+}
+
+func TestStringMapStruct(t *testing.T) {
+	tests := []struct {
+		name          string
+		in            any
+		dot           rune
+		expectedError bool
+		expected      string
+	}{
+		{"single int", 5, '_', true, ""},
+		{"alias", fauxInt(3), '_', true, ""},
+		{"flat struct", too{}, '_', false,
+			"mu string = \"mu\"\n" +
+				"yu string = \"yu\""},
+		{"nested struct ('_')", outer{}, '_', false,
+			`inner_foo string = "inner.foo"
+inner_too_mu string = "inner.too.mu"
+inner_too_yu string = "inner.too.yu"
+a string = "a"
+b string = "b"
+c string = "c"
+d string = "d"
+Exported string = "Exported"`},
+		{"nested struct ('-')", outer{}, '-', false,
+			`inner-foo string = "inner.foo"
+inner-too-mu string = "inner.too.mu"
+inner-too-yu string = "inner.too.yu"
+a string = "a"
+b string = "b"
+c string = "c"
+d string = "d"
+Exported string = "Exported"`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual, err := StringMapStruct(tt.in, tt.dot)
+			if err != nil {
+				if tt.expectedError {
+					return
+				}
+				t.Fatal(err)
+			}
+			if actual != tt.expected {
+				t.Fatalf("Expected: '%s'\n, Actual: '%s'", tt.expected, actual)
+			}
+		})
+	}
 }
 
 func TestToCSV(t *testing.T) {

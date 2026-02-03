@@ -37,15 +37,15 @@ func errFailedKindAssert(assertType string, kind string) error {
 
 //#endregion
 
-// StringifyStruct maps the given struct's field to string versions of that field.
+// StringMapStruct maps the given struct's field to string versions of that field.
 // As Go variable names cannot include '.', you must provide a rune to replace them with.
 // This should probably be '_'.
 //
-// ! StringifyStruct does *not* return valid Go.
+// ! StringMapStruct does *not* return valid Go.
 // It only returns the body of a const(<>) declaration.
 //
 // Leverages StructFields under the hood.
-func StringifyStruct(st any, dotReplacement rune) (string, error) {
+func StringMapStruct(st any, dotReplacement rune) (string, error) {
 
 	cols, err := StructFields(st, false)
 	if err != nil {
