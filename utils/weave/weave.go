@@ -15,6 +15,7 @@ import (
 	"go/format"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/Jeffail/gabs/v2"
@@ -38,10 +39,12 @@ func errFailedKindAssert(assertType string, kind string) error {
 //#endregion
 
 // StringMapStruct maps the given struct's field to string versions of that field.
+// Includes all fields, exported and unexported.
+//
 // As Go variable names cannot include '.', you must provide a rune to replace them with.
 // This should probably be '_'.
 //
-// If prefix is set, each variable (left-side) will be prefixed with the package name and struct name.
+// If includeStructPrefix, each variable (left-side) will be prefixed with the package name and struct name.
 //
 // ! StringMapStruct does *not* return valid Go.
 // It only returns the body of a const(<>) declaration.
@@ -61,25 +64,55 @@ func errFailedKindAssert(assertType string, kind string) error {
 //	weave_too_mu string = "mu"
 //	weave_too_yu string = "yu"
 //
-// Leverages StructFields under the hood.
-func StringMapStruct(st any, dotReplacement rune, prefix bool) (string, error) {
-
-	cols, err := StructFields(st, false)
+// Leverages StructFields and reflection under the hood.
+func StringMapStruct(st any, dotReplacement rune, includeStructPrefix bool) (string, error) {
+	// get field representations
+	dqFields, err := StructFields(st, false)
 	if err != nil {
 		return "", err
 	}
-	var sb strings.Builder
 
-	for _, col := range cols {
-		var sanitized string = col
-		if prefix {
-			sanitized = reflect.TypeOf(st).String() + string(dotReplacement) + sanitized
+	var (
+		sb        strings.Builder
+		anonCount uint // the number of anonymous structs we've seen; used to index them for uniqueness
+	)
+	// string-map fields
+	for _, field := range dqFields {
+		var sanitized string = field
+		if includeStructPrefix {
+			// need to check for anonymous structs,
+			// as their type will be "struct {x type, y type, ...}" which cannot be used as an identifier.
+			// Instead, we coerce them to anon<idx>.
+			var prfx string
+			to := reflect.TypeOf(st)
+			if typeIsAnonymous(to) {
+				prfx = "anon" + strconv.FormatUint(uint64(anonCount), 10)
+				anonCount += 1
+			} else {
+				prfx = to.String()
+			}
+			sanitized = prfx + string(dotReplacement) + sanitized
 		}
 		sanitized = strings.ReplaceAll(sanitized, ".", string(dotReplacement))
-		fmt.Fprintf(&sb, "%s string = \"%s\"\n", sanitized, col)
+		fmt.Fprintf(&sb, "%s string = \"%s\"\n", sanitized, field)
 	}
+
 	// chip the last newline
-	return sb.String()[:sb.Len()-1], nil
+	s := sb.String()
+	if len(s) > 0 && s[len(s)-1] == '\n' {
+		s = s[:len(s)-1]
+	}
+	return s, nil
+}
+
+// Returns if the type is named or not.
+// Intended for use with structs.
+// Prefer reflect.Field.Anonymous if evaluating a field.
+func typeIsAnonymous(t reflect.Type) bool {
+	// While reflect.Field has Anonymous, reflect.Type does not.
+	// Therefore, we have to rely on less direct methods.
+	// Currently soln based on: https://www.reddit.com/r/golang/comments/3ooy86/detect_an_anonymous_struct_using_reflection/
+	return t.Name() == "" && t.PkgPath() == ""
 }
 
 // GoFormatStruct returns a Go package with the given structs' fields string-mapped as constants.
