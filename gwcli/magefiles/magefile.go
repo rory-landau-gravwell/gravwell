@@ -10,9 +10,7 @@
 
 /*
 The build system for gwcli, built on Mage.
-Because it is self-contained, you can also just use go build inside of the gwcli directory
-(or go build -C gwcli from the top-level gravwell directory.)
-The Magefile serves mostly to corral the testing into a single location.
+Manages testing, code generation, and (obviously) compilation.
 
 You can use the envvar MAGEFILE_ENABLE_COLOR if you want pretty colors.
 */
@@ -27,7 +25,11 @@ import (
 	"path"
 	"time"
 
+	"github.com/dustin/go-humanize"
+	"github.com/gravwell/gravwell/v4/client/types"
+
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/cfgdir"
+	"github.com/gravwell/gravwell/v4/utils/weave"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 )
@@ -100,6 +102,33 @@ func init() {
 }
 
 //#endregion
+
+// TODO annotation
+//
+// Writes to `gwcli/internal/typemap`
+func GenerateStructMappings() error {
+	const (
+		pkg  string = "typemap"
+		path string = "./internal/" + pkg + "/typemap.go"
+	)
+	m, err := weave.GoFormatStructs([]any{types.Resource{}}, '_', pkg)
+	if err != nil {
+		return err
+	}
+
+	// write to a file, destroying any existing data
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("failed to create %v: %w\n", path, err)
+	}
+
+	if n, err := fmt.Fprintln(f, m); err != nil {
+		return err
+	} else {
+		verboseln(good(fmt.Sprintf("wrote %s to %s", humanize.Bytes(uint64(n)), path)))
+	}
+	return nil
+}
 
 // Default target to run when none is specified
 // If not set, running mage will list available targets
