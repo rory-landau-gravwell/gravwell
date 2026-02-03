@@ -54,7 +54,7 @@ func StringifyStruct(st any, dotReplacement rune) (string, error) {
 	var sb strings.Builder
 
 	for _, col := range cols {
-		sanitized := strings.ReplaceAll(col, ".", "_")
+		sanitized := strings.ReplaceAll(col, ".", string(dotReplacement))
 		fmt.Fprintf(&sb, "%s string = \"%s\"\n", sanitized, col)
 	}
 	// chip the last newline
