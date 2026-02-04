@@ -125,7 +125,9 @@ func GenerateTypeMap() error {
 		types.IdKitState{},
 		types.Resource{},
 		types.SearchHistoryEntry{},
-	}, true, '_', pkg)
+	}, true, '_', pkg,
+		" Package typemap maps struct fields to their dot-qualified paths.",
+		" It is intended to ease development of actions by regenerating field names and paths if/when the underlying structs change.")
 	if err != nil {
 		return err
 	}
