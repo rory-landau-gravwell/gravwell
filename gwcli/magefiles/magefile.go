@@ -105,12 +105,14 @@ func init() {
 
 // TODO annotation
 //
-// Writes to `gwcli/internal/typemap`
+// Writes to `gwcli/internal/typemap/typemap.go`
 func GenerateStructMappings() error {
 	const (
 		pkg  string = "typemap"
 		path string = "./internal/" + pkg + "/typemap.go"
 	)
+	// At some point, it will make more sense to give it a source file or package to scrape all types from.
+	// When that times comes, write the functionality into weave.main() so we can invoke it with `go generate` to hew closer to idiom.
 	m, err := weave.GoFormatStructs([]any{types.Resource{}}, '_', pkg)
 	if err != nil {
 		return err

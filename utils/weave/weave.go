@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/Jeffail/gabs/v2"
 	"github.com/charmbracelet/lipgloss/table"
@@ -44,6 +45,9 @@ func errFailedKindAssert(assertType string, kind string) error {
 //
 // sts is any collection of unique struct types. It must not contain duplicate types.
 //
+// exportedOnly will limit the mapped types to types that are... er... exported.
+// Setting this to false will generate string mappings for all fields, including private ones.
+//
 // As Go variable names cannot include '.', you must provide a rune to replace them with.
 // This should probably be '_'.
 //
@@ -68,7 +72,7 @@ func errFailedKindAssert(assertType string, kind string) error {
 //	weave_too_yu string = "yu"
 //
 // Leverages StructFields and reflection under the hood.
-func StringMapStruct(sts []any, dotReplacement rune, includeStructPrefix bool) (string, error) {
+func StringMapStruct(sts []any, exportedOnly bool, dotReplacement rune, includeStructPrefix bool) (string, error) {
 	var (
 		sb strings.Builder
 		// the number of anonymous structs we've seen; used to index them for uniqueness
@@ -86,7 +90,7 @@ func StringMapStruct(sts []any, dotReplacement rune, includeStructPrefix bool) (
 			seen[TOStr] = true
 		}
 		// get field representations
-		dqFields, err := StructFields(st, false)
+		dqFields, err := StructFields(st, exportedOnly)
 		if err != nil {
 			return "", err
 		}
@@ -106,12 +110,19 @@ func StringMapStruct(sts []any, dotReplacement rune, includeStructPrefix bool) (
 			} else {
 				prefix = to.String()
 			}
+			if len(prefix) < 1 { // sanity check before we futz around with indices
+				panic("impossible state: prefix is empty despite handling for anonymous structs")
+			}
 			prefix += string(dotReplacement)
 		}
 		// coerce and write each field
 		for _, dqField := range dqFields {
 			var variableForm string = dqField
+			// sanitize periods
 			variableForm = strings.ReplaceAll(prefix+variableForm, ".", string(dotReplacement))
+			// ensure the mapping is accessible
+			variableForm = string(unicode.ToUpper(rune(variableForm[0]))) + variableForm[1:]
+
 			fmt.Fprintf(&sb, "%s string = \"%s\"\n", variableForm, dqField)
 		}
 		// add an extra newline between elements
@@ -147,7 +158,7 @@ func typeIsAnonymous(t reflect.Type) bool {
 //	)
 //
 // Leverages StringMapStruct.
-func GoFormatStructs(sts []any, dotReplacement rune, pkg string) (string, error) {
+func GoFormatStructs(sts []any, exportedOnly bool, dotReplacement rune, pkg string) (string, error) {
 	// unicode property(/ies) sourced from the Perl docs: https://perldoc.perl.org/perlunicode#Unicode-Character-Properties
 	// NOTE: does not currently match some special characters despite being valid for Go's identifier rules.
 	var pkgIdentifier = regexp.MustCompile(`^[\pL_]\w*$`)
@@ -164,7 +175,7 @@ func GoFormatStructs(sts []any, dotReplacement rune, pkg string) (string, error)
 		"const (\n")
 
 	// string-map
-	maps, err := StringMapStruct(sts, dotReplacement, true)
+	maps, err := StringMapStruct(sts, exportedOnly, dotReplacement, true)
 	if err != nil {
 		return "", err
 	}

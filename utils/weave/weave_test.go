@@ -134,7 +134,7 @@ anon0_b_st_z string = "b.st.z"`},
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := StringMapStruct(tt.in, tt.dot, tt.prefix)
+			actual, err := StringMapStruct(tt.in, false, tt.dot, tt.prefix)
 			if err != nil {
 				if tt.expectedError {
 					return
@@ -148,6 +148,26 @@ anon0_b_st_z string = "b.st.z"`},
 			}
 		})
 	}
+
+	// additional tests for exportedOnly
+	st := struct {
+		Exp struct {
+			A int
+			b uint
+		}
+		unexp string
+	}{}
+	t.Run("exported only", func(t *testing.T) {
+		expected := `anon0+Exp+A = "Exp.A"`
+		actual, err := StringMapStruct([]any{st}, true, '+', true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if actual != expected {
+
+		}
+	})
+
 }
 
 func TestToCSV(t *testing.T) {
@@ -1875,7 +1895,7 @@ func TestGoFormatStruct(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, gotErr := GoFormatStructs(tt.sts, tt.dotReplacement, tt.pkg)
+			got, gotErr := GoFormatStructs(tt.sts, false, tt.dotReplacement, tt.pkg)
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("GoFormatStruct() failed: %v", gotErr)
