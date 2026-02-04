@@ -18,6 +18,8 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
 
+	. "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -54,7 +56,13 @@ func newKitsListAction() action.Pair {
 
 			return connection.Client.ListKits()
 		},
-		scaffoldlist.Options{AddtlFlags: flags, DefaultColumns: []string{"UUID", "KitState.Name", "KitState.Description", "KitState.Version"}})
+		scaffoldlist.Options{AddtlFlags: flags,
+			DefaultColumns: []string{
+				Types_IdKitState_UUID,
+				Types_IdKitState_KitState_Name,
+				Types_IdKitState_KitState_Description,
+				Types_IdKitState_KitState_Description,
+			}})
 }
 
 func flags() pflag.FlagSet {

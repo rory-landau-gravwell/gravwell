@@ -116,7 +116,16 @@ func GenerateTypeMap() error {
 	)
 	// At some point, it will make more sense to give it a source file or package to scrape all types from.
 	// When that times comes, write the functionality into weave.main() so we can invoke it with `go generate` to hew closer to idiom.
-	m, err := weave.GoFormatStructs([]any{types.Resource{}}, true, '_', pkg)
+	m, err := weave.GoFormatStructs([]any{
+		// include these mappings as
+		// . "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
+		types.AlertDefinition{},
+		types.AX{},
+		types.Dashboard{},
+		types.IdKitState{},
+		types.Resource{},
+		types.SearchHistoryEntry{},
+	}, true, '_', pkg)
 	if err != nil {
 		return err
 	}

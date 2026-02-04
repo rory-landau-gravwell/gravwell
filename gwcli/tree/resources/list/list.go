@@ -12,6 +12,7 @@ package list
 import (
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	. "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
 
@@ -21,14 +22,14 @@ import (
 
 const (
 	short string = "list resources on the system"
-	long  string = "view resources avaialble to your user and the system"
+	long  string = "view resources available to your user and the system"
 )
 
 func NewResourcesListAction() action.Pair {
 	return scaffoldlist.NewListAction(short, long,
 		types.Resource{}, list, scaffoldlist.Options{
-			DefaultColumns: []string{"ID", "Name", "Description", "Size"},
-			ColumnAliases:  map[string]string{"Name": "Name", "Size": "SizeBytes"},
+			DefaultColumns: []string{Types_Resource_CommonFields_ID, Types_Resource_CommonFields_Name, Types_Resource_CommonFields_Description, Types_Resource_Size},
+			ColumnAliases:  map[string]string{Types_Resource_CommonFields_Name: "Name", Types_Resource_Size: "SizeBytes"},
 			AddtlFlags:     flags,
 		})
 }

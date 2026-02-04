@@ -15,6 +15,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	. "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
@@ -54,7 +55,12 @@ func newExtractorsListAction() action.Pair {
 		long,
 		types.AX{},
 		list,
-		scaffoldlist.Options{AddtlFlags: flags, DefaultColumns: []string{"UID", "UUID", "Name", "Desc"}})
+		scaffoldlist.Options{AddtlFlags: flags, DefaultColumns: []string{
+			Types_AX_CommonFields_Type,
+			Types_AX_CommonFields_ID,
+			Types_AX_CommonFields_Name,
+			Types_AX_CommonFields_Description,
+		}})
 }
 
 func flags() pflag.FlagSet {
