@@ -73,6 +73,7 @@ func errFailedKindAssert(assertType string, kind string) error {
 //
 // Leverages StructFields and reflection under the hood.
 func StringMapStruct(sts []any, exportedOnly bool, dotReplacement rune, includeStructPrefix bool) (string, error) {
+	// TODO replace exportedOnly with enumerations "ExportAll", "ExportNative", "ExportNone"
 	var (
 		sb strings.Builder
 		// the number of anonymous structs we've seen; used to index them for uniqueness
@@ -145,6 +146,8 @@ func typeIsAnonymous(t reflect.Type) bool {
 
 // GoFormatStructs returns a Go package with the given structs' fields string-mapped as constants.
 // Includes package and type prefix in variables names.
+//
+// exportedOnly will only write out fields that the struct exports.
 //
 // ex:
 //

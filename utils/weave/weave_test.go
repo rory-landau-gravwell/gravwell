@@ -45,76 +45,72 @@ type outer struct {
 
 func TestStringMapStruct(t *testing.T) {
 	tests := []struct {
-		name          string
-		in            []any
+		name string
+		in   []any
+		// exportedOnly == false
 		dot           rune
 		prefix        bool
 		expectedError bool
 		expected      string
 	}{
-		{"single int",
-			[]any{5}, '_', false, true, ""},
-		{"alias",
-			[]any{fauxInt(3)}, '_', true, true, ""},
-		{"flat struct",
-			[]any{too{}}, '_', false, false,
-			"mu string = \"mu\"\n" +
-				"yu string = \"yu\""},
-		{"duplicate",
-			[]any{too{}, too{1, 2}}, '_', false, true,
-			""},
+		{"error: single int", []any{5}, '_', false, true, ""},
+		{"error: alias", []any{fauxInt(3)}, '_', true, true, ""},
+		{"flat struct", []any{too{}}, '_', false, false,
+			"Mu string = \"mu\"\n" +
+				"Yu string = \"yu\""},
+		{"error: duplicate", []any{too{}, too{1, 2}}, '_', false, true, ""},
 		{"flat-struct-with-prefix",
 			[]any{too{}}, '-', true, false,
-			"weave-too-mu string = \"mu\"\n" +
-				"weave-too-yu string = \"yu\""},
+			"Weave-too-mu string = \"mu\"\n" +
+				"Weave-too-yu string = \"yu\""},
 		{"nested_struct-with-prefix",
 			[]any{outer{}}, '_', true, false,
-			`weave_outer_inner_foo string = "inner.foo"
-weave_outer_inner_too_mu string = "inner.too.mu"
-weave_outer_inner_too_yu string = "inner.too.yu"
-weave_outer_a string = "a"
-weave_outer_b string = "b"
-weave_outer_c string = "c"
-weave_outer_d string = "d"
-weave_outer_Exported string = "Exported"`},
+			`Weave_outer_inner_foo string = "inner.foo"
+Weave_outer_inner_too_mu string = "inner.too.mu"
+Weave_outer_inner_too_yu string = "inner.too.yu"
+Weave_outer_a string = "a"
+Weave_outer_b string = "b"
+Weave_outer_c string = "c"
+Weave_outer_d string = "d"
+Weave_outer_Exported string = "Exported"`},
 		{"multiple structs", []any{outer{}, too{}, inner{}, struct{}{}, struct{ a int }{}}, '-', false, false,
-			`inner-foo string = "inner.foo"
-inner-too-mu string = "inner.too.mu"
-inner-too-yu string = "inner.too.yu"
-a string = "a"
-b string = "b"
-c string = "c"
-d string = "d"
+			`Inner-foo string = "inner.foo"
+Inner-too-mu string = "inner.too.mu"
+Inner-too-yu string = "inner.too.yu"
+A string = "a"
+B string = "b"
+C string = "c"
+D string = "d"
 Exported string = "Exported"
 
-mu string = "mu"
-yu string = "yu"
+Mu string = "mu"
+Yu string = "yu"
 
-foo string = "foo"
-too-mu string = "too.mu"
-too-yu string = "too.yu"
+Foo string = "foo"
+Too-mu string = "too.mu"
+Too-yu string = "too.yu"
 
-a string = "a"`},
+A string = "a"`},
 		{"multiple structs with prefix", []any{outer{}, too{}, inner{}, struct{}{}, struct{ a int }{}, struct{ b complex128 }{}}, '-', true, false,
-			`weave-outer-inner-foo string = "inner.foo"
-weave-outer-inner-too-mu string = "inner.too.mu"
-weave-outer-inner-too-yu string = "inner.too.yu"
-weave-outer-a string = "a"
-weave-outer-b string = "b"
-weave-outer-c string = "c"
-weave-outer-d string = "d"
-weave-outer-Exported string = "Exported"
+			`Weave-outer-inner-foo string = "inner.foo"
+Weave-outer-inner-too-mu string = "inner.too.mu"
+Weave-outer-inner-too-yu string = "inner.too.yu"
+Weave-outer-a string = "a"
+Weave-outer-b string = "b"
+Weave-outer-c string = "c"
+Weave-outer-d string = "d"
+Weave-outer-Exported string = "Exported"
 
-weave-too-mu string = "mu"
-weave-too-yu string = "yu"
+Weave-too-mu string = "mu"
+Weave-too-yu string = "yu"
 
-weave-inner-foo string = "foo"
-weave-inner-too-mu string = "too.mu"
-weave-inner-too-yu string = "too.yu"
+Weave-inner-foo string = "foo"
+Weave-inner-too-mu string = "too.mu"
+Weave-inner-too-yu string = "too.yu"
 
-anon0-a string = "a"
+Anon0-a string = "a"
 
-anon1-b string = "b"`},
+Anon1-b string = "b"`},
 		{"empty_anonymous_struct_no_prefix", []any{struct{}{}}, '_', false, false, ""},
 		{"empty_anonymous_struct_prefix", []any{struct{}{}}, '_', true, false, ""},
 		{"nested_anonymous_structs_prefix", []any{struct {
@@ -127,9 +123,9 @@ anon1-b string = "b"`},
 				}
 			}
 		}{}}, '_', true, false,
-			`anon0_b_a string = "b.a"
-anon0_b_str string = "b.str"
-anon0_b_st_z string = "b.st.z"`},
+			`Anon0_b_a string = "b.a"
+Anon0_b_str string = "b.str"
+Anon0_b_st_z string = "b.st.z"`},
 	}
 
 	for _, tt := range tests {
@@ -157,14 +153,24 @@ anon0_b_st_z string = "b.st.z"`},
 		}
 		unexp string
 	}{}
-	t.Run("exported only", func(t *testing.T) {
-		expected := `anon0+Exp+A = "Exp.A"`
+	t.Run("exported+only+with+prefix", func(t *testing.T) {
+		expected := `Anon0+Exp+A string = "Exp.A"`
 		actual, err := StringMapStruct([]any{st}, true, '+', true)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if actual != expected {
-
+			t.Fatalf("Expected: '%s'\nActual: '%s'", expected, actual)
+		}
+	})
+	t.Run("exported;only;no;prefix", func(t *testing.T) {
+		expected := `Exp;A string = "Exp.A"`
+		actual, err := StringMapStruct([]any{st}, true, ';', false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if actual != expected {
+			t.Fatalf("Expected: '%s'\nActual: '%s'", expected, actual)
 		}
 	})
 
@@ -1807,95 +1813,125 @@ func TestStructFieldsExported(t *testing.T) {
 
 func TestGoFormatStruct(t *testing.T) {
 	tests := []struct {
-		name           string
-		sts            []any
-		dotReplacement rune
-		pkg            string
-		want           string
-		wantErr        bool
+		name string
+		args struct {
+			sts            []any
+			exportedOnly   bool
+			dotReplacement rune
+			pkg            string
+		}
+		want    string
+		wantErr bool
 	}{
-		{"not a struct", []any{fauxInt(8)}, '_', "tt", "", true},
-		{"duplicate structs", []any{too{}, too{yu: 1}}, '_', "tt", "", true},
-		{"single flat struct",
-			[]any{too{}}, '_', "tt", `// Code generated by weave - DO NOT EDIT.
+		{"error: not a struct", struct {
+			sts            []any
+			exportedOnly   bool
+			dotReplacement rune
+			pkg            string
+		}{[]any{fauxInt(8)}, false, '.', ""}, "", true},
+		{"error: duplicate structs", struct {
+			sts            []any
+			exportedOnly   bool
+			dotReplacement rune
+			pkg            string
+		}{[]any{too{}, too{yu: 1}}, false, '.', "tt"}, "", true},
+		{"single, flat struct with no native exports and exportOnly",
+			struct {
+				sts            []any
+				exportedOnly   bool
+				dotReplacement rune
+				pkg            string
+			}{[]any{too{}}, true, '_', "tt"},
+			`// Code generated by weave - DO NOT EDIT.
+		package tt
+
+        const ()
+		`, false},
+		{"single, flat struct with no native exports and !exportOnly",
+			struct {
+				sts            []any
+				exportedOnly   bool
+				dotReplacement rune
+				pkg            string
+			}{[]any{too{}}, false, '_', "tt"},
+			`// Code generated by weave - DO NOT EDIT.
 		package tt
 
         const (
-                weave_too_mu string = "mu"
-                weave_too_yu string = "yu"
-        )
+				Weave_too_mu string = "mu"
+				Weave_too_yu string = "yu"
+		)
 		`, false},
-		{"single nested struct",
-			[]any{outer{}}, '_', "tt", `// Code generated by weave - DO NOT EDIT.
-        package tt
-
-        const (
-                weave_outer_inner_foo    string = "inner.foo"
-                weave_outer_inner_too_mu string = "inner.too.mu"
-                weave_outer_inner_too_yu string = "inner.too.yu"
-                weave_outer_a            string = "a"
-                weave_outer_b            string = "b"
-                weave_outer_c            string = "c"
-                weave_outer_d            string = "d"
-                weave_outer_Exported     string = "Exported"
-        )
-		`, false},
-		{"multiple structs",
-			[]any{outer{d: "d"}, inner{}, too{}}, '_', "tt", `// Code generated by weave - DO NOT EDIT.
-        package tt
-
-        const (
-                weave_outer_inner_foo    string = "inner.foo"
-                weave_outer_inner_too_mu string = "inner.too.mu"
-                weave_outer_inner_too_yu string = "inner.too.yu"
-                weave_outer_a            string = "a"
-                weave_outer_b            string = "b"
-                weave_outer_c            string = "c"
-                weave_outer_d            string = "d"
-                weave_outer_Exported     string = "Exported"
-
-                weave_inner_foo          string = "foo"
-                weave_inner_too_mu       string = "too.mu"
-                weave_inner_too_yu       string = "too.yu"
-
-                weave_too_mu             string = "mu"
-                weave_too_yu             string = "yu"
-        )
-		`, false},
-		{"multiple anonymous flat structs",
-			[]any{
+		{"multiple anonymous flat structs, exportedOnly",
+			struct {
+				sts            []any
+				exportedOnly   bool
+				dotReplacement rune
+				pkg            string
+			}{[]any{
 				too{},
-				struct{ name string }{},
+				struct{ Name string }{},
 				struct {
-					name  string
+					Name  string
 					value int
 				}{},
 				struct{}{}, // shouldn't print and shouldn't increment anonCount
 				struct {
 					a struct{} // shouldn't print
 					b struct {
-						z string
+						Z string // shouldn't be included as parent is not exported
 					}
-					name struct{} // shouldn't print
-				}{}}, '_', "tt", `// Code generated by weave - DO NOT EDIT.
-				package tt
+					Name struct{} // shouldn't print
+				}{}}, true, '_', "tt"},
+			`// Code generated by weave - DO NOT EDIT.
+						package tt
 
-		        const (
-                	weave_too_mu string = "mu"
-                	weave_too_yu string = "yu"
+				        const (
+		                	Anon0_Name string = "Name"
 
-                	anon0_name string = "name"
+		                	Anon1_Name string = "Name"
+		        		)
+						`, false},
+		{"multiple anonymous flat structs, !exportedOnly",
+			struct {
+				sts            []any
+				exportedOnly   bool
+				dotReplacement rune
+				pkg            string
+			}{[]any{
+				too{},
+				struct{ Name string }{},
+				struct {
+					Name  string
+					value int
+				}{},
+				struct{}{}, // shouldn't print and shouldn't increment anonCount
+				struct {
+					a struct{} // shouldn't print
+					b struct {
+						Z string
+					}
+					Name struct{} // shouldn't print
+				}{}}, false, '_', "tt"},
+			`// Code generated by weave - DO NOT EDIT.
+						package tt
 
-                	anon1_name string = "name"
-                	anon1_value  string = "value"
+				        const (
+		                	Weave_too_mu string = "mu"
+		                	Weave_too_yu string = "yu"
 
-                	anon2_b_z string = "b.z"
-        		)
-				`, false},
+		                	Anon0_Name string = "Name"
+
+		                	Anon1_Name string = "Name"
+		                	Anon1_value  string = "value"
+
+		                	Anon2_b_Z string = "b.Z"
+		        		)
+						`, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, gotErr := GoFormatStructs(tt.sts, false, tt.dotReplacement, tt.pkg)
+			got, gotErr := GoFormatStructs(tt.args.sts, tt.args.exportedOnly, tt.args.dotReplacement, tt.args.pkg)
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("GoFormatStruct() failed: %v", gotErr)

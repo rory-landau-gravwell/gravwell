@@ -113,7 +113,7 @@ func GenerateStructMappings() error {
 	)
 	// At some point, it will make more sense to give it a source file or package to scrape all types from.
 	// When that times comes, write the functionality into weave.main() so we can invoke it with `go generate` to hew closer to idiom.
-	m, err := weave.GoFormatStructs([]any{types.Resource{}}, '_', pkg)
+	m, err := weave.GoFormatStructs([]any{types.Resource{}}, true, '_', pkg)
 	if err != nil {
 		return err
 	}
