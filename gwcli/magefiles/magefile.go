@@ -141,6 +141,13 @@ func GenerateTypeMap() error {
 
 // Build compiles gwcli for your local architecture and outputs it to pwd.
 func Build() error {
+	verboseln("Generating type mappings...")
+	// generate maps/bindings
+	if err := GenerateTypeMap(); err != nil {
+		return err
+	}
+	verboseln(good("done."))
+
 	pwd, err := os.Getwd()
 	if err != nil {
 		verboseln(fmt.Sprintf("failed to get pwd: %s. Defaulting to local directory.", err))
@@ -149,11 +156,15 @@ func Build() error {
 
 	output := path.Join(pwd, _BINARY_TARGET)
 	verboseln("Building " + output + "...")
-	out, err := sh.Output("go", "build", "-o", output, ".")
-	if mg.Verbose() || err != nil {
-		fmt.Println(out)
+	if out, err := sh.Output("go", "build", "-o", output, "."); mg.Verbose() || err != nil {
+		fmt.Print(out)
+		if err != nil {
+			return err
+		}
 	}
-	return err
+	verboseln(good("done."))
+
+	return nil
 }
 
 // Vet runs go vet and staticcheck and should be called prior to the CI/CD pipeline.
