@@ -103,10 +103,13 @@ func init() {
 
 //#endregion
 
-// TODO annotation
+// GenerateTypeMap writes handles for actions to use to present structured data to users.
+// These handles take the form of mappings between a struct field in source code and a dot-qualified path to access it.
+// Mappings provide action developers an easier way to use struct fields and their data as columns
+// (rather requiring developers to write the paths themselves as string, which can quietly break or contain errors).
 //
 // Writes to `gwcli/internal/typemap/typemap.go`
-func GenerateStructMappings() error {
+func GenerateTypeMap() error {
 	const (
 		pkg  string = "typemap"
 		path string = "./internal/" + pkg + "/typemap.go"
@@ -127,7 +130,7 @@ func GenerateStructMappings() error {
 	if n, err := fmt.Fprintln(f, m); err != nil {
 		return err
 	} else {
-		verboseln(good(fmt.Sprintf("wrote %s to %s", humanize.Bytes(uint64(n)), path)))
+		verboseln(fmt.Sprintf("wrote %s to %s", humanize.Bytes(uint64(n)), path))
 	}
 	return nil
 }
