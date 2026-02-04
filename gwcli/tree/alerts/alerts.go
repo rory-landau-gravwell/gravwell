@@ -77,11 +77,11 @@ func list() action.Pair {
 				Types_AlertDefinition_TargetTag,
 				Types_AlertDefinition_ThingUUID,
 				Types_AlertDefinition_UID},
-			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
-				if listConsumerID, invalid = validateListID("consumer", fs); err != nil {
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, _ error) {
+				if listConsumerID, invalid = validateListID("consumer", fs); invalid != "" {
 					return invalid, nil
 				}
-				if listDispatcherID, invalid = validateListID("dispatcher", fs); err != nil {
+				if listDispatcherID, invalid = validateListID("dispatcher", fs); invalid != "" {
 					return invalid, nil
 				}
 
