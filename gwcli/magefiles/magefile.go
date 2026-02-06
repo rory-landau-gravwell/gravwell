@@ -123,6 +123,7 @@ func GenerateTypeMap() error {
 		types.AX{},
 		types.Dashboard{},
 		types.IdKitState{},
+		types.Macro{},
 		types.Resource{},
 		types.SearchHistoryEntry{},
 	}, true, '_', pkg,
