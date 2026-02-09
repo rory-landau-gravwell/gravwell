@@ -334,6 +334,60 @@ func (m Mother) View() string {
 		m.promptString(true), strings.Join(filtered, " "))
 }
 
+// TODO remove Mother references and pass data as params instead
+//
+// Returns two sets of suggestions: walk suggestions (matches against navs and actions) and builtin suggestions.
+// Returns nils if curInput contains nothing or only whitespace.
+func generateSuggestionFromCurrentInput(curInput string, children []*cobra.Command, startingWD *cobra.Command) (walkSgt []string, biSgt []string) {
+	if strings.TrimSpace(curInput) == "" {
+		return nil, nil
+	}
+
+	// statics
+	var (
+		pwd = startingWD
+	)
+
+	// tokenize input
+	inputWords := strings.SplitSeq(curInput, " ")
+	for frag := range inputWords {
+		frag = strings.TrimSpace(frag) // frag may be a word or a word fragment
+		// check for traversal character
+
+		// check each word against possible navs/actions/builtins, relative to pwd, in order
+		for _, child := range children { //nav/action first
+			unmatched, found := strings.CutPrefix(child.Name(), curInput)
+			if !found { // unrelated to fragment
+				continue
+			} else if unmatched == "" { // exact match, branch on nav vs action
+				// TODO
+				// if we find an action, stop immediately; all remaining tokens should be treated as arguments
+				// TODO
+			}
+			// partial match, colourize and add it as a suggestion
+			var colourizedRemainder string
+			if action.Is(child) {
+				colourizedRemainder = stylesheet.Cur.Action.Render(unmatched)
+			} else {
+				colourizedRemainder = stylesheet.Cur.Nav.Render(unmatched)
+			}
+			walkSgt = append(walkSgt, curInput+colourizedRemainder)
+		}
+
+		// check for builtin
+		for _, bi := range builtinKeys {
+			unmatched, found := strings.CutPrefix(bi, frag)
+			if !found {
+				continue
+			}
+			// partial or full builtin match, add it to the list of suggested builtins
+			biSgt = append(biSgt, frag+stylesheet.Cur.TertiaryText.Render(unmatched))
+		}
+
+	}
+	return
+}
+
 //#endregion
 
 // processInput consumes and clears the text on the prompt, determines what action to take, modifies

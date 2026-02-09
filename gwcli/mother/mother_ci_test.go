@@ -9,8 +9,15 @@
 package mother
 
 import (
+	"fmt"
+	"maps"
 	"reflect"
+	"slices"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/gravwell/gravwell/v4/gwcli/internal/testsupport"
+	"github.com/spf13/cobra"
 )
 
 func Test_quoteSplitTokens(t *testing.T) {
@@ -95,4 +102,40 @@ func Test_quoteSplitTokens(t *testing.T) {
 
 		}
 	})
+}
+
+func Test_generateSuggestionFromCurrentInput(t *testing.T) {
+	// initialize required data with constant data
+	builtins = map[string]func(m *Mother, endCmd *cobra.Command, excessTokens []string) tea.Cmd{
+		"help":    nil,
+		"ls":      nil,
+		"history": nil,
+		"pwd":     nil,
+		"quit":    nil,
+		"exit":    nil,
+		"clear":   nil,
+		"tree":    nil,
+	}
+	builtinKeys = slices.Collect(maps.Keys(builtins))
+
+	{
+		biTests := []struct {
+			curInput     string
+			expectedSgts []string
+		}{
+			{"h", []string{"help", "history"}},
+			{"help", []string{"help"}},
+			{"dne", []string{}},
+			{"", []string{}},
+			{" ", []string{}},
+		}
+		for _, tt := range biTests {
+			t.Run(fmt.Sprintf("in: %v | expects: %v", tt.curInput, tt.expectedSgts), func(t *testing.T) {
+				_, biSgt := generateSuggestionFromCurrentInput(tt.curInput, nil)
+				if slices.Compare(biSgt, tt.expectedSgts) != 0 {
+					t.Fatal(testsupport.ExpectedActual(tt.expectedSgts, biSgt))
+				}
+			})
+		}
+	}
 }
