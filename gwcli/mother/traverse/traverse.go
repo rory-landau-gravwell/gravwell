@@ -234,11 +234,11 @@ func findEndCommand(pwd *cobra.Command, remainingTokens []string, builtins map[s
 		return pwd, append([]string{curTkn}, remainingTokens...), "", ""
 	}
 	// special tokens have the highest priority
-	switch curTkn {
-	case "..": // up
+	if IsUpTraversalToken(curTkn) {
 		return findEndCommand(traverse.Up(pwd), remainingTokens, builtins)
-	case "~", "/": // root
+	} else if IsRootTraversalToken(curTkn) {
 		return findEndCommand(pwd.Root(), remainingTokens, builtins)
+
 	}
 	// child commands have next highest priority
 	for _, child := range pwd.Commands() {
