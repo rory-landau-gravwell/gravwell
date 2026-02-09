@@ -32,7 +32,6 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/mother/traverse"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/killer"
-	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/shlex"
@@ -335,125 +334,6 @@ func (m Mother) View() string {
 		m.promptString(true), strings.Join(filtered, " "))
 }
 
-// TODO remove Mother references and pass data as params instead
-//
-// Returns two sets of suggestions: walk suggestions (matches against navs and actions) and builtin suggestions.
-// Returns nils if curInput contains nothing or only whitespace.
-// TODO move me into a traversal package with walk and findEndCommand()
-func generateSuggestionFromCurrentInput(curInput string, children []*cobra.Command, startingWD *cobra.Command) (walkSgt []string, biSgt []string) {
-	if strings.TrimSpace(curInput) == "" {
-		return nil, nil
-	}
-
-	// shift the last token to split traversal and suggestion segments
-	var (
-		traversal []string
-		suggest   string
-	)
-	{
-		exploded := strings.Split(curInput, " ")
-		if len(exploded) == 0 {
-			panic("impossible state: split input (" + curInput + ") into zero pieces after nil check")
-		}
-		// only the final token matters for suggestions
-		suggest = exploded[len(exploded)-1]
-		if len(exploded) > 1 { // everything else is traversal
-			traversal = exploded[0 : len(exploded)-1]
-		}
-	}
-	// begin traversal stage
-	pwd := startingWD
-	for _, trvtkn := range traversal {
-		trvtkn = strings.TrimSpace(trvtkn)
-		// check special traversal tokens
-		if traverse.IsRootTraversalToken() {
-			// TODO
-		} else if traverse.IsUpTraversalToken()
-	}
-	// TODO
-
-	// collect suggestions using the context uncovered by the traversal stage
-	// TODO
-
-	// TODO remove below relic code
-
-	// current input is tokenized and broken into two chunks.
-	//
-	// the first chunk is the traversal chunk.
-	// the traversal chunk contains all but the last element and is used to navigate the tree
-	//
-	// the second chunk is the final token and serves as the item suggestions are based on
-	// TODO
-
-	// TODO throw the rest away
-
-	// statics
-	var (
-		pwd = startingWD
-	)
-
-	// tokenize input
-	inputWords := strings.SplitSeq(curInput, " ")
-	for frag := range inputWords {
-		frag = strings.TrimSpace(frag) // frag may be a word or a word fragment
-
-		// TODO parallelize each check
-		// TODO add duplicate execution checks by channel receiver
-		{ // check for traversal characters
-			if unmatched, found := strings.CutPrefix("..", frag); found {
-				if unmatched == "" { // exact match; traverse and move on
-					pwd = traverse.Up(pwd)
-					continue
-				}
-				// prefix match, treat as bi
-				biSgt = append(biSgt, recombineBI(frag, unmatched))
-			}
-			if frag == "~" || frag == "/" {
-				pwd = pwd.Root()
-				continue
-			}
-		}
-		// check fragment against children of pwd
-		for _, child := range children {
-			unmatched, found := strings.CutPrefix(child.Name(), curInput)
-			if !found { // unrelated to fragment
-				continue
-			} else if unmatched == "" { // if we exact match a nav,
-				// TODO
-				// if we find an action, stop immediately; all remaining tokens should be treated as arguments
-				// TODO
-			}
-			// partial match, colourize and add it as a suggestion
-			var colourizedRemainder string
-			if action.Is(child) {
-				colourizedRemainder = stylesheet.Cur.Action.Render(unmatched)
-			} else {
-				colourizedRemainder = stylesheet.Cur.Nav.Render(unmatched)
-			}
-			walkSgt = append(walkSgt, curInput+colourizedRemainder)
-		}
-
-		// check for builtin
-		for _, bi := range builtinKeys {
-			unmatched, found := strings.CutPrefix(bi, frag)
-			if !found {
-				continue
-			}
-			// partial or full builtin match, add it to the list of suggested builtins
-			biSgt = append(biSgt, frag+stylesheet.Cur.TertiaryText.Render(unmatched))
-		}
-
-	}
-	return
-}
-
-// helper function for generateSuggestionFromCurrentInput().
-//
-// Concats match and unmatch, colourizing unmatch as a builtin.
-func recombineBI(match, unmatch string) string {
-	return match + stylesheet.Cur.TertiaryText.Render(unmatch)
-}
-
 //#endregion
 
 // processInput consumes and clears the text on the prompt, determines what action to take, modifies
@@ -476,7 +356,7 @@ func processInput(m *Mother) tea.Cmd {
 		return nil
 	}
 
-	wr, err := uniques.Walk(m.pwd, input, builtinKeys)
+	wr, err := traverse.Walk(m.pwd, input, builtinKeys)
 	if err != nil {
 		return tea.Sequence(
 			historyCmd,
@@ -745,9 +625,9 @@ func TeaCmdContextHelp(c *cobra.Command) tea.Cmd {
 		// write .. and / if we are below root
 		if c.HasParent() {
 			fmt.Fprintf(&s, "%s%s - %s\n",
-				stylesheet.Indent, specialStyle.Render(".."), "step up")
+				stylesheet.Indent, specialStyle.Render(traverse.UpToken), "step up")
 			fmt.Fprintf(&s, "%s%s - %s\n",
-				stylesheet.Indent, specialStyle.Render("~"), "return to root")
+				stylesheet.Indent, specialStyle.Render(traverse.RootToken), "return to root")
 		}
 		children := c.Commands()
 		for _, child := range children {
