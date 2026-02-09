@@ -281,14 +281,17 @@ func activeChildSanityCheck(m Mother) {
 	}
 }
 
+// View either passes off control to the active child's .View() or compiles a prompt and set of suggestions.
+//
+// The prompt displays the user's current text and a list of matching suggestions up to the next space.
+// For example: `>syst` will suggest `systems` while `>system i` will suggest `systems indexers` and `system ingesters`.
 func (m Mother) View() string {
-	if m.exiting {
+	// check short-circuits
+	if m.exiting { // don't bother to draw
 		return ""
-	}
-	if m.active.model != nil { // allow child command to retain control, if it exists
+	} else if m.active.model != nil { // allow child command to retain control, if it exists
 		return m.active.model.View()
-	}
-	if m.dieOnChildDone { // don't bother to draw
+	} else if m.dieOnChildDone { // don't bother to draw
 		return ""
 	}
 
