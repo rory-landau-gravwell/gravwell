@@ -29,6 +29,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
 	"github.com/gravwell/gravwell/v4/gwcli/group"
+	"github.com/gravwell/gravwell/v4/gwcli/mother/traverse"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/killer"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
@@ -338,10 +339,53 @@ func (m Mother) View() string {
 //
 // Returns two sets of suggestions: walk suggestions (matches against navs and actions) and builtin suggestions.
 // Returns nils if curInput contains nothing or only whitespace.
+// TODO move me into a traversal package with walk and findEndCommand()
 func generateSuggestionFromCurrentInput(curInput string, children []*cobra.Command, startingWD *cobra.Command) (walkSgt []string, biSgt []string) {
 	if strings.TrimSpace(curInput) == "" {
 		return nil, nil
 	}
+
+	// shift the last token to split traversal and suggestion segments
+	var (
+		traversal []string
+		suggest   string
+	)
+	{
+		exploded := strings.Split(curInput, " ")
+		if len(exploded) == 0 {
+			panic("impossible state: split input (" + curInput + ") into zero pieces after nil check")
+		}
+		// only the final token matters for suggestions
+		suggest = exploded[len(exploded)-1]
+		if len(exploded) > 1 { // everything else is traversal
+			traversal = exploded[0 : len(exploded)-1]
+		}
+	}
+	// begin traversal stage
+	pwd := startingWD
+	for _, trvtkn := range traversal {
+		trvtkn = strings.TrimSpace(trvtkn)
+		// check special traversal tokens
+		if traverse.IsRootTraversalToken() {
+			// TODO
+		} else if traverse.IsUpTraversalToken()
+	}
+	// TODO
+
+	// collect suggestions using the context uncovered by the traversal stage
+	// TODO
+
+	// TODO remove below relic code
+
+	// current input is tokenized and broken into two chunks.
+	//
+	// the first chunk is the traversal chunk.
+	// the traversal chunk contains all but the last element and is used to navigate the tree
+	//
+	// the second chunk is the final token and serves as the item suggestions are based on
+	// TODO
+
+	// TODO throw the rest away
 
 	// statics
 	var (
@@ -352,14 +396,29 @@ func generateSuggestionFromCurrentInput(curInput string, children []*cobra.Comma
 	inputWords := strings.SplitSeq(curInput, " ")
 	for frag := range inputWords {
 		frag = strings.TrimSpace(frag) // frag may be a word or a word fragment
-		// check for traversal character
 
-		// check each word against possible navs/actions/builtins, relative to pwd, in order
-		for _, child := range children { //nav/action first
+		// TODO parallelize each check
+		// TODO add duplicate execution checks by channel receiver
+		{ // check for traversal characters
+			if unmatched, found := strings.CutPrefix("..", frag); found {
+				if unmatched == "" { // exact match; traverse and move on
+					pwd = traverse.Up(pwd)
+					continue
+				}
+				// prefix match, treat as bi
+				biSgt = append(biSgt, recombineBI(frag, unmatched))
+			}
+			if frag == "~" || frag == "/" {
+				pwd = pwd.Root()
+				continue
+			}
+		}
+		// check fragment against children of pwd
+		for _, child := range children {
 			unmatched, found := strings.CutPrefix(child.Name(), curInput)
 			if !found { // unrelated to fragment
 				continue
-			} else if unmatched == "" { // exact match, branch on nav vs action
+			} else if unmatched == "" { // if we exact match a nav,
 				// TODO
 				// if we find an action, stop immediately; all remaining tokens should be treated as arguments
 				// TODO
@@ -386,6 +445,13 @@ func generateSuggestionFromCurrentInput(curInput string, children []*cobra.Comma
 
 	}
 	return
+}
+
+// helper function for generateSuggestionFromCurrentInput().
+//
+// Concats match and unmatch, colourizing unmatch as a builtin.
+func recombineBI(match, unmatch string) string {
+	return match + stylesheet.Cur.TertiaryText.Render(unmatch)
 }
 
 //#endregion

@@ -12,3 +12,11 @@ func Up(dir *cobra.Command) *cobra.Command {
 	// otherwise, step upward
 	return dir.Parent()
 }
+
+func IsRootTraversalToken() bool {
+	// TODO
+}
+
+func IsUpTraversalToken() bool {
+	// TODO
+}
