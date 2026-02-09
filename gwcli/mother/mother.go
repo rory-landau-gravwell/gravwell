@@ -529,18 +529,12 @@ func quoteSplitTokens(oldTokens []string) (strippedTokens []string) {
 	return
 }
 
-// Call *after* moving to update the current command suggestions
+// updateSuggestions sets the list of strings mother's prompt can suggest to the user.
+// To be called *after* changing pwd.
 func (m *Mother) updateSuggestions() {
-	var suggest = make([]string, len(builtins))
-	// add builtins
-	var i = 0
-	for k := range builtins {
-		suggest[i] = k
-		i++
-	}
-
 	// recursively add children of current command
 	children := m.pwd.Commands()
+	var suggest = make([]string, 0)
 	for _, c := range children {
 		// dive into navs
 		if c.GroupID == group.NavID {
@@ -549,6 +543,10 @@ func (m *Mother) updateSuggestions() {
 			suggest = append(suggest, c.Name())
 		}
 	}
+
+	// organize suggestions
+	slices.Sort(suggest)
+	suggest = append(builtinKeys, suggest...)
 
 	m.ti.SetSuggestions(suggest)
 }
