@@ -61,7 +61,7 @@ func newKitsListAction() action.Pair {
 				tm.Types_IdKitState_UUID,
 				tm.Types_IdKitState_KitState_Name,
 				tm.Types_IdKitState_KitState_Description,
-				tm.Types_IdKitState_KitState_Description,
+				tm.Types_IdKitState_KitState_Version,
 			}})
 }
 
