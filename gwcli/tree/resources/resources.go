@@ -18,7 +18,7 @@ import (
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
-	. "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
+	tm "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
@@ -69,9 +69,16 @@ func list() action.Pair {
 			return resp.Results, nil
 		},
 		scaffoldlist.Options{
-			DefaultColumns: []string{Types_Resource_CommonFields_ID, Types_Resource_CommonFields_Name, Types_Resource_CommonFields_Description, Types_Resource_Size},
-			ColumnAliases:  map[string]string{Types_Resource_CommonFields_Name: "Name", Types_Resource_Size: "SizeBytes"},
-			AddtlFlags:     flags,
+			DefaultColumns: []string{
+				tm.Types_Resource_CommonFields_ID,
+				tm.Types_Resource_CommonFields_Name,
+				tm.Types_Resource_CommonFields_Description,
+				tm.Types_Resource_Size},
+			ColumnAliases: map[string]string{
+				tm.Types_Resource_CommonFields_Name: "Name",
+				tm.Types_Resource_Size:              "SizeBytes",
+			},
+			AddtlFlags: flags,
 		})
 }
 

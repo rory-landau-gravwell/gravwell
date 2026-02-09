@@ -17,7 +17,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
-	. "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
+	tm "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/spf13/cobra"
@@ -66,17 +66,19 @@ func list() action.Pair {
 
 				return fs
 			},
-			DefaultColumns: []string{Types_AlertDefinition_Name,
-				Types_AlertDefinition_Description,
-				Types_AlertDefinition_Disabled,
-				Types_AlertDefinition_Consumers,
-				Types_AlertDefinition_Dispatchers,
-				Types_AlertDefinition_GUID,
-				Types_AlertDefinition_Global,
-				Types_AlertDefinition_Labels,
-				Types_AlertDefinition_TargetTag,
-				Types_AlertDefinition_ThingUUID,
-				Types_AlertDefinition_UID},
+			DefaultColumns: []string{
+				tm.Types_AlertDefinition_Name,
+				tm.Types_AlertDefinition_Description,
+				tm.Types_AlertDefinition_Disabled,
+				tm.Types_AlertDefinition_Consumers,
+				tm.Types_AlertDefinition_Dispatchers,
+				tm.Types_AlertDefinition_GUID,
+				tm.Types_AlertDefinition_Global,
+				tm.Types_AlertDefinition_Labels,
+				tm.Types_AlertDefinition_TargetTag,
+				tm.Types_AlertDefinition_ThingUUID,
+				tm.Types_AlertDefinition_UID,
+			},
 			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, _ error) {
 				if listConsumerID, invalid = validateListID("consumer", fs); invalid != "" {
 					return invalid, nil
