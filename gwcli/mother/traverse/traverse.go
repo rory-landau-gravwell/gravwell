@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/google/shlex"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
@@ -43,14 +44,25 @@ func IsUpTraversalToken(tkn string) bool {
 
 //#region suggestion engine
 
+// TODO finish comment
 // Returns two sets of suggestions: walk suggestions (matches against navs and actions) and builtin suggestions.
 // Returns nils if curInput contains nothing or only whitespace.
-func DeriveSuggestions(curInput string, children []*cobra.Command, startingWD *cobra.Command) (walkSgt []string, biSgt []string) {
+//
+// ! The returned text has already been colourized according to its type.
+func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []string) (walkSgt []struct {
+	name    string
+	aliases []string
+}, biSgt []string) {
 	if strings.TrimSpace(curInput) == "" {
 		return nil, nil
 	}
 
 	// shift the last token to split traversal and suggestion segments
+	//
+	// The first chunk is the traversal chunk containing all but the last element.
+	// It is used to navigate the tree.
+	//
+	// The second chunk is the final token and serves as basis for suggestions
 	var (
 		traversal []string
 		suggest   string
@@ -68,28 +80,75 @@ func DeriveSuggestions(curInput string, children []*cobra.Command, startingWD *c
 	}
 	// begin traversal stage
 	pwd := startingWD
-	for _, trvtkn := range traversal {
-		trvtkn = strings.TrimSpace(trvtkn)
+	// loop attempts to walk navs and special traversal tokens.
+	// if at any point it fails to match, the whole suggestion engine gives up
+	for _, word := range traversal {
+		word = strings.TrimSpace(word)
 		// check special traversal tokens
-		if traverse.IsRootTraversalToken() {
-			// TODO
-		} else if traverse.IsUpTraversalToken() {
-
+		if IsRootTraversalToken(word) {
+			pwd = pwd.Root()
+			continue
+		} else if IsUpTraversalToken(word) {
+			pwd = Up(pwd)
+			continue
 		}
+		// check commands
+		for _, cmd := range pwd.Commands() {
+			if cmd.Name() == word || slices.Contains(cmd.Aliases, word) {
+				pwd = cmd
+				continue
+			}
+		}
+		// if we made it this far, we have no matches and should give up
+		return nil, nil
 	}
 
+	// begin suggestion stage
 	// collect suggestions using the context uncovered by the traversal stage
-	// TODO
+	// can be marginally parallelized
+	var wg sync.WaitGroup
+	wg.Go(func() { // check against builtins
+		for _, bi := range builtins {
+			unmatched, found := strings.CutPrefix(bi, suggest)
+			if !found {
+				continue
+			}
+			biSgt = append(biSgt, recombineBI(suggest, unmatched))
+		}
+	})
+	wg.Go(func() {
+		for _, cmd := range pwd.Commands() {
+			// check name and alias individually
+			// if at least element matches, keep the whole chunk
+			var (
+				matchFound = false
+				res        struct {
+					name    string
+					aliases []string
+				}
+			)
 
-	// TODO remove below relic code
+			// check actual command name first
+			if unmatched, found := strings.CutPrefix(cmd.Name(), suggest); found {
+				matchFound = true
+				res.name = recombineCommand(suggest, unmatched, action.Is(cmd))
+			}
+			// check the aliases
+			for _, alias := range res.aliases {
+				if unmatched, found := strings.CutPrefix(alias, suggest); found {
+					matchFound = true
+					res.aliases = append(res.aliases, recombineCommand(suggest, unmatched, action.Is(cmd)))
+				}
+			}
 
-	// current input is tokenized and broken into two chunks.
-	//
-	// the first chunk is the traversal chunk.
-	// the traversal chunk contains all but the last element and is used to navigate the tree
-	//
-	// the second chunk is the final token and serves as the item suggestions are based on
-	// TODO
+			// if at least one match was found, append the whole result
+			if matchFound {
+				walkSgt = append(walkSgt, res)
+			}
+		}
+	})
+
+	wg.Wait()
 
 	return
 }
@@ -99,6 +158,14 @@ func DeriveSuggestions(curInput string, children []*cobra.Command, startingWD *c
 // Concats match and unmatch, colourizing unmatch as a builtin.
 func recombineBI(match, unmatch string) string {
 	return match + stylesheet.Cur.TertiaryText.Render(unmatch)
+}
+
+func recombineCommand(match, unmatch string, isAction bool) string {
+	var sty lipgloss.Style = stylesheet.Cur.Nav
+	if isAction {
+		sty = stylesheet.Cur.Action
+	}
+	return match + sty.Render(unmatch)
 }
 
 //#endregion suggestion engine
