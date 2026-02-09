@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/shlex"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
-	"github.com/gravwell/gravwell/v4/gwcli/mother/traverse"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/spf13/cobra"
@@ -235,7 +234,7 @@ func findEndCommand(pwd *cobra.Command, remainingTokens []string, builtins map[s
 	}
 	// special tokens have the highest priority
 	if IsUpTraversalToken(curTkn) {
-		return findEndCommand(traverse.Up(pwd), remainingTokens, builtins)
+		return findEndCommand(Up(pwd), remainingTokens, builtins)
 	} else if IsRootTraversalToken(curTkn) {
 		return findEndCommand(pwd.Root(), remainingTokens, builtins)
 
