@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/shlex"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
+	"github.com/gravwell/gravwell/v4/gwcli/mother/traverse"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/spf13/cobra"
@@ -152,7 +153,7 @@ func findEndCommand(pwd *cobra.Command, remainingTokens []string, builtins map[s
 	// special tokens have the highest priority
 	switch curTkn {
 	case "..": // up
-		return findEndCommand(up(pwd), remainingTokens, builtins)
+		return findEndCommand(traverse.Up(pwd), remainingTokens, builtins)
 	case "~", "/": // root
 		return findEndCommand(pwd.Root(), remainingTokens, builtins)
 	}
@@ -171,13 +172,4 @@ func findEndCommand(pwd *cobra.Command, remainingTokens []string, builtins map[s
 	}
 
 	return pwd, remainingTokens, "", curTkn
-}
-
-// Return the parent directory to the given command
-func up(dir *cobra.Command) *cobra.Command {
-	if dir.Parent() == nil { // if we are at root, do nothing
-		return dir
-	}
-	// otherwise, step upward
-	return dir.Parent()
 }
