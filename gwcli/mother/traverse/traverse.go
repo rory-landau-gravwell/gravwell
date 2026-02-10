@@ -44,15 +44,17 @@ func IsUpTraversalToken(tkn string) bool {
 
 //#region suggestion engine
 
+type WalkSuggestions struct {
+	Name    string
+	Aliases []string
+}
+
 // TODO finish comment
 // Returns two sets of suggestions: walk suggestions (matches against navs and actions) and builtin suggestions.
 // Returns nils if curInput contains nothing or only whitespace.
 //
 // ! The returned text has already been colourized according to its type.
-func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []string) (walkSgt []struct {
-	name    string
-	aliases []string
-}, biSgt []string) {
+func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []string) (walkSgt []WalkSuggestions, biSgt []string) {
 	if strings.TrimSpace(curInput) == "" {
 		return nil, nil
 	}
@@ -83,7 +85,7 @@ func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []st
 	// loop attempts to walk navs and special traversal tokens.
 	// if at any point it fails to match, the whole suggestion engine gives up
 	for _, word := range traversal {
-		word = strings.TrimSpace(word)
+		word = strings.ToLower(strings.TrimSpace(word)) // standardize word
 		// check special traversal tokens
 		if IsRootTraversalToken(word) {
 			pwd = pwd.Root()
@@ -94,7 +96,7 @@ func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []st
 		}
 		// check commands
 		for _, cmd := range pwd.Commands() {
-			if cmd.Name() == word || slices.Contains(cmd.Aliases, word) {
+			if strings.ToLower(strings.TrimSpace(cmd.Name())) == word || slices.ContainsFunc(cmd.Aliases, func(a string) bool { return word == strings.ToLower(strings.TrimSpace(a)) }) {
 				pwd = cmd
 				continue
 			}
@@ -104,51 +106,50 @@ func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []st
 	}
 
 	// begin suggestion stage
+	suggest = strings.ToLower(strings.TrimSpace(suggest)) // standardize fragment
 	// collect suggestions using the context uncovered by the traversal stage
 	// can be marginally parallelized
-	var wg sync.WaitGroup
-	wg.Go(func() { // check against builtins
-		for _, bi := range builtins {
-			unmatched, found := strings.CutPrefix(bi, suggest)
-			if !found {
-				continue
-			}
-			biSgt = append(biSgt, recombineBI(suggest, unmatched))
+	//var wg sync.WaitGroup
+	//wg.Go(func() { // check against builtins
+	for _, bi := range builtins {
+		unmatched, found := strings.CutPrefix(bi, suggest)
+		if !found {
+			continue
 		}
-	})
-	wg.Go(func() {
-		for _, cmd := range pwd.Commands() {
-			// check name and alias individually
-			// if at least element matches, keep the whole chunk
-			var (
-				matchFound = false
-				res        struct {
-					name    string
-					aliases []string
-				}
-			)
+		biSgt = append(biSgt, recombineBI(suggest, unmatched))
+	}
+	//})
+	//wg.Go(func() {
+	children := pwd.Commands()
+	for _, cmd := range children {
+		// check name and alias individually
+		// if at least element matches, keep the whole chunk
+		var (
+			matchFound = false
+			res        WalkSuggestions
+		)
 
-			// check actual command name first
-			if unmatched, found := strings.CutPrefix(cmd.Name(), suggest); found {
+		// check actual command name first
+		if unmatched, found := strings.CutPrefix(cmd.Name(), suggest); found {
+			matchFound = true
+			res.Name = recombineCommand(suggest, unmatched, action.Is(cmd))
+		}
+		// check the aliases
+		for _, alias := range cmd.Aliases {
+			if unmatched, found := strings.CutPrefix(alias, suggest); found {
 				matchFound = true
-				res.name = recombineCommand(suggest, unmatched, action.Is(cmd))
-			}
-			// check the aliases
-			for _, alias := range res.aliases {
-				if unmatched, found := strings.CutPrefix(alias, suggest); found {
-					matchFound = true
-					res.aliases = append(res.aliases, recombineCommand(suggest, unmatched, action.Is(cmd)))
-				}
-			}
-
-			// if at least one match was found, append the whole result
-			if matchFound {
-				walkSgt = append(walkSgt, res)
+				res.Aliases = append(res.Aliases, recombineCommand(suggest, unmatched, action.Is(cmd)))
 			}
 		}
-	})
 
-	wg.Wait()
+		// if at least one match was found, append the whole result
+		if matchFound {
+			walkSgt = append(walkSgt, res)
+		}
+	}
+	//})
+
+	//wg.Wait()
 
 	return
 }
