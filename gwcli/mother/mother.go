@@ -295,43 +295,28 @@ func (m Mother) View() string {
 		return ""
 	}
 
-	var (
-		filtered []string
-		allSgt   = m.ti.AvailableSuggestions()
-		curInput = m.ti.Value()
-		lastRune rune
-	)
+	// sort, categorize, and colourize suggestions
+	var cmdSuggestions, biSuggestions []string
 
-	// filter suggestions that match current input to be displayed below the prompt
-	runes := []rune(curInput)
-	if len(runes) > 0 {
-		lastRune = runes[len(runes)-1]
-
-		for _, sgt := range allSgt {
-			// cut on current input
-			after, found := strings.CutPrefix(sgt, curInput)
-			if !found {
-				continue
-			}
-			before, _, _ := strings.Cut(after, " ")
-			if before != "" {
-				if lastRune == ' ' {
-					filtered = append(filtered, before)
-				} else {
-					// display only the last item
-					if exploded := strings.Split(curInput, " "); len(exploded) > 0 {
-						curInput = exploded[len(exploded)-1]
-					}
-					filtered = append(filtered, stylesheet.Cur.ExampleText.Render(curInput)+before)
-				}
-			}
+	{ // TODO move me to Update
+		navs, actions, _ := traverse.DeriveSuggestions(m.ti.Value(), m.pwd, builtinKeys) // TODO bis
+		clilog.Writer.Debugf("view: %v | navs: %v | actions: %v", m.ti.View(), navs, actions)
+		cmdSuggestions = make([]string, len(navs)+len(actions))
+		var cmdIdx int // used to track array index when combining navs and actions
+		for _, nav := range navs {
+			// prefix-replace the full name with the matched characters colourized
+			cmdSuggestions[cmdIdx] = stylesheet.Cur.Nav.Render(nav.MatchedCharacters) + nav.FullName[len(nav.MatchedCharacters):]
+			cmdIdx += 1
 		}
-
-		filtered = slices.Compact(filtered)
+		for _, action := range actions {
+			// prefix-replace the full name with the matched characters colourized
+			cmdSuggestions[cmdIdx] = stylesheet.Cur.Action.Render(action.MatchedCharacters) + action.FullName[len(action.MatchedCharacters):]
+			cmdIdx += 1
+		}
 	}
 
-	return fmt.Sprintf("%s\n%v",
-		m.promptString(true), strings.Join(filtered, " "))
+	return fmt.Sprintf("%s\n%s\n%s",
+		m.promptString(true), strings.Join(cmdSuggestions, " "), strings.Join(biSuggestions, " "))
 }
 
 //#endregion
