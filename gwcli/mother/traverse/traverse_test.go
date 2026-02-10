@@ -53,9 +53,9 @@ func TestDeriveSuggestions(t *testing.T) {
 		curInput              string
 		startingWD            *cobra.Command
 		builtins              []string
-		expectedNavs          []traverse.CmdSuggestion
-		expectedActions       []traverse.CmdSuggestion
-		expectedBISuggestions []string
+		expectedNavs          []traverse.Suggestion
+		expectedActions       []traverse.Suggestion
+		expectedBISuggestions []traverse.Suggestion
 	}{
 		{"nil working directory",
 			"nav", nil, []string{"a", "b", "c"},
@@ -65,56 +65,67 @@ func TestDeriveSuggestions(t *testing.T) {
 		},
 		{"empty input should suggest all immediate navs, actions and all builtins.",
 			"", root, []string{"bi1", "bi2", "help"},
-			[]traverse.CmdSuggestion{
-				{CmdName: "nav_a"},
-				{CmdName: "nav_b"},
+			[]traverse.Suggestion{
+				{FullName: "nav_a"},
+				{FullName: "nav_b"},
 			},
-			[]traverse.CmdSuggestion{
-				{CmdName: "action1"},
+			[]traverse.Suggestion{
+				{FullName: "action1"},
 			},
-			[]string{"bi1", "bi2", "help"},
+			[]traverse.Suggestion{
+				{FullName: "bi1"},
+				{FullName: "bi2"},
+				{FullName: "help"},
+			},
 		},
 		{"whitespace-only input should suggest all immediate navs, actions and all builtins.",
 			"       	  ", nav_ba, []string{"bi1", "bi2", "help"},
 			nil,
-			[]traverse.CmdSuggestion{
-				{CmdName: "action_ba_1"},
-				{CmdName: "action_ba_2"},
+			[]traverse.Suggestion{
+				{FullName: "action_ba_1"},
+				{FullName: "action_ba_2"},
 			},
-			[]string{"bi1", "bi2", "help"},
+			[]traverse.Suggestion{
+				{FullName: "bi1"},
+				{FullName: "bi2"},
+				{FullName: "help"},
+			},
 		},
 		{"against root should match both subnavs and a BI, but not the action",
 			"nav", root, []string{"bi1", "bi2", "help", "n", "N", "navigator", "Navigator"},
-			[]traverse.CmdSuggestion{
-				{CmdName: "nav_a", MatchedNameCharacters: "nav"},
-				{CmdName: "nav_b", MatchedNameCharacters: "nav"},
+			[]traverse.Suggestion{
+				{FullName: "nav_a", MatchedCharacters: "nav"},
+				{FullName: "nav_b", MatchedCharacters: "nav"},
 			},
 			nil,
-			[]string{"navigator"},
+			[]traverse.Suggestion{{FullName: "navigator", MatchedCharacters: "nav"}},
 		},
 		{"against nav_b should match only nav_ba and a BI",
 			"nav", nav_b, []string{"bi1", "bi2", "help", "n", "N", "navigator", "Navigator"},
-			[]traverse.CmdSuggestion{
-				{CmdName: "nav_ba", MatchedNameCharacters: "nav"},
+			[]traverse.Suggestion{
+				{FullName: "nav_ba", MatchedCharacters: "nav"},
 			},
 			nil,
-			[]string{"navigator"},
+			[]traverse.Suggestion{{FullName: "navigator", MatchedCharacters: "nav"}},
 		},
 		{"against root should traverse to nav_b and match only nav_ba and a BI",
 			"nav_b nav", root, []string{"bi1", "bi2", "help", "n", "N", "navigator", "Navigator"},
-			[]traverse.CmdSuggestion{
-				{CmdName: "nav_ba", MatchedNameCharacters: "nav"},
+			[]traverse.Suggestion{
+				{FullName: "nav_ba", MatchedCharacters: "nav"},
 			},
 			nil,
-			[]string{"navigator"},
+			[]traverse.Suggestion{{FullName: "navigator", MatchedCharacters: "nav"}},
 		},
 		{"(trailing space) should traverse and then suggest all at new pwd",
 			"nav_a ", root, []string{"a", "b"},
 			nil,
-			[]traverse.CmdSuggestion{
-				{CmdName: "action_a_1"},
+			[]traverse.Suggestion{
+				{FullName: "action_a_1"},
 			},
-			[]string{"a", "b"},
+			[]traverse.Suggestion{
+				{FullName: "a"},
+				{FullName: "b"},
+			},
 		},
 		{"alias match, but no trailing space so no traversal and thus no suggestions",
 			"AAlias", root, []string{"a", "b"},
@@ -125,10 +136,13 @@ func TestDeriveSuggestions(t *testing.T) {
 		{"(trailing space) traverse nav_a via alias",
 			"AAlias ", root, []string{"a", "b"},
 			nil,
-			[]traverse.CmdSuggestion{
-				{CmdName: "action_a_1"},
+			[]traverse.Suggestion{
+				{FullName: "action_a_1"},
 			},
-			[]string{"a", "b"},
+			[]traverse.Suggestion{
+				{FullName: "a"},
+				{FullName: "b"},
+			},
 		},
 		{"no matching suggests, no traversal",
 			"z", root, []string{"a", "b"},
@@ -148,13 +162,13 @@ func TestDeriveSuggestions(t *testing.T) {
 			actualNavs, actualActions, actualBI := traverse.DeriveSuggestions(tt.curInput, tt.startingWD, tt.builtins)
 
 			// compare nav suggestions
-			if !slices.EqualFunc(actualNavs, tt.expectedNavs, func(a, b traverse.CmdSuggestion) bool {
+			if !slices.EqualFunc(actualNavs, tt.expectedNavs, func(a, b traverse.Suggestion) bool {
 				return a.Equals(b)
 			}) {
 				t.Error("incorrect nav suggestions", testsupport.ExpectedActual(tt.expectedNavs, actualNavs))
 			}
 			// compare action suggestions
-			if !slices.EqualFunc(actualActions, tt.expectedActions, func(a, b traverse.CmdSuggestion) bool {
+			if !slices.EqualFunc(actualActions, tt.expectedActions, func(a, b traverse.Suggestion) bool {
 				return a.Equals(b)
 			}) {
 				t.Error("incorrect action suggestions", testsupport.ExpectedActual(tt.expectedActions, actualActions))

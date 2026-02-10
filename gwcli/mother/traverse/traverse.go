@@ -44,15 +44,15 @@ func IsUpTraversalToken(tkn string) bool {
 
 //#region suggestion engine
 
-type CmdSuggestion struct {
-	CmdName               string
-	MatchedNameCharacters string // characters in CmdName that the input's suggestion chunk matched
-	//MatchedAliases        []string // each colourized on matching runes
+// A Suggestion is a possible completion for the given input.
+type Suggestion struct {
+	FullName          string
+	MatchedCharacters string // characters in CmdName that the input's suggestion chunk matched
 }
 
 // Equals compares against a given CmdSuggestion, checking that the name and matching characters are equal.
-func (cs CmdSuggestion) Equals(b CmdSuggestion) bool {
-	return cs.CmdName == b.CmdName && cs.MatchedNameCharacters == b.MatchedNameCharacters
+func (cs Suggestion) Equals(b Suggestion) bool {
+	return cs.FullName == b.FullName && cs.MatchedCharacters == b.MatchedCharacters
 }
 
 // DeriveSuggestions walks a command tree, starting at the given WD, to identify possible completions (to serve as suggestions) based on the input fragment.
@@ -65,7 +65,7 @@ func (cs CmdSuggestion) Equals(b CmdSuggestion) bool {
 // Returns nothing if startingWD is nil.
 //
 // ! Comparisons are case-sensitive.
-func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []string) (navs, actions []CmdSuggestion, bis []string) {
+func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []string) (navs, actions, bis []Suggestion) {
 	if startingWD == nil {
 		return
 	}
@@ -124,42 +124,45 @@ word:
 	// can be marginally parallelized
 	var wg sync.WaitGroup
 	wg.Go(func() { // check against builtins
-		if all {
-			bis = builtins
-			return
-		}
 		for _, bi := range builtins {
-			unmatched, found := strings.CutPrefix(bi, suggest)
-			if !found {
-				continue
+			if sgt, match := prefixMatch(all, bi, suggest); match {
+				bis = append(bis, sgt)
 			}
-			bis = append(bis, recombineBI(suggest, unmatched))
 		}
 	})
 	wg.Go(func() {
 		children := pwd.Commands()
 		// check against each command's name
 		for _, cmd := range children {
-			isAction := action.Is(cmd)
-			if all { // add automatically if we are adding all
-				if isAction {
-					actions = append(actions, CmdSuggestion{CmdName: cmd.Name()})
+			if sgt, match := prefixMatch(all, cmd.Name(), suggest); match {
+				if action.Is(cmd) {
+					actions = append(actions, sgt)
 				} else {
-					navs = append(navs, CmdSuggestion{CmdName: cmd.Name()})
-				}
-			} else if _, found := strings.CutPrefix(cmd.Name(), suggest); found { // prefix-check name
-				if isAction {
-					actions = append(actions, CmdSuggestion{CmdName: cmd.Name(), MatchedNameCharacters: suggest})
-				} else {
-					navs = append(navs, CmdSuggestion{CmdName: cmd.Name(), MatchedNameCharacters: suggest})
+					navs = append(navs, sgt)
 				}
 			}
+
 		}
 	})
 
 	wg.Wait()
 
 	return
+}
+
+// helper/clarity function for DeriveSuggestions.
+// prefixMatch returns the suggestion if we are in all mode or word prefix-matched frag.
+func prefixMatch(all bool, word, frag string) (_ Suggestion, match bool) {
+	s := Suggestion{FullName: word}
+	if !all {
+		// check for matching characters
+		if _, found := strings.CutPrefix(word, frag); !found {
+			return Suggestion{}, false
+		}
+		s.MatchedCharacters = frag
+	}
+	// if we made it this far, then it is a valid suggestion
+	return s, true
 }
 
 // helper function for generateSuggestionFromCurrentInput().
