@@ -80,7 +80,7 @@ func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []st
 		traversal []string
 		suggest   string
 	)
-	{
+	if strings.TrimSpace(curInput) != "" { // break into segments only if visible characters were given
 		exploded := strings.Split(curInput, " ")
 		switch {
 		case len(exploded) > 0:
@@ -91,6 +91,7 @@ func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []st
 			traversal = exploded[0 : len(exploded)-1]
 		}
 	}
+
 	// --- begin traversal stage ---
 	pwd := startingWD
 	// loop attempts to walk navs and special traversal tokens.
