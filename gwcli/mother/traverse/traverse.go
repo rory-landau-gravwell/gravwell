@@ -44,41 +44,50 @@ func IsUpTraversalToken(tkn string) bool {
 
 //#region suggestion engine
 
-type WalkSuggestions struct {
-	Name    string
-	Aliases []string
+type CmdSuggestion struct {
+	CmdName               string
+	MatchedNameCharacters string // characters in CmdName that the input's suggestion chunk matched
+	//MatchedAliases        []string // each colourized on matching runes
 }
 
-// TODO finish comment
-// Returns two sets of suggestions: walk suggestions (matches against navs and actions) and builtin suggestions.
-// Returns nils if curInput contains nothing or only whitespace.
+// Equals compares against a given CmdSuggestion, checking that the name and matching characters are equal.
+func (cs CmdSuggestion) Equals(b CmdSuggestion) bool {
+	return cs.CmdName == b.CmdName && cs.MatchedNameCharacters == b.MatchedNameCharacters
+}
+
+// DeriveSuggestions walks a command tree, starting at the given WD, to identify possible completions (to serve as suggestions) based on the input fragment.
+// Aliases are not suggested, but can be used to traverse the tree to find suggestions for subcommands.
 //
-// ! The returned text has already been colourized according to its type.
+// DeriveSuggestions serves as a data layer and expects the caller to enact their desired formatting/visualization.
+//
+// Returns suggestions based on navs, actions, and bis.
+// Returns all local suggestions if the suggest token is empty.
+// Returns nothing if startingWD is nil.
 //
 // ! Comparisons are case-sensitive.
-func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []string) (walkSgt []WalkSuggestions, biSgt []string) {
-	if strings.TrimSpace(curInput) == "" {
-		return nil, nil
+func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []string) (navs, actions []CmdSuggestion, bis []string) {
+	if startingWD == nil {
+		return
 	}
-
 	// shift the last token to split traversal and suggestion segments
 	//
 	// The first chunk is the traversal chunk containing all but the last element.
 	// It is used to navigate the tree.
 	//
-	// The second chunk is the final token and serves as basis for suggestions
+	// The second chunk is the final token and serves as basis for suggestions.
+	// If it is empty, all current options will be shown.
 	var (
 		traversal []string
 		suggest   string
 	)
 	{
 		exploded := strings.Split(curInput, " ")
-		if len(exploded) == 0 {
-			panic("impossible state: split input (" + curInput + ") into zero pieces after nil check")
-		}
-		// only the final token matters for suggestions
-		suggest = exploded[len(exploded)-1]
-		if len(exploded) > 1 { // everything else is traversal
+		switch {
+		case len(exploded) > 0:
+			suggest = exploded[len(exploded)-1] // only the final token matters for suggestions
+			fallthrough
+		case len(exploded) > 1:
+			// everything else is traversal
 			traversal = exploded[0 : len(exploded)-1]
 		}
 	}
@@ -104,48 +113,45 @@ word:
 			}
 		}
 		// if we made it this far, we have no matches and should give up
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	// --- begin suggestion stage ---
+	var all = strings.TrimSpace(suggest) == ""
+	// if suggestion is empty, suggest all items
 	// collect suggestions using the context uncovered by the traversal stage
 	// can be marginally parallelized
 	var wg sync.WaitGroup
 	wg.Go(func() { // check against builtins
+		if all {
+			bis = builtins
+			return
+		}
 		for _, bi := range builtins {
 			unmatched, found := strings.CutPrefix(bi, suggest)
 			if !found {
 				continue
 			}
-			biSgt = append(biSgt, recombineBI(suggest, unmatched))
+			bis = append(bis, recombineBI(suggest, unmatched))
 		}
 	})
 	wg.Go(func() {
 		children := pwd.Commands()
+		// check against each command's name
 		for _, cmd := range children {
-			// check name and alias individually
-			// if at least element matches, keep the whole chunk
-			var (
-				matchFound = false
-				res        WalkSuggestions
-			)
-
-			// check actual command name first
-			if unmatched, found := strings.CutPrefix(cmd.Name(), suggest); found {
-				matchFound = true
-				res.Name = recombineCommand(suggest, unmatched, action.Is(cmd))
-			}
-			// check the aliases
-			for _, alias := range cmd.Aliases {
-				if unmatched, found := strings.CutPrefix(alias, suggest); found {
-					matchFound = true
-					res.Aliases = append(res.Aliases, recombineCommand(suggest, unmatched, action.Is(cmd)))
+			isAction := action.Is(cmd)
+			if all { // add automatically if we are adding all
+				if isAction {
+					actions = append(actions, CmdSuggestion{CmdName: cmd.Name()})
+				} else {
+					navs = append(navs, CmdSuggestion{CmdName: cmd.Name()})
 				}
-			}
-
-			// if at least one match was found, append the whole result
-			if matchFound {
-				walkSgt = append(walkSgt, res)
+			} else if _, found := strings.CutPrefix(cmd.Name(), suggest); found { // prefix-check name
+				if isAction {
+					actions = append(actions, CmdSuggestion{CmdName: cmd.Name(), MatchedNameCharacters: suggest})
+				} else {
+					navs = append(navs, CmdSuggestion{CmdName: cmd.Name(), MatchedNameCharacters: suggest})
+				}
 			}
 		}
 	})
