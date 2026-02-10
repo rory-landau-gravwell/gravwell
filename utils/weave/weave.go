@@ -79,7 +79,7 @@ func StringMapStruct(sts []any, exportedOnly bool, dotReplacement rune, includeS
 		// the number of anonymous structs we've seen; used to index them for uniqueness
 		anonCount uint
 		// set of known structs to prevent invalid code from duplications
-		seen map[string]bool = make(map[string]bool, len(sts))
+		seen = make(map[string]bool, len(sts))
 	)
 
 	for _, st := range sts {
@@ -121,7 +121,7 @@ func StringMapStruct(sts []any, exportedOnly bool, dotReplacement rune, includeS
 		}
 		// coerce and write each field
 		for _, dqField := range dqFields {
-			var variableForm string = dqField
+			var variableForm = dqField
 			// sanitize periods
 			variableForm = strings.ReplaceAll(prefix+variableForm, ".", string(dotReplacement))
 			// ensure the mapping is accessible
