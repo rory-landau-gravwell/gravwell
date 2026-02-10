@@ -84,6 +84,9 @@ func StringMapStruct(sts []any, exportedOnly bool, dotReplacement rune, includeS
 
 	for _, st := range sts {
 		{ // duplicate check
+			if st == nil {
+				return "", errors.New(ErrStructIsNil)
+			}
 			TOStr := reflect.TypeOf(st).String()
 			if _, found := seen[TOStr]; found {
 				return "", errors.New("structs must be unique to produce valid code. Duplicate type: " + TOStr)
