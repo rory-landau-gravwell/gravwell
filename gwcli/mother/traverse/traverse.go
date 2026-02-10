@@ -54,6 +54,8 @@ type WalkSuggestions struct {
 // Returns nils if curInput contains nothing or only whitespace.
 //
 // ! The returned text has already been colourized according to its type.
+//
+// ! Comparisons are case-sensitive.
 func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []string) (walkSgt []WalkSuggestions, biSgt []string) {
 	if strings.TrimSpace(curInput) == "" {
 		return nil, nil
@@ -80,33 +82,32 @@ func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []st
 			traversal = exploded[0 : len(exploded)-1]
 		}
 	}
-	// begin traversal stage
+	// --- begin traversal stage ---
 	pwd := startingWD
 	// loop attempts to walk navs and special traversal tokens.
-	// if at any point it fails to match, the whole suggestion engine gives up
+	// if at any point it fails to match a word/token, the whole suggestion engine gives up
+word:
 	for _, word := range traversal {
-		word = strings.ToLower(strings.TrimSpace(word)) // standardize word
 		// check special traversal tokens
 		if IsRootTraversalToken(word) {
 			pwd = pwd.Root()
-			continue
+			continue word
 		} else if IsUpTraversalToken(word) {
 			pwd = Up(pwd)
-			continue
+			continue word
 		}
 		// check commands
 		for _, cmd := range pwd.Commands() {
-			if strings.ToLower(strings.TrimSpace(cmd.Name())) == word || slices.ContainsFunc(cmd.Aliases, func(a string) bool { return word == strings.ToLower(strings.TrimSpace(a)) }) {
+			if cmd.Name() == word || slices.ContainsFunc(cmd.Aliases, func(alias string) bool { return alias == word }) {
 				pwd = cmd
-				continue
+				continue word
 			}
 		}
 		// if we made it this far, we have no matches and should give up
 		return nil, nil
 	}
 
-	// begin suggestion stage
-	suggest = strings.ToLower(strings.TrimSpace(suggest)) // standardize fragment
+	// --- begin suggestion stage ---
 	// collect suggestions using the context uncovered by the traversal stage
 	// can be marginally parallelized
 	//var wg sync.WaitGroup
