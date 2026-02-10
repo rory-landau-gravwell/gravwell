@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/crewjam/rfc5424"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
@@ -59,7 +60,10 @@ type Mother struct {
 	pwd  *navCmd
 
 	// prompt
-	ti textinput.Model
+	ti                textinput.Model
+	navSuggestions    []string
+	actionSuggestions []string
+	biSuggestions     []string
 
 	// terminal information
 	width  int
@@ -151,7 +155,7 @@ func new(root *navCmd, cur *cobra.Command, trailingTokens []string, _ *lipgloss.
 		// have mother immediate act on the data we placed on her prompt
 		m.processOnStartup = true
 	}
-	m.updateSuggestions()
+	m.regenerateSuggestions(m.ti.Value())
 
 	clilog.Writer.Debugf("Spawning mother rooted @ %v, located @ %v, with trailing tokens %v",
 		m.root.Name(), m.pwd.Name(), trailingTokens)
@@ -256,7 +260,55 @@ func (m Mother) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.ti, cmd = m.ti.Update(msg)
 
+	if _, ok := msg.(tea.KeyMsg); ok { // sort, categorize, and colourize suggestions
+		m.regenerateSuggestions(m.ti.Value())
+	}
+
 	return m, cmd
+}
+
+// ! tab complete will only suggest the lowest item (alphanumerically) from each set (bis, actions, and navs)
+func (m *Mother) regenerateSuggestions(userInput string) {
+	navs, actions, bis := traverse.DeriveSuggestions(userInput, m.pwd, builtinKeys)
+	var wg sync.WaitGroup
+	wg.Go(func() { // navs
+		m.navSuggestions = make([]string, len(navs))
+		slices.SortFunc(navs, func(a, b traverse.Suggestion) int { return strings.Compare(a.FullName, b.FullName) })
+		for i, nav := range navs {
+			// prefix-replace the full name with the matched characters colourized
+			m.navSuggestions[i] = stylesheet.Cur.Nav.Render(nav.MatchedCharacters) + nav.FullName[len(nav.MatchedCharacters):]
+		}
+	})
+	wg.Go(func() { // actions
+		m.actionSuggestions = make([]string, len(actions))
+		slices.SortFunc(actions, func(a, b traverse.Suggestion) int { return strings.Compare(a.FullName, b.FullName) })
+		for i, action := range actions {
+			// prefix-replace the full name with the matched characters colourized
+			m.actionSuggestions[i] = stylesheet.Cur.Action.Render(action.MatchedCharacters) + action.FullName[len(action.MatchedCharacters):]
+		}
+	})
+	wg.Go(func() { // builtins
+		m.biSuggestions = make([]string, len(bis))
+		slices.SortFunc(bis, func(a, b traverse.Suggestion) int { return strings.Compare(a.FullName, b.FullName) })
+		for i, bi := range bis {
+			m.biSuggestions[i] = stylesheet.Cur.TertiaryText.Render(bi.MatchedCharacters) + bi.FullName[len(bi.MatchedCharacters):]
+		}
+	})
+
+	wg.Wait()
+
+	tabComplete := []string{}
+	if len(m.navSuggestions) > 0 {
+		tabComplete = append(tabComplete, m.navSuggestions[0])
+	}
+	if len(m.actionSuggestions) > 0 {
+		tabComplete = append(tabComplete, m.actionSuggestions[0])
+	}
+	if len(m.biSuggestions) > 0 {
+		tabComplete = append(tabComplete, m.biSuggestions[0])
+	}
+
+	m.ti.SetSuggestions(tabComplete)
 }
 
 // helper function for m.Update.
@@ -295,28 +347,8 @@ func (m Mother) View() string {
 		return ""
 	}
 
-	// sort, categorize, and colourize suggestions
-	var cmdSuggestions, biSuggestions []string
-
-	{ // TODO move me to Update
-		navs, actions, _ := traverse.DeriveSuggestions(m.ti.Value(), m.pwd, builtinKeys) // TODO bis
-		clilog.Writer.Debugf("view: %v | navs: %v | actions: %v", m.ti.View(), navs, actions)
-		cmdSuggestions = make([]string, len(navs)+len(actions))
-		var cmdIdx int // used to track array index when combining navs and actions
-		for _, nav := range navs {
-			// prefix-replace the full name with the matched characters colourized
-			cmdSuggestions[cmdIdx] = stylesheet.Cur.Nav.Render(nav.MatchedCharacters) + nav.FullName[len(nav.MatchedCharacters):]
-			cmdIdx += 1
-		}
-		for _, action := range actions {
-			// prefix-replace the full name with the matched characters colourized
-			cmdSuggestions[cmdIdx] = stylesheet.Cur.Action.Render(action.MatchedCharacters) + action.FullName[len(action.MatchedCharacters):]
-			cmdIdx += 1
-		}
-	}
-
-	return fmt.Sprintf("%s\n%s\n%s",
-		m.promptString(true), strings.Join(cmdSuggestions, " "), strings.Join(biSuggestions, " "))
+	return fmt.Sprintf("%s\n%s\n%s\n%s",
+		m.promptString(true), strings.Join(m.navSuggestions, " "), strings.Join(m.actionSuggestions, " "), strings.Join(m.biSuggestions, " "))
 }
 
 //#endregion
@@ -370,7 +402,6 @@ func processInput(m *Mother) tea.Cmd {
 		}
 		// move mother to target nav
 		m.pwd = wr.EndCmd
-		m.updateSuggestions()
 		return historyCmd
 	}
 
@@ -515,28 +546,6 @@ func quoteSplitTokens(oldTokens []string) (strippedTokens []string) {
 	}
 
 	return
-}
-
-// updateSuggestions sets the list of strings mother's prompt can suggest to the user.
-// To be called *after* changing pwd.
-func (m *Mother) updateSuggestions() {
-	// recursively add children of current command
-	children := m.pwd.Commands()
-	var suggest = make([]string, 0)
-	for _, c := range children {
-		// dive into navs
-		if c.GroupID == group.NavID {
-			suggest = append(suggest, plumbCommand(c)...)
-		} else {
-			suggest = append(suggest, c.Name())
-		}
-	}
-
-	// organize suggestions
-	slices.Sort(suggest)
-	suggest = append(builtinKeys, suggest...)
-
-	m.ti.SetSuggestions(suggest)
 }
 
 // helper subroutine for updateSuggestions().
