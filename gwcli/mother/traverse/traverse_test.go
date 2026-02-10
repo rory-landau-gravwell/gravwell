@@ -1,6 +1,7 @@
 package traverse_test
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 
@@ -48,7 +49,7 @@ func TestDeriveSuggestions(t *testing.T) {
 		[]action.Pair{action1})
 
 	tests := []struct {
-		name                  string
+		name                  string // NOTE: curInput is prefixed to test name on run
 		curInput              string
 		startingWD            *cobra.Command
 		builtins              []string
@@ -71,8 +72,18 @@ func TestDeriveSuggestions(t *testing.T) {
 			[]traverse.CmdSuggestion{
 				{CmdName: "action1"},
 			},
-			[]string{"bi1", "bi2", "help"}},
-		{"\"nav\" input against root should match both subnavs and a BI, but not the action",
+			[]string{"bi1", "bi2", "help"},
+		},
+		{"whitespace-only input should suggest all immediate navs, actions and all builtins.",
+			"       	  ", nav_ba, []string{"bi1", "bi2", "help"},
+			nil,
+			[]traverse.CmdSuggestion{
+				{CmdName: "action_ba_1"},
+				{CmdName: "action_ba_2"},
+			},
+			[]string{"bi1", "bi2", "help"},
+		},
+		{"against root should match both subnavs and a BI, but not the action",
 			"nav", root, []string{"bi1", "bi2", "help", "n", "N", "navigator", "Navigator"},
 			[]traverse.CmdSuggestion{
 				{CmdName: "nav_a", MatchedNameCharacters: "nav"},
@@ -81,7 +92,7 @@ func TestDeriveSuggestions(t *testing.T) {
 			nil,
 			[]string{"navigator"},
 		},
-		{"\"nav\" input against nav_b should match only nav_ba and a BI",
+		{"against nav_b should match only nav_ba and a BI",
 			"nav", nav_b, []string{"bi1", "bi2", "help", "n", "N", "navigator", "Navigator"},
 			[]traverse.CmdSuggestion{
 				{CmdName: "nav_ba", MatchedNameCharacters: "nav"},
@@ -89,7 +100,7 @@ func TestDeriveSuggestions(t *testing.T) {
 			nil,
 			[]string{"navigator"},
 		},
-		{"\"nav_b nav\" input against root should traverse to nav_b and match only nav_ba and a BI",
+		{"against root should traverse to nav_b and match only nav_ba and a BI",
 			"nav_b nav", root, []string{"bi1", "bi2", "help", "n", "N", "navigator", "Navigator"},
 			[]traverse.CmdSuggestion{
 				{CmdName: "nav_ba", MatchedNameCharacters: "nav"},
@@ -97,41 +108,43 @@ func TestDeriveSuggestions(t *testing.T) {
 			nil,
 			[]string{"navigator"},
 		},
-		/*{"a", nav_ba, []string{},
+		{"(trailing space) should traverse and then suggest all at new pwd",
+			"nav_a ", root, []string{"a", "b"},
+			nil,
 			[]traverse.CmdSuggestion{
-				{MatchedName: "action_ba_1"},
-				{MatchedName: "action_ba_2", MatchedAliases: []string{"aBA2"}},
+				{CmdName: "action_a_1"},
 			},
+			[]string{"a", "b"},
+		},
+		{"alias match, but no trailing space so no traversal and thus no suggestions",
+			"AAlias", root, []string{"a", "b"},
+			nil,
+			nil,
 			nil,
 		},
-		{"a", nav_ba, []string{"a", "abcdef"},
+		{"(trailing space) traverse nav_a via alias",
+			"AAlias ", root, []string{"a", "b"},
+			nil,
 			[]traverse.CmdSuggestion{
-				{MatchedName: "action_ba_1"},
-				{MatchedName: "action_ba_2", MatchedAliases: []string{"aBA2"}},
+				{CmdName: "action_a_1"},
 			},
-			[]string{"a", "abcdef"},
+			[]string{"a", "b"},
 		},
-		{"z", nav_ba, []string{"a", "abcdef"},
-			[]traverse.CmdSuggestion{},
-			nil,
-		},
-		{"nav_a acti", root, []string{"acting", "Acting", "actiNg"},
-			[]traverse.CmdSuggestion{
-				{MatchedName: "action_a_1"},
-			},
-			[]string{"acting", "actiNg"},
-		},
-		{"nav_b nav_ba hel", root, []string{"help", "history", "History", "ls", "here"},
-			nil,
-			[]string{"help"},
-		},
-		{"nav_b nav_ba abcdef", root, []string{"help", "history", "History", "ls", "here"},
+		{"no matching suggests, no traversal",
+			"z", root, []string{"a", "b"},
 			nil,
 			nil,
-		},*/
+			nil,
+		},
+		{"traversal, then no matching suggests",
+			"nav_b z", root, []string{"a", "b"},
+			nil,
+			nil,
+			nil,
+		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run(fmt.Sprintf("in:\"%s\"|%v", tt.curInput, tt.name), func(t *testing.T) {
 			actualNavs, actualActions, actualBI := traverse.DeriveSuggestions(tt.curInput, tt.startingWD, tt.builtins)
 
 			// compare nav suggestions
