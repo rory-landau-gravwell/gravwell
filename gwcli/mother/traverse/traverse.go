@@ -17,7 +17,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/google/shlex"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
@@ -175,21 +174,6 @@ func prefixMatch(all bool, word, frag string) (_ Suggestion, match bool) {
 	}
 	// if we made it this far, then it is a valid suggestion
 	return s, true
-}
-
-// helper function for generateSuggestionFromCurrentInput().
-//
-// Concats match and unmatch, colourizing unmatch as a builtin.
-func recombineBI(match, unmatch string) string {
-	return match + stylesheet.Cur.TertiaryText.Render(unmatch)
-}
-
-func recombineCommand(match, unmatch string, isAction bool) string {
-	var sty lipgloss.Style = stylesheet.Cur.Nav
-	if isAction {
-		sty = stylesheet.Cur.Action
-	}
-	return match + sty.Render(unmatch)
 }
 
 //#endregion suggestion engine
