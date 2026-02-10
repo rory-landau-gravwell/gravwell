@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/shlex"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
+	"github.com/gravwell/gravwell/v4/gwcli/group"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/spf13/cobra"
@@ -146,10 +147,10 @@ word:
 		// check against each command's name
 		for _, cmd := range children {
 			if sgt, match := prefixMatch(all, cmd.Name(), suggest); match {
-				if action.Is(cmd) {
-					actions = append(actions, sgt)
-				} else {
+				if cmd.GroupID == group.NavID {
 					navs = append(navs, sgt)
+				} else { // default to treating unknowns as actions
+					actions = append(actions, sgt)
 				}
 			}
 
