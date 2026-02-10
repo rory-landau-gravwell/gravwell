@@ -26,6 +26,8 @@ A redesigned Gravwell client for the terminal, supporting both TUI-served intera
 
 - tab completion in interactive mode
 
+- custom suggestion engine to make interactive mode as accessible as possible
+
 - pluggable framework for easily adding new capabilities (complete with genericized boilerplate and generator functions)
 
 # Usage
