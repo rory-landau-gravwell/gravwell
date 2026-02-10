@@ -106,7 +106,7 @@ func init() {
 // GenerateTypeMap writes handles for actions to use to present structured data to users.
 // These handles take the form of mappings between a struct field in source code and a dot-qualified path to access it.
 // Mappings provide action developers an easier way to use struct fields and their data as columns
-// (rather requiring developers to write the paths themselves as string, which can quietly break or contain errors).
+// (rather than requiring developers to write the paths themselves as strings, which can quietly break or contain errors).
 //
 // Writes to `gwcli/internal/typemap/typemap.go`
 func GenerateTypeMap() error {
@@ -136,7 +136,7 @@ func GenerateTypeMap() error {
 	// write to a file, destroying any existing data
 	f, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("failed to create %v: %w\n", path, err)
+		return fmt.Errorf("failed to create %v: %w", path, err)
 	}
 
 	if n, err := fmt.Fprintln(f, m); err != nil {

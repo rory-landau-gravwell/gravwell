@@ -6,7 +6,7 @@
  * BSD 2-clause license. See the LICENSE file for details.
  **************************************************************************/
 
-// Package weave transmogrifies Go structs into alternatives forms.
+// Package weave transmogrifies Go structs into alternative forms.
 // It is primarily used for orchestrating arbitrary types into a specified format (CSV, JSON).
 // The package also contains functionality for generating flat string mappings of dot-qualified struct fields.
 package weave

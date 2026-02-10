@@ -84,7 +84,7 @@ func list() action.Pair {
 
 func flags() pflag.FlagSet {
 	addtlFlags := pflag.FlagSet{}
-	addtlFlags.Bool("all", false, "ADMIN ONLY. Lists all schedule searches on the system")
+	addtlFlags.Bool("all", false, "ADMIN ONLY. Lists all resources on the system")
 	return addtlFlags
 }
 
