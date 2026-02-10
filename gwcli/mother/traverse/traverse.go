@@ -134,6 +134,8 @@ word:
 	// can be marginally parallelized
 	var wg sync.WaitGroup
 	wg.Go(func() { // check against builtins
+		// treat the special traversal tokens as builtins
+		builtins = append(builtins, RootToken, RootTokenSecondary, UpToken)
 		for _, bi := range builtins {
 			if sgt, match := prefixMatch(all, bi, suggest); match {
 				bis = append(bis, sgt)
