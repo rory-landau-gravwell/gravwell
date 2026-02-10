@@ -26,8 +26,9 @@ import (
 )
 
 const (
-	RootToken string = "~" // "/" is also a valid root trav tkn
-	UpToken   string = ".."
+	RootToken          string = "~"
+	RootTokenSecondary string = "/"
+	UpToken            string = ".."
 )
 
 // Up return the parent directory to the given command.
@@ -42,7 +43,7 @@ func Up(dir *cobra.Command) *cobra.Command {
 
 // IsRootTraversalToken returns true iff the given string is exactly "~" or "/".
 func IsRootTraversalToken(tkn string) bool {
-	return tkn == "~" || tkn == "/"
+	return tkn == RootToken || tkn == RootTokenSecondary
 }
 
 // IsUpTraversalToken returns true iff the given string is exactly "..".
@@ -65,6 +66,7 @@ func (cs Suggestion) Equals(b Suggestion) bool {
 
 // DeriveSuggestions walks a command tree, starting at the given WD, to identify possible completions (to serve as suggestions) based on the input fragment.
 // Aliases are not suggested, but can be used to traverse the tree to find suggestions for subcommands.
+// The special traversal characters are returned as matching BIs.
 //
 // DeriveSuggestions serves as a data layer and expects the caller to enact their desired formatting/visualization.
 //
