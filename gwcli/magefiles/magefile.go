@@ -138,6 +138,7 @@ func GenerateTypeMap() error {
 	if err != nil {
 		return fmt.Errorf("failed to create %v: %w", path, err)
 	}
+	defer f.Close()
 
 	if n, err := fmt.Fprintln(f, m); err != nil {
 		return err
