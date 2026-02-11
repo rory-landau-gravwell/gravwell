@@ -260,35 +260,8 @@ func Execute(args []string) int {
 		"For instance, try: " + stylesheet.Cur.ExampleText.Render("gwcli help macros create") +
 		" or " + stylesheet.Cur.ExampleText.Render("gwcli query -h")
 
-	// spawn the cobra commands in parallel
-	var cmdFn = []func() *cobra.Command{
-		alerts.NewAlertsNav,
-		macros.NewMacrosNav,
-		queries.NewQueriesNav,
-		kits.NewKitsNav,
-		user.NewUserNav,
-		extractors.NewExtractorsNav,
-		dashboards.NewDashboardNav,
-		resources.NewResourcesNav,
-		systemshealth.NewSystemsNav,
-	}
-
-	var (
-		cmds  []*cobra.Command
-		resCh = make(chan *cobra.Command)
-	)
-	for _, fn := range cmdFn {
-		go func(f func() *cobra.Command) {
-			// execute the builder and send the command pointer to the dispatcher
-			resCh <- f()
-		}(fn)
-	}
-	for range cmdFn { // wait for an equal number of results
-		cmds = append(cmds, <-resCh)
-	}
-
 	rootCmd := treeutils.GenerateNav(use, short, long, []string{},
-		cmds,
+		nil, // commands are added later
 		[]action.Pair{
 			query.NewQueryAction(),
 			ingest.NewIngestAction(),
@@ -339,6 +312,50 @@ func Execute(args []string) int {
 			"\n" + ` gwcli --api APIKEY query "tag=gravwell stats count | chart count"`
 		rootCmd.Example = "\n" + lipgloss.JoinHorizontal(lipgloss.Left, fields, examples)
 
+	}
+
+	if err := rootCmd.ParseFlags(args); err != nil {
+		panic(err)
+	}
+	// set up the logger, if it is not already initialized
+	if clilog.Writer == nil {
+		path, err := rootCmd.Flags().GetString("log")
+		if err != nil {
+			panic(err)
+		}
+		lvl, err := rootCmd.Flags().GetString("loglevel")
+		if err != nil {
+			panic(err)
+		}
+		clilog.Init(path, lvl)
+	}
+
+	// attach children
+	// spawn the cobra commands in parallel
+	var cmdFn = []func() *cobra.Command{
+		alerts.NewAlertsNav,
+		macros.NewMacrosNav,
+		queries.NewQueriesNav,
+		kits.NewKitsNav,
+		user.NewUserNav,
+		extractors.NewExtractorsNav,
+		dashboards.NewDashboardNav,
+		resources.NewResourcesNav,
+		systemshealth.NewSystemsNav,
+	}
+
+	var (
+		//cmds  []*cobra.Command
+		resCh = make(chan *cobra.Command)
+	)
+	for _, fn := range cmdFn {
+		go func(f func() *cobra.Command) {
+			// execute the builder and send the command pointer to the dispatcher
+			resCh <- f()
+		}(fn)
+	}
+	for range cmdFn { // wait for an equal number of results
+		rootCmd.AddCommand(<-resCh)
 	}
 
 	err := rootCmd.Execute()
