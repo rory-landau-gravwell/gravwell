@@ -53,6 +53,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/crewjam/rfc5424"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
@@ -154,25 +155,28 @@ func NewListAction[dataStruct_t any](short, long string,
 		use = options.Use
 	}
 
-	// cache the struct fields so we do not need to reflect through them again later.
+	// cache the struct fields so we can save some reflection cycles later
 	availDSColumns, err := weave.StructFields(dataStruct, exportedColumnsOnly)
 	if err != nil {
 		panic(fmt.Sprintf("failed to cache available columns: %v", err))
 	}
 
 	// validate that all column aliases point to valid columns.
-	// Operates in O(n*m) time, unfortunately.
-	for dqcol := range options.ColumnAliases {
-		if !slices.Contains(availDSColumns, dqcol) {
-			panic("cannot alias unknown column '" + dqcol + "'")
+	if clilog.Active(clilog.DEBUG) {
+		for dqcol := range options.ColumnAliases {
+			if !slices.Contains(availDSColumns, dqcol) {
+				clilog.Writer.Warn("cannot alias unknown column",
+					rfc5424.SDParam{Name: "bad column path", Value: dqcol},
+					rfc5424.SDParam{Name: "data struct", Value: reflect.TypeOf(dataStruct).String()},
+				)
+			}
 		}
-
 	}
 
 	// set default columns from DefaultColumns or ExcludeColumnsFromDefault
 	if options.DefaultColumns != nil && options.ExcludeColumnsFromDefault != nil { // both were given
 		panic("DefaultColumns and ExcludeColumnsFromDefault are mutually exclusive")
-	} else if options.ExcludeColumnsFromDefault != nil { // exclude was given
+	} else if options.ExcludeColumnsFromDefault != nil { // default excludes were given
 		// to exclude columns, traverse the data structure and skip excluded columns
 
 		// transmute the list to a hashset for faster look ups
@@ -180,7 +184,7 @@ func NewListAction[dataStruct_t any](short, long string,
 		for _, exCol := range options.ExcludeColumnsFromDefault {
 			// check that the column exists in dq
 			if !slices.Contains(availDSColumns, exCol) {
-				panic("cannot exclude unknown column '" + exCol + "'")
+				panic("cannot exclude unknown column '" + exCol + "'") // TODO
 			}
 			excludeMap[exCol] = true
 		}
@@ -195,10 +199,17 @@ func NewListAction[dataStruct_t any](short, long string,
 			}
 		}
 		options.DefaultColumns = slices.Clip(options.DefaultColumns)
-	} else if options.DefaultColumns != nil { // defaults were given
-		if err := validateColumns(options.DefaultColumns, availDSColumns); err != nil { // otherwise, validate the given defaults
-			panic(err)
+	} else if options.DefaultColumns != nil { // default includes were given
+		if clilog.Active(clilog.DEBUG) { // validate columns
+			if err := validateColumns(options.DefaultColumns, availDSColumns); err != nil {
+				clilog.Writer.Warn("invalid default columns",
+					rfc5424.SDParam{Name: "Error", Value: err.Error()},
+				//	rfc5424.SDParam{Name: "data struct", Value: reflect.TypeOf(dataStruct).String()},
+				)
+				fmt.Fprintln(os.Stderr, reflect.TypeOf(dataStruct).String()) // TODO why does the whole log disappear when this is given as an SDParam?
+			}
 		}
+
 	} else { // nothing was given
 		options.DefaultColumns = availDSColumns
 	}
