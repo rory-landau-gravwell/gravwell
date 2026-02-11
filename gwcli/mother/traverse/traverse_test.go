@@ -207,6 +207,18 @@ func TestDeriveSuggestions(t *testing.T) {
 			},
 			nil,
 		},
+		{"halt traversal on first action match (action1)",
+			"nav_a / nav_b .. action1 ~ nav_a", root, []string{"bi1", "bi2", "help"},
+			nil,
+			nil,
+			nil,
+		},
+		{"halt traversal on first builtin match (bi2)",
+			"nav_a / nav_b .. bi2 ~ nav_a", root, []string{"bi1", "bi2", "help"},
+			nil,
+			nil,
+			nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("in:\"%s\"|%v", tt.curInput, tt.name), func(t *testing.T) {

@@ -113,7 +113,7 @@ func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []st
 	// if at any point it fails to match a word/token, the whole suggestion engine gives up
 word:
 	for _, word := range traversal {
-		// check special traversal tokens
+		// check for special traversal token match
 		if IsRootTraversalToken(word) {
 			pwd = pwd.Root()
 			continue word
@@ -121,14 +121,17 @@ word:
 			pwd = Up(pwd)
 			continue word
 		}
-		// check commands
+		// check for nav match
 		for _, cmd := range pwd.Commands() {
-			if cmd.Name() == word || slices.ContainsFunc(cmd.Aliases, func(alias string) bool { return alias == word }) {
+			if (cmd.Name() == word ||
+				slices.ContainsFunc(cmd.Aliases, func(alias string) bool { return alias == word })) &&
+				cmd.GroupID == group.NavID {
 				pwd = cmd
 				continue word
 			}
 		}
-		// if we made it this far, we have no matches and should give up
+		// if we made it this far, we matched nothing, an action, or a bi.
+		// In any case, we have no work left to do.
 		return nil, nil, nil
 	}
 
