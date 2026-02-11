@@ -123,11 +123,13 @@ word:
 		}
 		// check for nav match
 		for _, cmd := range pwd.Commands() {
-			if (cmd.Name() == word ||
-				slices.ContainsFunc(cmd.Aliases, func(alias string) bool { return alias == word })) &&
-				cmd.GroupID == group.NavID {
-				pwd = cmd
-				continue word
+			if cmd.Name() == word || slices.ContainsFunc(cmd.Aliases, func(alias string) bool { return alias == word }) {
+				if cmd.GroupID == group.NavID { // matching nav, updated wd
+					pwd = cmd
+					continue word
+				}
+				// matching action, die
+				return nil, nil, nil
 			}
 		}
 		// if we made it this far, we matched nothing, an action, or a bi.
