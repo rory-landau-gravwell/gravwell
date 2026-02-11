@@ -64,13 +64,18 @@ func (cs Suggestion) Equals(b Suggestion) bool {
 	return cs.FullName == b.FullName && cs.MatchedCharacters == b.MatchedCharacters
 }
 
+// SortSuggestions is a sort function for Suggestions, sorting by each element's FullName.
+func SuggestionsCompare(i, j Suggestion) int {
+	return strings.Compare(i.FullName, j.FullName)
+}
+
 // DeriveSuggestions walks a command tree, starting at the given WD, to identify possible completions (to serve as suggestions) based on the input fragment.
 // Aliases are not suggested, but can be used to traverse the tree to find suggestions for subcommands.
 // The special traversal characters are returned as matching BIs.
 //
 // DeriveSuggestions serves as a data layer and expects the caller to enact their desired formatting/visualization.
 //
-// Returns suggestions based on navs, actions, and bis.
+// Returns suggestions based on navs, actions, and bis. Each slice is sorted via strings.Compare() on FullName.
 // Returns all local suggestions if the suggest token is empty.
 // Returns nothing if startingWD is nil.
 //
@@ -141,6 +146,7 @@ word:
 				bis = append(bis, sgt)
 			}
 		}
+		slices.SortStableFunc(bis, SuggestionsCompare)
 	})
 	wg.Go(func() {
 		children := pwd.Commands()
@@ -153,8 +159,9 @@ word:
 					actions = append(actions, sgt)
 				}
 			}
-
 		}
+		slices.SortStableFunc(navs, SuggestionsCompare)
+		slices.SortStableFunc(actions, SuggestionsCompare)
 	})
 
 	wg.Wait()

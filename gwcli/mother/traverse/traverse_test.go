@@ -212,6 +212,11 @@ func TestDeriveSuggestions(t *testing.T) {
 		t.Run(fmt.Sprintf("in:\"%s\"|%v", tt.curInput, tt.name), func(t *testing.T) {
 			actualNavs, actualActions, actualBI := traverse.DeriveSuggestions(tt.curInput, tt.startingWD, tt.builtins)
 
+			// sort each expected slice to ensure consistency
+			slices.SortStableFunc(tt.expectedNavs, traverse.SuggestionsCompare)
+			slices.SortStableFunc(tt.expectedActions, traverse.SuggestionsCompare)
+			slices.SortStableFunc(tt.expectedBISuggestions, traverse.SuggestionsCompare)
+
 			// compare nav suggestions
 			if !slices.EqualFunc(actualNavs, tt.expectedNavs, func(a, b traverse.Suggestion) bool {
 				return a.Equals(b)
