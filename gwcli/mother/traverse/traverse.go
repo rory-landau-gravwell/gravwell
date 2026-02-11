@@ -6,8 +6,8 @@
  * BSD 2-clause license. See the LICENSE file for details.
  **************************************************************************/
 
-// Package traverse manages subroutines for traversing a command tree.
-// Used to ensure consistency should magic symbols (like "~") change.
+// Package traverse manages subroutines that traverse a command tree (or assist in doing so).
+// Ensures consistency should magic symbols (like "~") change.
 package traverse
 
 import (
@@ -26,9 +26,13 @@ import (
 )
 
 const (
-	RootToken          string = "~"
+	// RootToken navigates to the root of a command tree
+	RootToken string = "~"
+	// RootTokenSecondary navigates to the root of a command tree.
 	RootTokenSecondary string = "/"
-	UpToken            string = ".."
+	// UpToken navigate up one directory from pwd.
+	// Use Up() for traversal.
+	UpToken string = ".."
 )
 
 // Up return the parent directory to the given command.
@@ -64,12 +68,13 @@ func (cs Suggestion) Equals(b Suggestion) bool {
 	return cs.FullName == b.FullName && cs.MatchedCharacters == b.MatchedCharacters
 }
 
-// SortSuggestions is a sort function for Suggestions, sorting by each element's FullName.
+// SuggestionsCompare serves as a SortFunc provider for Suggestion{}.
+// String-sorts by each element's FullName.
 func SuggestionsCompare(i, j Suggestion) int {
 	return strings.Compare(i.FullName, j.FullName)
 }
 
-// DeriveSuggestions walks a command tree, starting at the given WD, to identify possible completions (to serve as suggestions) based on the input fragment.
+// DeriveSuggestions walks a command tree, starting at the given WD, to identify possible completions/suggestions based on the input fragment.
 // Aliases are not suggested, but can be used to traverse the tree to find suggestions for subcommands.
 // The special traversal characters are returned as matching BIs.
 //
@@ -77,7 +82,7 @@ func SuggestionsCompare(i, j Suggestion) int {
 //
 // Returns suggestions based on navs, actions, and bis. Each slice is sorted via strings.Compare() on FullName.
 // Returns all local suggestions if the suggest token is empty.
-// Returns nothing if startingWD is nil.
+// Returns nothing if startingWD is nil or an action or builtin are found during traversal.
 //
 // ! Comparisons are case-sensitive.
 func DeriveSuggestions(curInput string, startingWD *cobra.Command, builtins []string) (navs, actions, bis []Suggestion) {
