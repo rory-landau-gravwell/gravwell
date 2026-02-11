@@ -155,7 +155,7 @@ func new(root *navCmd, cur *cobra.Command, trailingTokens []string, _ *lipgloss.
 		// have mother immediate act on the data we placed on her prompt
 		m.processOnStartup = true
 	}
-	m.regenerateSuggestions(m.ti.Value())
+	m.ti.SetSuggestions(m.regenerateSuggestions(m.ti.Value()))
 
 	clilog.Writer.Debugf("Spawning mother rooted @ %v, located @ %v, with trailing tokens %v",
 		m.root.Name(), m.pwd.Name(), trailingTokens)
@@ -261,54 +261,55 @@ func (m Mother) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.ti, cmd = m.ti.Update(msg)
 
 	if _, ok := msg.(tea.KeyMsg); ok { // sort, categorize, and colourize suggestions
-		m.regenerateSuggestions(m.ti.Value())
+		m.ti.SetSuggestions(m.regenerateSuggestions(m.ti.Value()))
 	}
 
 	return m, cmd
 }
 
 // ! tab complete will only suggest the lowest item (alphanumerically) from each set (bis, actions, and navs)
-func (m *Mother) regenerateSuggestions(userInput string) {
+func (m *Mother) regenerateSuggestions(userInput string) (tabCompletes []string) {
+	var navCompletion, actionCompletion, biCompletion string
 	navs, actions, bis := traverse.DeriveSuggestions(userInput, m.pwd, builtinKeys)
 	var wg sync.WaitGroup
+
 	wg.Go(func() { // navs
 		m.navSuggestions = make([]string, len(navs))
-		slices.SortFunc(navs, func(a, b traverse.Suggestion) int { return strings.Compare(a.FullName, b.FullName) })
-		for i, nav := range navs {
-			// prefix-replace the full name with the matched characters colourized
-			m.navSuggestions[i] = stylesheet.Cur.Nav.Render(nav.MatchedCharacters) + nav.FullName[len(nav.MatchedCharacters):]
+		if len(navs) > 0 {
+			slices.SortFunc(navs, func(a, b traverse.Suggestion) int { return strings.Compare(a.FullName, b.FullName) })
+			navCompletion = navs[0].MatchedCharacters + navs[0].FullName[len(navs[0].MatchedCharacters):]
+			for i, nav := range navs {
+				// prefix-replace the full name with the matched characters colourized
+				m.navSuggestions[i] = stylesheet.Cur.Nav.Render(nav.MatchedCharacters) + nav.FullName[len(nav.MatchedCharacters):]
+			}
 		}
 	})
+
 	wg.Go(func() { // actions
 		m.actionSuggestions = make([]string, len(actions))
-		slices.SortFunc(actions, func(a, b traverse.Suggestion) int { return strings.Compare(a.FullName, b.FullName) })
-		for i, action := range actions {
-			// prefix-replace the full name with the matched characters colourized
-			m.actionSuggestions[i] = stylesheet.Cur.Action.Render(action.MatchedCharacters) + action.FullName[len(action.MatchedCharacters):]
+		if len(actions) > 0 {
+			slices.SortFunc(actions, func(a, b traverse.Suggestion) int { return strings.Compare(a.FullName, b.FullName) })
+			actionCompletion = actions[0].MatchedCharacters + actions[0].FullName[len(actions[0].MatchedCharacters):]
+			for i, action := range actions {
+				// prefix-replace the full name with the matched characters colourized
+				m.actionSuggestions[i] = stylesheet.Cur.Action.Render(action.MatchedCharacters) + action.FullName[len(action.MatchedCharacters):]
+			}
 		}
 	})
+
 	wg.Go(func() { // builtins
 		m.biSuggestions = make([]string, len(bis))
-		slices.SortFunc(bis, func(a, b traverse.Suggestion) int { return strings.Compare(a.FullName, b.FullName) })
-		for i, bi := range bis {
-			m.biSuggestions[i] = stylesheet.Cur.TertiaryText.Render(bi.MatchedCharacters) + bi.FullName[len(bi.MatchedCharacters):]
+		if len(bis) > 0 {
+			slices.SortFunc(bis, func(a, b traverse.Suggestion) int { return strings.Compare(a.FullName, b.FullName) })
+			biCompletion = bis[0].MatchedCharacters + bis[0].FullName[len(bis[0].MatchedCharacters):]
+			for i, bi := range bis {
+				m.biSuggestions[i] = stylesheet.Cur.TertiaryText.Render(bi.MatchedCharacters) + bi.FullName[len(bi.MatchedCharacters):]
+			}
 		}
 	})
 
 	wg.Wait()
-
-	tabComplete := []string{}
-	if len(m.navSuggestions) > 0 {
-		tabComplete = append(tabComplete, m.navSuggestions[0])
-	}
-	if len(m.actionSuggestions) > 0 {
-		tabComplete = append(tabComplete, m.actionSuggestions[0])
-	}
-	if len(m.biSuggestions) > 0 {
-		tabComplete = append(tabComplete, m.biSuggestions[0])
-	}
-
-	m.ti.SetSuggestions(tabComplete)
+	return []string{navCompletion, actionCompletion, biCompletion}
 }
 
 // helper function for m.Update.
