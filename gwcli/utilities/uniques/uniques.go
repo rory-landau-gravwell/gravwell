@@ -129,7 +129,8 @@ func AttachPersistentFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().String("server", "localhost:80", "<host>:<port> of instance to connect to.\n")
 	cmd.PersistentFlags().StringP("log", "l", cfgdir.DefaultStdLogPath, "log location for developer logs.\n")
 	cmd.PersistentFlags().String("loglevel", "DEBUG", "log level for developer logs (-l).\n"+
-		"Possible values: 'OFF', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL', 'FATAL'.\n")
+		"Possible values: 'OFF', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL', 'FATAL'.\n"+
+		"NOTE: DEBUG mode will enable additional validation checks and may have a minor performance impact.\n")
 	cmd.PersistentFlags().Bool("insecure", false, "do not use HTTPS and do not enforce certs.")
 	cmd.PersistentFlags().String("profile", "", "spins up the native CPU profiler to log samples (in pprof format) into the given path")
 	cmd.PersistentFlags().MarkHidden("profile")
