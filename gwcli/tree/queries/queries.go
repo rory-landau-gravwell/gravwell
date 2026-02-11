@@ -19,7 +19,6 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
-	tm "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/queries/attach"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/queries/scheduled"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
@@ -86,11 +85,10 @@ func past() action.Pair {
 		scaffoldlist.Options{
 			Use: pastUse, AddtlFlags: flags,
 			DefaultColumns: []string{
-				tm.Types_SearchHistoryEntry_CommonFields_OwnerID,
-				tm.Types_SearchHistoryEntry_UserQuery,
-				tm.Types_SearchHistoryEntry_EffectiveQuery,
+				"CommonFields.OwnerID",
+				"UserQuery",
+				"EffectiveQuery",
 			},
-			ColumnAliases: map[string]string{tm.Types_SearchHistoryEntry_EffectiveQuery: "EQuery"},
 		})
 }
 

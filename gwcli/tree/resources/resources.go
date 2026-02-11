@@ -18,7 +18,6 @@ import (
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
-	tm "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
@@ -70,13 +69,13 @@ func list() action.Pair {
 		},
 		scaffoldlist.Options{
 			DefaultColumns: []string{
-				tm.Types_Resource_CommonFields_ID,
-				tm.Types_Resource_CommonFields_Name,
-				tm.Types_Resource_CommonFields_Description,
-				tm.Types_Resource_Size},
+				"CommonFields.ID",
+				"CommonFields.Name",
+				"CommonFields.Description",
+				"CommonFields.Size"},
 			ColumnAliases: map[string]string{
-				tm.Types_Resource_CommonFields_Name: "Name",
-				tm.Types_Resource_Size:              "SizeBytes",
+				"CommonFields.Name": "Name",
+				"CommonFields.Size": "SizeBytes",
 			},
 			AddtlFlags: flags,
 		})

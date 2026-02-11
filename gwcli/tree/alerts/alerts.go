@@ -17,7 +17,6 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
-	tm "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/spf13/cobra"
@@ -67,17 +66,17 @@ func list() action.Pair {
 				return fs
 			},
 			DefaultColumns: []string{
-				tm.Types_AlertDefinition_Name,
-				tm.Types_AlertDefinition_Description,
-				tm.Types_AlertDefinition_Disabled,
-				tm.Types_AlertDefinition_Consumers,
-				tm.Types_AlertDefinition_Dispatchers,
-				tm.Types_AlertDefinition_GUID,
-				tm.Types_AlertDefinition_Global,
-				tm.Types_AlertDefinition_Labels,
-				tm.Types_AlertDefinition_TargetTag,
-				tm.Types_AlertDefinition_ThingUUID,
-				tm.Types_AlertDefinition_UID,
+				"Name",
+				"Description",
+				"Disabled",
+				"Consumers",
+				"Dispatchers",
+				"GUID",
+				"Global",
+				"Labels",
+				"TargetTag",
+				"ThingUUID",
+				"UID",
 			},
 			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, _ error) {
 				if listConsumerID, invalid = validateListID("consumer", fs); invalid != "" {

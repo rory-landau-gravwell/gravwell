@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/gravwell/gravwell/v4/gwcli/action"
-	tm "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
@@ -64,10 +63,10 @@ func newMacroListAction() action.Pair {
 	return scaffoldlist.NewListAction(listShort, listLong,
 		types.Macro{}, listMacros,
 		scaffoldlist.Options{AddtlFlags: flags, DefaultColumns: []string{
-			tm.Types_Macro_CommonFields_ID,
-			tm.Types_Macro_CommonFields_Name,
-			tm.Types_Macro_CommonFields_Description,
-			tm.Types_Macro_Expansion,
+			"CommonFields.ID",
+			"CommonFields.Name",
+			"CommonFields.Description",
+			"Expansion",
 		}})
 }
 
