@@ -93,7 +93,8 @@ func InitializeFromArgs(args []string) {
 }
 
 // Init initializes Writer, the logging singleton.
-// Safe (ineffectual) if the writer has already been initialized.
+//
+// Safe to call multiple times; subsequent calls will be no-ops.
 func Init(path string, lvlString string) error {
 	var err error
 	if Writer != nil {
