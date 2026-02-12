@@ -57,7 +57,7 @@ func newKitsListAction() action.Pair {
 		scaffoldlist.Options{AddtlFlags: flags,
 			DefaultColumns: []string{
 				"UUID",
-				"Name",
+				"KitState.Name",
 				"KitState.Description",
 				"KitState.Version",
 			}})
