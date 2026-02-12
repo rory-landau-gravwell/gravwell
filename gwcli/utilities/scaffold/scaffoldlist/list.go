@@ -49,7 +49,9 @@ package scaffoldlist
 import (
 	"fmt"
 	"os"
+	"path"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -128,6 +130,13 @@ type PrettyPrinterFunc func(*pflag.FlagSet) (string, error)
 // Go's Generics are a godsend.
 func NewListAction[dataStruct_t any](short, long string,
 	dataStruct dataStruct_t, dataFn ListDataFunction[dataStruct_t], options Options) action.Pair {
+	var identifier rfc5424.SDParam // identifies the caller function to make it easier to fix developer errors
+	if clilog.Active(clilog.DEBUG) {
+		_, file, line, ok := runtime.Caller(1)
+		if ok {
+			identifier = rfc5424.SDParam{Name: "caller", Value: fmt.Sprintf("%v:%v", path.Base(file), line)}
+		}
+	}
 	// check for developer errors
 	if reflect.TypeOf(dataStruct).Kind() != reflect.Struct {
 		panic("dataStruct must be a struct")
@@ -166,8 +175,9 @@ func NewListAction[dataStruct_t any](short, long string,
 		for dqcol := range options.ColumnAliases {
 			if !slices.Contains(availDSColumns, dqcol) {
 				clilog.Writer.Warn("cannot alias unknown column",
-					rfc5424.SDParam{Name: "bad column path", Value: dqcol},
-					rfc5424.SDParam{Name: "data struct", Value: reflect.TypeOf(dataStruct).String()},
+					identifier,
+					rfc5424.SDParam{Name: "bad_column_path", Value: dqcol},
+					rfc5424.SDParam{Name: "data_struct", Value: reflect.TypeOf(dataStruct).String()},
 				)
 			}
 		}
@@ -203,10 +213,10 @@ func NewListAction[dataStruct_t any](short, long string,
 		if clilog.Active(clilog.DEBUG) { // validate columns
 			if badCols := validateColumns(options.DefaultColumns, availDSColumns); len(badCols) > 0 {
 				clilog.Writer.Warn("invalid default columns",
-					rfc5424.SDParam{Name: "Error", Value: err.Error()},
-				//	rfc5424.SDParam{Name: "data struct", Value: reflect.TypeOf(dataStruct).String()},
+					identifier,
+					rfc5424.SDParam{Name: "bad_columns", Value: strings.Join(badCols, "_")},
+					rfc5424.SDParam{Name: "data_struct", Value: reflect.TypeOf(dataStruct).String()},
 				)
-				fmt.Fprintln(os.Stderr, reflect.TypeOf(dataStruct).String()) // TODO why does the whole log disappear when this is given as an SDParam?
 			}
 		}
 
