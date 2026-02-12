@@ -132,9 +132,10 @@ func NewListAction[dataStruct_t any](short, long string,
 	dataStruct dataStruct_t, dataFn ListDataFunction[dataStruct_t], options Options) action.Pair {
 	var identifier rfc5424.SDParam // identifies the caller function to make it easier to fix developer errors
 	if clilog.Active(clilog.DEBUG) {
-		_, file, line, ok := runtime.Caller(1)
-		if ok {
-			identifier = rfc5424.SDParam{Name: "caller", Value: fmt.Sprintf("%v:%v", path.Base(file), line)}
+		// extract the last two elements in the caller's path
+		if _, file, line, ok := runtime.Caller(1); ok {
+			d, f := path.Split(file)
+			identifier = rfc5424.SDParam{Name: "caller", Value: fmt.Sprintf("%v:%v", path.Join(path.Base(d), f), line)}
 		}
 	}
 	// check for developer errors
