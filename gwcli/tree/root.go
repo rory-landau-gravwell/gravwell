@@ -247,6 +247,9 @@ func ppost(cmd *cobra.Command, args []string) error {
 //
 // args is only used when unit testing tree construction and should be nil during actual use.
 func Execute(args []string) int {
+	// spool up the logger
+	clilog.InitializeFromArgs(args)
+
 	const (
 		// usage
 		use   string = "gwcli"
@@ -310,22 +313,6 @@ func Execute(args []string) int {
 			"\n" + ` gwcli --api APIKEY query "tag=gravwell stats count | chart count"`
 		rootCmd.Example = "\n" + lipgloss.JoinHorizontal(lipgloss.Left, fields, examples)
 
-	}
-
-	if err := rootCmd.ParseFlags(args); err != nil {
-		panic(err)
-	}
-	// set up the logger
-	if clilog.Writer == nil {
-		path, err := rootCmd.Flags().GetString("log")
-		if err != nil {
-			panic(err)
-		}
-		lvl, err := rootCmd.Flags().GetString("loglevel")
-		if err != nil {
-			panic(err)
-		}
-		clilog.Init(path, lvl)
 	}
 
 	// attach children
