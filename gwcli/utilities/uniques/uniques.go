@@ -127,11 +127,18 @@ func AttachPersistentFlags(cmd *cobra.Command) {
 
 	ft.NoColor.Register(cmd.PersistentFlags())
 	cmd.PersistentFlags().String("server", "localhost:80", "<host>:<port> of instance to connect to.\n")
+	cmd.PersistentFlags().Bool("insecure", false, "do not use HTTPS and do not enforce certs.")
+	cmd.PersistentFlags().String("profile", "", "spins up the native CPU profiler to log samples (in pprof format) into the given path")
+	cmd.PersistentFlags().MarkHidden("profile")
+
+	// NOTE: to enable clilog to come online immediately, these flags are never actually handled.
+	// Instead, clilog.InitializeFromArgs is used.
+	// These definitions are here to act as descriptor text for a user.
+	//
+	// This is distinction must be made because we cannot parse all flags early as we do not know the full list of acceptable flags until an action has been determined.
+	// However, we want the logger to come online early.
 	cmd.PersistentFlags().StringP("log", "l", cfgdir.DefaultStdLogPath, "log location for developer logs.\n")
 	cmd.PersistentFlags().String("loglevel", "DEBUG", "log level for developer logs (-l).\n"+
 		"Possible values: 'OFF', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL', 'FATAL'.\n"+
 		"NOTE: DEBUG mode will enable additional validation checks and may have a minor performance impact.\n")
-	cmd.PersistentFlags().Bool("insecure", false, "do not use HTTPS and do not enforce certs.")
-	cmd.PersistentFlags().String("profile", "", "spins up the native CPU profiler to log samples (in pprof format) into the given path")
-	cmd.PersistentFlags().MarkHidden("profile")
 }

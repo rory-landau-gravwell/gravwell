@@ -22,8 +22,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/cfgdir"
 	"github.com/gravwell/gravwell/v4/ingest/log"
 	"github.com/gravwell/gravwell/v4/ingest/log/rotate"
+	"github.com/spf13/pflag"
 )
 
 //#region errors
@@ -53,6 +55,42 @@ const (
 
 // Writer is the logging singleton.
 var Writer *log.Logger
+
+const (
+	PathFlag  string = "log"      // flag (--XXX), sans dashes, given to specify a path to the logfile
+	LevelFlag string = "loglevel" // flag (--XXX), sans dashes, given to specify a log level
+
+	DefaultLevel string = "INFO"
+)
+
+// InitializeFromArgs parses out --log and --loglevel from a set of arguments, ignoring any and all other flags.
+// This enables clilogger to be brought online and configured before any other handling is prepared.
+//
+// If args is nil or an error occurs, the logger will be initialized with its defaults.
+//
+// Safe to call multiple times; subsequent calls will be no-ops.
+func InitializeFromArgs(args []string) {
+	if Writer != nil {
+		return
+	}
+	// parse for just the log flags right now, ignoring unknown flag errors.
+	// All other flags will be handled appropriately later.
+	logFlags := pflag.NewFlagSet("logging", pflag.PanicOnError)
+	logFlags.ParseErrorsWhitelist = pflag.ParseErrorsWhitelist{UnknownFlags: true}
+	if err := logFlags.Parse(args); err != nil {
+		panic(err) // if this pops, something has gone horribly wrong and we need to know
+	}
+
+	path, err := logFlags.GetString(PathFlag)
+	if err != nil {
+		path = cfgdir.DefaultStdLogPath
+	}
+	lvl, err := logFlags.GetString(LevelFlag)
+	if err != nil {
+		lvl = DefaultLevel
+	}
+	_ = Init(path, lvl)
+}
 
 // Init initializes Writer, the logging singleton.
 // Safe (ineffectual) if the writer has already been initialized.
