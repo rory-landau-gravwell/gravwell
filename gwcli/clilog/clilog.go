@@ -128,6 +128,9 @@ func Tee(lvl Level, alt io.Writer, str string) {
 
 // Active returns whether or not the given level is currently enabled (<= log.Level)
 func Active(lvl Level) bool {
+	if Writer == nil {
+		return false
+	}
 	return Writer.GetLevel() <= log.Level(lvl)
 }
 
