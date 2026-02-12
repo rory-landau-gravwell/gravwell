@@ -243,8 +243,9 @@ func ppost(cmd *cobra.Command, args []string) error {
 }
 
 // Execute adds all child commands to the root command, sets flags appropriately, and launches the
-// program according to the given parameters
-// (via cobra.Command.Execute()).
+// program according to the given parameters (via cobra.Command.Execute()).
+//
+// args is only used when unit testing tree construction and should be nil during actual use.
 func Execute(args []string) int {
 	const (
 		// usage
@@ -261,7 +262,7 @@ func Execute(args []string) int {
 		" or " + stylesheet.Cur.ExampleText.Render("gwcli query -h")
 
 	rootCmd := treeutils.GenerateNav(use, short, long, []string{},
-		nil, // commands are added later
+		nil, // navs are added later
 		[]action.Pair{
 			query.NewQueryAction(),
 			ingest.NewIngestAction(),
@@ -278,7 +279,7 @@ func Execute(args []string) int {
 		panic("some children missing a group")
 	}
 
-	// configuration the completion command as an action
+	// configure the completion command as an action
 	rootCmd.SetCompletionCommandGroupID(group.ActionID)
 
 	// configure Windows mouse trap
@@ -286,9 +287,6 @@ func Execute(args []string) int {
 		"You need to open gwcli.exe and run it from there.\n" +
 		"Press Return to close.\n"
 	cobra.MousetrapDisplayDuration = 0
-
-	// configure root's Run to launch Mother
-	rootCmd.Run = treeutils.NavRun
 
 	// if args were given (ex: we are in testing mode)
 	// use those instead of os.Args
@@ -317,7 +315,7 @@ func Execute(args []string) int {
 	if err := rootCmd.ParseFlags(args); err != nil {
 		panic(err)
 	}
-	// set up the logger, if it is not already initialized
+	// set up the logger
 	if clilog.Writer == nil {
 		path, err := rootCmd.Flags().GetString("log")
 		if err != nil {
