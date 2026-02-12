@@ -201,5 +201,5 @@ func validateColumns(cols []string, availDSColumns []string) (unknown []string) 
 		}
 	}
 
-	return nil
+	return unknown
 }
