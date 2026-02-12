@@ -72,10 +72,10 @@ func list() action.Pair {
 				"CommonFields.ID",
 				"CommonFields.Name",
 				"CommonFields.Description",
-				"CommonFields.Size"},
+				"Size"},
 			ColumnAliases: map[string]string{
 				"CommonFields.Name": "Name",
-				"CommonFields.Size": "SizeBytes",
+				"Size":              "SizeBytes",
 			},
 			AddtlFlags: flags,
 		})
