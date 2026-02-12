@@ -171,14 +171,12 @@ func NewListAction[dataStruct_t any](short, long string,
 		panic(fmt.Sprintf("failed to cache available columns: %v", err))
 	}
 
-	// validate that all column aliases point to valid columns.
-	if clilog.Active(clilog.DEBUG) {
+	if clilog.Active(clilog.DEBUG) { // validate that all column aliases point to valid columns.
 		for dqcol := range options.ColumnAliases {
 			if !slices.Contains(availDSColumns, dqcol) {
-				clilog.Writer.Warn("cannot alias unknown column",
+				clilog.Writer.Warn("failed to alias column: unknown path",
 					identifier,
 					rfc5424.SDParam{Name: "bad_column_path", Value: dqcol},
-					rfc5424.SDParam{Name: "data_struct", Value: reflect.TypeOf(dataStruct).String()},
 				)
 			}
 		}
@@ -195,7 +193,11 @@ func NewListAction[dataStruct_t any](short, long string,
 		for _, exCol := range options.ExcludeColumnsFromDefault {
 			// check that the column exists in dq
 			if !slices.Contains(availDSColumns, exCol) {
-				panic("cannot exclude unknown column '" + exCol + "'") // TODO
+				clilog.Writer.Warn("failed to exclude column from default set: unknown path",
+					identifier,
+					rfc5424.SDParam{Name: "bad_column_path", Value: exCol},
+				)
+				continue
 			}
 			excludeMap[exCol] = true
 		}
@@ -210,17 +212,13 @@ func NewListAction[dataStruct_t any](short, long string,
 			}
 		}
 		options.DefaultColumns = slices.Clip(options.DefaultColumns)
-	} else if options.DefaultColumns != nil { // default includes were given
-		if clilog.Active(clilog.DEBUG) { // validate columns
-			if badCols := validateColumns(options.DefaultColumns, availDSColumns); len(badCols) > 0 {
-				clilog.Writer.Warn("invalid default columns",
-					identifier,
-					rfc5424.SDParam{Name: "bad_columns", Value: strings.Join(badCols, "_")},
-					rfc5424.SDParam{Name: "data_struct", Value: reflect.TypeOf(dataStruct).String()},
-				)
-			}
+	} else if options.DefaultColumns != nil && clilog.Active(clilog.DEBUG) { // default includes were given; take them verbatim
+		if badCols := validateColumns(options.DefaultColumns, availDSColumns); len(badCols) > 0 {
+			clilog.Writer.Warn("invalid default columns",
+				identifier,
+				rfc5424.SDParam{Name: "bad_columns", Value: strings.Join(badCols, "_")},
+			)
 		}
-
 	} else { // nothing was given
 		options.DefaultColumns = availDSColumns
 	}
