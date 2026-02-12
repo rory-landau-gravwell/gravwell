@@ -201,7 +201,7 @@ func NewListAction[dataStruct_t any](short, long string,
 		options.DefaultColumns = slices.Clip(options.DefaultColumns)
 	} else if options.DefaultColumns != nil { // default includes were given
 		if clilog.Active(clilog.DEBUG) { // validate columns
-			if err := validateColumns(options.DefaultColumns, availDSColumns); err != nil {
+			if badCols := validateColumns(options.DefaultColumns, availDSColumns); len(badCols) > 0 {
 				clilog.Writer.Warn("invalid default columns",
 					rfc5424.SDParam{Name: "Error", Value: err.Error()},
 				//	rfc5424.SDParam{Name: "data struct", Value: reflect.TypeOf(dataStruct).String()},
