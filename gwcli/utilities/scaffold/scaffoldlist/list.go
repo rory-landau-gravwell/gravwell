@@ -202,7 +202,7 @@ func NewListAction[dataStruct_t any](short, long string,
 			excludeMap[exCol] = true
 		}
 		// put available data struct columns into default, minus excludes
-		options.DefaultColumns = make([]string, len(availDSColumns)-len(options.ExcludeColumnsFromDefault))
+		options.DefaultColumns = make([]string, len(availDSColumns)-len(excludeMap))
 		var excluded int // track the # skipped to decrement insertion index by that much
 		for i := range availDSColumns {
 			if _, found := excludeMap[availDSColumns[i]]; found {
