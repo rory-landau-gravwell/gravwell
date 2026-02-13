@@ -17,12 +17,14 @@ package clilog
 
 import (
 	"errors"
+	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/gravwell/gravwell/v4/gwcli/utilities/cfgdir"
+	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/gravwell/gravwell/v4/ingest/log"
 	"github.com/gravwell/gravwell/v4/ingest/log/rotate"
 	"github.com/spf13/pflag"
@@ -56,13 +58,6 @@ const (
 // Writer is the logging singleton.
 var Writer *log.Logger
 
-const (
-	PathFlag  string = "log"      // flag (--XXX), sans dashes, given to specify a path to the logfile
-	LevelFlag string = "loglevel" // flag (--XXX), sans dashes, given to specify a log level
-
-	DefaultLevel string = "INFO"
-)
-
 // InitializeFromArgs parses out --log and --loglevel from a set of arguments, ignoring any and all other flags.
 // This enables clilogger to be brought online and configured before any other handling is prepared.
 //
@@ -75,18 +70,21 @@ func InitializeFromArgs(args []string) {
 	}
 	// args may include flags unrelated to the logger; ignore them
 	logFlags := pflag.NewFlagSet("logging", pflag.PanicOnError)
+	ft.LogPath.Register(logFlags)
+	ft.LogLevel.Register(logFlags)
+
 	logFlags.ParseErrorsWhitelist = pflag.ParseErrorsWhitelist{UnknownFlags: true}
 	if err := logFlags.Parse(args); err != nil {
 		panic(err) // if this pops, something has gone horribly wrong and we need to know
 	}
 
-	path, err := logFlags.GetString(PathFlag)
+	path, err := logFlags.GetString(ft.LogPath.Name())
 	if err != nil {
-		path = cfgdir.DefaultStdLogPath
+		fmt.Fprintln(os.Stderr, "failed to get log path flag to initialize clilog: ", err)
 	}
-	lvl, err := logFlags.GetString(LevelFlag)
+	lvl, err := logFlags.GetString(ft.LogLevel.Name())
 	if err != nil {
-		lvl = DefaultLevel
+		fmt.Fprintln(os.Stderr, "failed to get log level flag to initialize clilog: ", err)
 	}
 	_ = Init(path, lvl)
 }
