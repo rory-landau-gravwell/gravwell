@@ -21,6 +21,10 @@ const (
 	stdLogName  string = "dev.log"
 )
 
+const (
+	DefaultLogLevel string = "INFO"
+)
+
 // all persistent data is stored in $os.UserConfigDir/gwcli/
 // or local to the instantiation, if that fails
 var ( // set by init
