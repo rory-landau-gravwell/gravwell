@@ -146,7 +146,12 @@ func Destroy() error {
 
 // Tee writes the error to clilog.Writer and a secondary output, usually stderr
 func Tee(lvl Level, alt io.Writer, str string) {
-	alt.Write([]byte(str))
+	if alt != nil {
+		alt.Write([]byte(str))
+	}
+	if Writer == nil {
+		return
+	}
 	switch lvl {
 	case OFF:
 	case DEBUG:
@@ -175,6 +180,9 @@ func Active(lvl Level) bool {
 // LogFlagFailedGet logs the non-fatal failure to fetch named flag from flagset.
 // Used to keep flag handling errors uniform.
 func LogFlagFailedGet(flagname string, err error) {
+	if Writer == nil {
+		return
+	}
 	Writer.Warnf("failed to fetch '--%v':%v\nignoring", flagname, err)
 }
 
@@ -182,5 +190,8 @@ var dbgMsgSty = lipgloss.NewStyle().Italic(true)
 
 // LogMsg is a helper method for consistently displaying messages (at the debug level).
 func LogMsg(str string, msg tea.Msg) {
+	if Writer == nil {
+		return
+	}
 	Writer.Debugf("%s\n\t"+dbgMsgSty.Render("%#v"), str, msg)
 }
