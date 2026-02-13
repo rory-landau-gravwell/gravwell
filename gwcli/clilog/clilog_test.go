@@ -122,6 +122,46 @@ func TestTee(t *testing.T) {
 	})
 }
 
+func TestInitializeFromArgs(t *testing.T) {
+	// ensure the singleton does not exist
+	clilog.Destroy()
+
+	t.Run("nil args uses default level", func(t *testing.T) {
+		clilog.InitializeFromArgs(nil)
+		// check
+		if lvl := strings.ToUpper(clilog.Writer.GetLevel().String()); lvl != clilog.DefaultLevel {
+			t.Error(testsupport.ExpectedActual(clilog.DefaultLevel, lvl))
+		}
+	})
+	// ensure the singleton does not exist
+	if err := clilog.Destroy(); err != nil {
+		t.Fatal(err)
+	}
+	t.Run("both flags provided overwrites log path and level", func(t *testing.T) {
+		// prep for outpath
+		pth := path.Join(t.TempDir(), "t.log")
+
+		args := []string{"--" + clilog.PathFlag + "=" + pth, "--" + clilog.LevelFlag + "=DEBUG"}
+		t.Log("args: \"", args, "\"")
+		clilog.InitializeFromArgs(args)
+		// check level
+		if lvl := strings.ToUpper(clilog.Writer.GetLevel().String()); lvl != "DEBUG" {
+			t.Error(testsupport.ExpectedActual("DEBUG", lvl))
+		}
+		msg := "test message"
+		clilog.Writer.Debug(msg)
+		if err := clilog.Destroy(); err != nil {
+			t.Fatal(err)
+		}
+		// check that the file was properly written to
+		if b, err := os.ReadFile(pth); err != nil {
+			t.Error(err)
+		} else if !strings.Contains(string(b), msg) {
+			t.Errorf("did not find message \"%v\" inside of file:\"%v\"", msg, string(b))
+		}
+	})
+}
+
 func TestInit(t *testing.T) {
 	// ensure the singleton does not exist
 	clilog.Destroy()
