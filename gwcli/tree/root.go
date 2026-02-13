@@ -235,7 +235,11 @@ func ppost(cmd *cobra.Command, args []string) error {
 // args is only used when unit testing tree construction and should be nil during actual use.
 func Execute(args []string) int {
 	// spool up the logger
-	clilog.InitializeFromArgs(args)
+	if args == nil {
+		clilog.InitializeFromArgs(os.Args)
+	} else {
+		clilog.InitializeFromArgs(args)
+	}
 
 	const (
 		// usage
