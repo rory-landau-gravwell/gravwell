@@ -212,12 +212,14 @@ func NewListAction[dataStruct_t any](short, long string,
 			}
 		}
 		options.DefaultColumns = slices.Clip(options.DefaultColumns)
-	} else if options.DefaultColumns != nil && clilog.Active(clilog.DEBUG) { // default includes were given; take them verbatim
-		if badCols := validateColumns(options.DefaultColumns, availDSColumns); len(badCols) > 0 {
-			clilog.Writer.Warn("invalid default columns",
-				identifier,
-				rfc5424.SDParam{Name: "bad_columns", Value: strings.Join(badCols, "_")},
-			)
+	} else if options.DefaultColumns != nil {
+		if clilog.Active(clilog.DEBUG) { // default includes were given; take them verbatim
+			if badCols := validateColumns(options.DefaultColumns, availDSColumns); len(badCols) > 0 {
+				clilog.Writer.Warn("invalid default columns",
+					identifier,
+					rfc5424.SDParam{Name: "bad_columns", Value: strings.Join(badCols, "_")},
+				)
+			}
 		}
 	} else { // nothing was given
 		options.DefaultColumns = availDSColumns
