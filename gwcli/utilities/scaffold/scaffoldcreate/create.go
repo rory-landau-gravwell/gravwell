@@ -105,6 +105,11 @@ type Values = map[string]string
 // and an error that occurred (or nil). This is different than an invalid reason and is likely a bubbling up of an error from the client library.
 type CreateFunc func(cfg Config, values Values, fs *pflag.FlagSet) (id any, invalid string, err error)
 
+// NewCreateAction returns an action pair (covering interactive and non-interactive use) capable of creating new data based on user input.
+// You must tell the create action what kind of data it accepts (in the form of fields) and
+// what function to pass the populated fields to in order to actually *create* the thing (in the form of a CreateFunc).
+//
+// Singular is the singular version of the noun you are creating. Ex: "macro", "resource", "query".
 func NewCreateAction(singular string,
 	fields Config,
 	create CreateFunc,

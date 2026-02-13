@@ -203,6 +203,7 @@ func newMacroCreateAction() action.Pair {
 	return scaffoldcreate.NewCreateAction("macro", fields, create, nil)
 }
 
+// create is the driver function responsible for actually sending the request to *create* a macro value to the backend.
 func create(_ scaffoldcreate.Config, vals scaffoldcreate.Values, _ *pflag.FlagSet) (any, string, error) {
 	sm := types.Macro{}
 	// all three fields are required, no need to nil-check them
