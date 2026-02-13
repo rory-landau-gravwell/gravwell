@@ -75,20 +75,14 @@ func InitializeFromArgs(args []string) {
 	}
 	// args may include flags unrelated to the logger; ignore them
 	logFlags := pflag.NewFlagSet("logging", pflag.PanicOnError)
+	path := logFlags.StringP(PathFlag, "l", cfgdir.DefaultStdLogPath, "")
+	levelStr := logFlags.String(LevelFlag, DefaultLevel, "")
+
 	logFlags.ParseErrorsWhitelist = pflag.ParseErrorsWhitelist{UnknownFlags: true}
 	if err := logFlags.Parse(args); err != nil {
 		panic(err) // if this pops, something has gone horribly wrong and we need to know
 	}
-
-	path, err := logFlags.GetString(PathFlag)
-	if err != nil {
-		path = cfgdir.DefaultStdLogPath
-	}
-	lvl, err := logFlags.GetString(LevelFlag)
-	if err != nil {
-		lvl = DefaultLevel
-	}
-	_ = Init(path, lvl)
+	_ = Init(*path, *levelStr)
 }
 
 // Init initializes Writer, the logging singleton.
