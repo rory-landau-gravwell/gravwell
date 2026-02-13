@@ -164,6 +164,22 @@ func (s singular) Register(fs *pflag.FlagSet, singular string) {
 	fs.StringP(s.Name(), s.Shorthand(), "", s.Usage(singular))
 }
 
+var (
+	LogPath = simple{
+		name:         "log",
+		shorthand:    'l',
+		usage:        "log location for developer logs",
+		defaultValue: cfgdir.DefaultStdLogPath,
+		typ:          types.String,
+	}
+	LogLevel = simple{
+		name: "loglevel",
+		usage: "log level for developer logs (-l).\n" +
+			"Possible values: 'OFF', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL', 'FATAL'.\n" +
+			"NOTE: DEBUG mode will enable additional validation checks and may have a minor performance impact.",
+		defaultValue: "INFO",
+		typ:          types.String,
+	}
 // NoInteractive (--no-interactive) is a global flag that disables all interactive components of gwcli.
 var NoInteractive = simple{
 	name:      "no-interactive",

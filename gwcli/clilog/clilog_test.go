@@ -12,6 +12,8 @@ import (
 
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/internal/testsupport"
+	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/cfgdir"
 )
 
 func TestTee(t *testing.T) {
@@ -129,8 +131,8 @@ func TestInitializeFromArgs(t *testing.T) {
 	t.Run("nil args uses default level", func(t *testing.T) {
 		clilog.InitializeFromArgs(nil)
 		// check
-		if lvl := strings.ToUpper(clilog.Writer.GetLevel().String()); lvl != clilog.DefaultLevel {
-			t.Error(testsupport.ExpectedActual(clilog.DefaultLevel, lvl))
+		if lvl := strings.ToUpper(clilog.Writer.GetLevel().String()); lvl != cfgdir.DefaultLogLevel {
+			t.Error(testsupport.ExpectedActual(cfgdir.DefaultLogLevel, lvl))
 		}
 	})
 	// ensure the singleton does not exist
@@ -141,7 +143,7 @@ func TestInitializeFromArgs(t *testing.T) {
 		// prep for outpath
 		pth := path.Join(t.TempDir(), "t.log")
 
-		args := []string{"--" + clilog.PathFlag + "=" + pth, "--" + clilog.LevelFlag + "=DEBUG"}
+		args := []string{"--" + ft.LogPath.Name() + "=" + pth, "--" + ft.LogLevel.Name() + "=DEBUG"}
 		t.Log("args: \"", args, "\"")
 		clilog.InitializeFromArgs(args)
 		// check level
