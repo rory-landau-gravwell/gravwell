@@ -23,6 +23,7 @@ package ft
 import (
 	"fmt"
 	"go/types"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/pflag"
@@ -46,10 +47,11 @@ var _ flag = stringSliceRegister{}
 
 // a simple is the basic/standard implementation of the flag interface
 type simple struct {
-	name      string
-	shorthand rune
-	usage     string
-	typ       types.BasicKind
+	name         string
+	shorthand    rune
+	usage        string
+	defaultValue string // cast to the appropriate type if supplied
+	typ          types.BasicKind
 }
 
 // Name returns the name of the flag, with no dashes (--<name>).
@@ -84,9 +86,13 @@ func (s simple) Register(fs *pflag.FlagSet) {
 	// Therefore, this will do well enough for a helper function of this low priority.
 	switch s.typ {
 	case types.Bool:
-		fs.BoolP(s.name, s.Shorthand(), false, s.usage)
+		var defaultValue bool
+		if s.defaultValue != "" {
+			defaultValue, _ = strconv.ParseBool(s.defaultValue)
+		}
+		fs.BoolP(s.name, s.Shorthand(), defaultValue, s.usage)
 	case types.String:
-		fs.StringP(s.name, s.Shorthand(), "", s.usage)
+		fs.StringP(s.name, s.Shorthand(), s.defaultValue, s.usage)
 	default:
 		panic(fmt.Sprintf("unhandled type: %v", s.typ))
 	}
