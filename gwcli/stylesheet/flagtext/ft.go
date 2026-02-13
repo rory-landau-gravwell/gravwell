@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/cfgdir"
 	"github.com/spf13/pflag"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -180,103 +181,102 @@ var (
 		defaultValue: "INFO",
 		typ:          types.String,
 	}
-// NoInteractive (--no-interactive) is a global flag that disables all interactive components of gwcli.
-var NoInteractive = simple{
-	name:      "no-interactive",
-	shorthand: 'x',
-	usage: "disallows gwcli from awaiting user input, making it safe to execute in a scripting context.\n" +
-		"If more data is required or bad input given, gwcli will fail out instead of entering interactive mode",
-	typ: types.Bool,
-}
+	// NoInteractive (--no-interactive) is a global flag that disables all interactive components of gwcli.
+	NoInteractive = simple{
+		name:      "no-interactive",
+		shorthand: 'x',
+		usage: "disallows gwcli from awaiting user input, making it safe to execute in a scripting context.\n" +
+			"If more data is required or bad input given, gwcli will fail out instead of entering interactive mode",
+		typ: types.Bool,
+	}
+	// Dryrun (--dryrun) is a local flag implemented by actions (typically deletes) to describe actions that would have been taken had --dryrun not been set.
+	Dryrun = simple{
+		name:  "dryrun",
+		usage: "feigns the request action, instead displaying the effects that would have occurred",
+		typ:   types.Bool,
+	}
+	// NoColor is a global flag that disables color and stylization across the board.
+	// It is primarily handled by Mother, in ppre().
+	NoColor = simple{
+		name:  "no-color",
+		usage: "disables colourized output",
+		typ:   types.Bool,
+	}
 
-// Dryrun (--dryrun) is a local flag implemented by actions (typically deletes) to describe actions that would have been taken had --dryrun not been set.
-var Dryrun = simple{
-	name:  "dryrun",
-	usage: "feigns the request action, instead displaying the effects that would have occurred",
-	typ:   types.Bool,
-}
+	//#region output manipulation
 
-// NoColor is a global flag that disables color and stylization across the board.
-// It is primarily handled by Mother, in ppre().
-var NoColor = simple{
-	name:  "no-color",
-	usage: "disables colourized output",
-	typ:   types.Bool,
-}
+	// Output (-o) is a local flag implemented by actions to redirect their results to a file.
+	// Should be paired with --append; often also paired with --json and --csv.
+	Output = simple{
+		name:      "output",
+		shorthand: 'o',
+		usage: "file to write results to.\n" +
+			"Truncates file unless --" + Append.name + " is also given",
+		typ: types.String,
+	}
 
-//#region output manipulation
+	// Append (--append) is a local flag implemented with --output to indicated that the target file should be appended to instead of truncated.
+	Append = simple{
+		name:  "append",
+		usage: "append to the given output file instead of truncating it",
+		typ:   types.Bool,
+	}
 
-// Output (-o) is a local flag implemented by actions to redirect their results to a file.
-// Should be paired with --append; often also paired with --json and --csv.
-var Output = simple{
-	name:      "output",
-	shorthand: 'o',
-	usage: "file to write results to.\n" +
-		"Truncates file unless --" + Append.name + " is also given",
-	typ: types.String,
-}
+	// CSV (--csv) is a local flag implemented --output to indicated that results should be in csv format.
+	CSV = simple{
+		name: "csv",
+		usage: "display results as CSV.\n" +
+			"Mutually exclusive with --json, --table",
+		typ: types.Bool,
+	}
 
-// Append (--append) is a local flag implemented with --output to indicated that the target file should be appended to instead of truncated.
-var Append = simple{
-	name:  "append",
-	usage: "append to the given output file instead of truncating it",
-	typ:   types.Bool,
-}
+	// JSON (--json) is a local flag implemented --output to indicated that results should be in json format.
+	JSON = simple{
+		name: "json",
+		usage: "display results as JSON.\n" +
+			"Mutually exclusive with --csv, --table",
+		typ: types.Bool,
+	}
 
-// CSV (--csv) is a local flag implemented --output to indicated that results should be in csv format.
-var CSV = simple{
-	name: "csv",
-	usage: "display results as CSV.\n" +
-		"Mutually exclusive with --json, --table",
-	typ: types.Bool,
-}
+	// Table (--table) is a local flag implemented --output to indicated that results should be outputted as a fancy table.
+	Table = simple{
+		name: "table",
+		usage: "display results in a fancy table.\nMutually exclusive with --json, --csv.\n" +
+			"Default if no format flags are given",
+		typ: types.Bool,
+	}
 
-// JSON (--json) is a local flag implemented --output to indicated that results should be in json format.
-var JSON = simple{
-	name: "json",
-	usage: "display results as JSON.\n" +
-		"Mutually exclusive with --csv, --table",
-	typ: types.Bool,
-}
+	// #endregion output manipulation
 
-// Table (--table) is a local flag implemented --output to indicated that results should be outputted as a fancy table.
-var Table = simple{
-	name: "table",
-	usage: "display results in a fancy table.\nMutually exclusive with --json, --csv.\n" +
-		"Default if no format flags are given",
-	typ: types.Bool,
-}
+	//#region scaffoldlist/columns
 
-//#endregion output manipulation
+	// ShowColumns (--show-columns) is a local flag used by scaffold list to display all known columns.
+	// Unlikely to be used outside of actions that implement scaffold list.
+	ShowColumns = simple{
+		name:  "show-columns",
+		usage: "display the list of fully qualified column names and exit",
+		typ:   types.Bool,
+	}
 
-//#region scaffoldlist/columns
+	// SelectColumns (--columns) is a local flag used by scaffold list to select which columns to display, overriding the default.
+	// Unlikely to be used outside of actions that implement scaffold list.
+	SelectColumns = stringSliceRegister{
+		name: "columns",
+		usage: "comma-separated list of columns to include in the results\n." +
+			"Use --" + ShowColumns.name + " to see the full list of columns",
+	}
 
-// ShowColumns (--show-columns) is a local flag used by scaffold list to display all known columns.
-// Unlikely to be used outside of actions that implement scaffold list.
-var ShowColumns = simple{
-	name:  "show-columns",
-	usage: "display the list of fully qualified column names and exit",
-	typ:   types.Bool,
-}
+	// AllColumns (--all-columns) is a local flag used by scaffold list to force the action to display data from all available columns.
+	// Unlikely to be used outside of actions that implement scaffold list.
+	AllColumns = simple{
+		name: "all-columns",
+		usage: "displays data from all columns, ignoring the default column set.\n" +
+			"Overrides --" + SelectColumns.name,
+		typ: types.Bool,
+	}
 
-// SelectColumns (--columns) is a local flag used by scaffold list to select which columns to display, overriding the default.
-// Unlikely to be used outside of actions that implement scaffold list.
-var SelectColumns = stringSliceRegister{
-	name: "columns",
-	usage: "comma-separated list of columns to include in the results\n." +
-		"Use --" + ShowColumns.name + " to see the full list of columns",
-}
-
-// AllColumns (--all-columns) is a local flag used by scaffold list to force the action to display data from all available columns.
-// Unlikely to be used outside of actions that implement scaffold list.
-var AllColumns = simple{
-	name: "all-columns",
-	usage: "displays data from all columns, ignoring the default column set.\n" +
-		"Overrides --" + SelectColumns.name,
-	typ: types.Bool,
-}
-
-//#endregion scaffoldlist/columns
+	// #endregion scaffoldlist/columns
+)
 
 // need custom handling for GetAll.
 // Does not fit the flag interface, but it has similar enough usage so what's it matter?
