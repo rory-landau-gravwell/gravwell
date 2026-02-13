@@ -22,8 +22,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/cfgdir"
 	"github.com/gravwell/gravwell/v4/ingest/log"
 	"github.com/gravwell/gravwell/v4/ingest/log/rotate"
+	"github.com/spf13/pflag"
 )
 
 //#region errors
@@ -54,8 +56,44 @@ const (
 // Writer is the logging singleton.
 var Writer *log.Logger
 
+const (
+	PathFlag  string = "log"      // flag (--XXX), sans dashes, given to specify a path to the logfile
+	LevelFlag string = "loglevel" // flag (--XXX), sans dashes, given to specify a log level
+
+	DefaultLevel string = "INFO"
+)
+
+// InitializeFromArgs parses out --log and --loglevel from a set of arguments, ignoring any and all other flags.
+// This enables clilogger to be brought online and configured before any other handling is prepared.
+//
+// If args is nil or an error occurs, the logger will be initialized with its defaults.
+//
+// Safe to call multiple times; subsequent calls will be no-ops.
+func InitializeFromArgs(args []string) {
+	if Writer != nil {
+		return
+	}
+	// args may include flags unrelated to the logger; ignore them
+	logFlags := pflag.NewFlagSet("logging", pflag.PanicOnError)
+	logFlags.ParseErrorsWhitelist = pflag.ParseErrorsWhitelist{UnknownFlags: true}
+	if err := logFlags.Parse(args); err != nil {
+		panic(err) // if this pops, something has gone horribly wrong and we need to know
+	}
+
+	path, err := logFlags.GetString(PathFlag)
+	if err != nil {
+		path = cfgdir.DefaultStdLogPath
+	}
+	lvl, err := logFlags.GetString(LevelFlag)
+	if err != nil {
+		lvl = DefaultLevel
+	}
+	_ = Init(path, lvl)
+}
+
 // Init initializes Writer, the logging singleton.
-// Safe (ineffectual) if the writer has already been initialized.
+//
+// Safe to call multiple times; subsequent calls will be no-ops.
 func Init(path string, lvlString string) error {
 	var err error
 	if Writer != nil {
@@ -108,7 +146,12 @@ func Destroy() error {
 
 // Tee writes the error to clilog.Writer and a secondary output, usually stderr
 func Tee(lvl Level, alt io.Writer, str string) {
-	alt.Write([]byte(str))
+	if alt != nil {
+		alt.Write([]byte(str))
+	}
+	if Writer == nil {
+		return
+	}
 	switch lvl {
 	case OFF:
 	case DEBUG:
@@ -128,12 +171,18 @@ func Tee(lvl Level, alt io.Writer, str string) {
 
 // Active returns whether or not the given level is currently enabled (<= log.Level)
 func Active(lvl Level) bool {
+	if Writer == nil {
+		return false
+	}
 	return Writer.GetLevel() <= log.Level(lvl)
 }
 
 // LogFlagFailedGet logs the non-fatal failure to fetch named flag from flagset.
 // Used to keep flag handling errors uniform.
 func LogFlagFailedGet(flagname string, err error) {
+	if Writer == nil {
+		return
+	}
 	Writer.Warnf("failed to fetch '--%v':%v\nignoring", flagname, err)
 }
 
@@ -141,5 +190,8 @@ var dbgMsgSty = lipgloss.NewStyle().Italic(true)
 
 // LogMsg is a helper method for consistently displaying messages (at the debug level).
 func LogMsg(str string, msg tea.Msg) {
+	if Writer == nil {
+		return
+	}
 	Writer.Debugf("%s\n\t"+dbgMsgSty.Render("%#v"), str, msg)
 }
