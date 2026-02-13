@@ -115,7 +115,10 @@ func newMacroListAction() action.Pair {
 	)
 	return scaffoldlist.NewListAction(listShort, listLong,
 		prettyMacro{}, listMacros,
-		scaffoldlist.Options{AddtlFlags: flags, DefaultColumns: []string{"CommonFields.ID", "CommonFields.Name", "CommonFields.Description", "Expansion"}})
+		scaffoldlist.Options{
+			AddtlFlags:     flags,
+			DefaultColumns: []string{"Name", "Description", "Expansion"},
+		})
 }
 
 func flags() pflag.FlagSet {
