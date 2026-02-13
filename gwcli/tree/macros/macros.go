@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
@@ -54,6 +55,58 @@ func NewMacrosNav() *cobra.Command {
 
 //#region list
 
+type prettyMacro struct {
+	Type      types.AssetType
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt time.Time
+	ID        string
+	ParentID  string // the parent object this was cloned from
+
+	OwnerID int32
+	Owner   types.User
+
+	// Permissions
+	Readers types.ACL
+	Writers types.ACL
+
+	// Tracks who made the last change to this item
+	LastModifiedByID int32
+	LastModifiedBy   types.User
+
+	Name        string
+	Description string
+	Labels      []string
+	Version     int
+
+	// Auto-generated for the requesting user based on permissions of this object.
+	Can       types.Actions
+	Expansion string
+}
+
+func Convert(m types.Macro) prettyMacro {
+	return prettyMacro{
+		Type:             m.Type,
+		CreatedAt:        m.CreatedAt,
+		UpdatedAt:        m.UpdatedAt,
+		DeletedAt:        m.DeletedAt,
+		ID:               m.ID,
+		ParentID:         m.ParentID,
+		OwnerID:          m.OwnerID,
+		Owner:            m.Owner,
+		Readers:          m.Readers,
+		Writers:          m.Writers,
+		LastModifiedByID: m.LastModifiedByID,
+		LastModifiedBy:   m.LastModifiedBy,
+		Name:             m.Name,
+		Description:      m.Description,
+		Labels:           m.Labels,
+		Version:          m.Version,
+		Can:              m.Can,
+		Expansion:        m.Expansion,
+	}
+}
+
 func newMacroListAction() action.Pair {
 	const (
 		listShort = "list your macros"
@@ -61,7 +114,7 @@ func newMacroListAction() action.Pair {
 			"or the system itself"
 	)
 	return scaffoldlist.NewListAction(listShort, listLong,
-		types.Macro{}, listMacros,
+		prettyMacro{}, listMacros,
 		scaffoldlist.Options{AddtlFlags: flags, DefaultColumns: []string{"CommonFields.ID", "CommonFields.Name", "CommonFields.Description", "Expansion"}})
 }
 
@@ -73,31 +126,42 @@ func flags() pflag.FlagSet {
 }
 
 // lister subroutine for macros
-func listMacros(fs *pflag.FlagSet) ([]types.Macro, error) {
+func listMacros(fs *pflag.FlagSet) ([]prettyMacro, error) {
+	var macroResults []types.Macro
 	if all, err := fs.GetBool("all"); err != nil {
-		uniques.ErrGetFlag("macros list", err)
+		return nil, uniques.ErrGetFlag("macros list", err)
 	} else if all {
 		r, err := connection.Client.ListAllMacros(nil)
-		return r.Results, err
-	}
-	if gid, err := fs.GetInt32("group"); err != nil {
-		uniques.ErrGetFlag("macros list", err)
+		if err != nil {
+			return nil, err
+		}
+		macroResults = r.Results
+	} else if gid, err := fs.GetInt32("group"); err != nil {
+		return nil, uniques.ErrGetFlag("macros list", err)
 	} else if gid != 0 {
 		macros, err := connection.Client.ListAllMacros(nil)
 		if err != nil {
 			return nil, err
 		}
-		var ret []types.Macro
 		for _, m := range macros.Results {
 			if m.GroupCanRead(gid) {
-				ret = append(ret, m)
+				macroResults = append(macroResults, m)
 			}
 		}
-		return ret, nil
+	} else {
+		r, err := connection.Client.ListMacros(nil)
+		if err != nil {
+			return nil, err
+		}
+		macroResults = r.Results
 	}
 
-	r, err := connection.Client.ListMacros(nil)
-	return r.Results, err
+	mappedResults := make([]prettyMacro, len(macroResults))
+	for i, row := range macroResults {
+		mappedResults[i] = Convert(row)
+	}
+
+	return mappedResults, nil
 }
 
 //#region create
