@@ -19,6 +19,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/cfgdir"
 	"github.com/spf13/cobra"
@@ -137,8 +138,8 @@ func AttachPersistentFlags(cmd *cobra.Command) {
 	//
 	// This is distinction must be made because we cannot parse all flags early as we do not know the full list of acceptable flags until an action has been determined.
 	// However, we want the logger to come online early.
-	cmd.PersistentFlags().StringP("log", "l", cfgdir.DefaultStdLogPath, "log location for developer logs.\n")
-	cmd.PersistentFlags().String("loglevel", "DEBUG", "log level for developer logs (-l).\n"+
+	cmd.PersistentFlags().StringP(clilog.PathFlag, "l", cfgdir.DefaultStdLogPath, "log location for developer logs.\n")
+	cmd.PersistentFlags().String(clilog.LevelFlag, "DEBUG", "log level for developer logs (-l).\n"+
 		"Possible values: 'OFF', 'DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL', 'FATAL'.\n"+
 		"NOTE: DEBUG mode will enable additional validation checks and may have a minor performance impact.\n")
 }

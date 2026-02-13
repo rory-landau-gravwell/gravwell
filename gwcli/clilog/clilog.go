@@ -73,8 +73,7 @@ func InitializeFromArgs(args []string) {
 	if Writer != nil {
 		return
 	}
-	// parse for just the log flags right now, ignoring unknown flag errors.
-	// All other flags will be handled appropriately later.
+	// args may include flags unrelated to the logger; ignore them
 	logFlags := pflag.NewFlagSet("logging", pflag.PanicOnError)
 	logFlags.ParseErrorsWhitelist = pflag.ParseErrorsWhitelist{UnknownFlags: true}
 	if err := logFlags.Parse(args); err != nil {
