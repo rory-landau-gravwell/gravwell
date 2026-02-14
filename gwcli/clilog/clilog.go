@@ -72,6 +72,7 @@ func InitializeFromArgs(args []string) {
 	logFlags := pflag.NewFlagSet("logging", pflag.PanicOnError)
 	ft.LogPath.Register(logFlags)
 	ft.LogLevel.Register(logFlags)
+	logFlags.BoolP("help", "h", false, "") // re-define the help flag
 
 	logFlags.ParseErrorsWhitelist = pflag.ParseErrorsWhitelist{UnknownFlags: true}
 	if err := logFlags.Parse(args); err != nil {

@@ -162,6 +162,46 @@ func TestInitializeFromArgs(t *testing.T) {
 			t.Errorf("did not find message \"%v\" inside of file:\"%v\"", msg, string(b))
 		}
 	})
+
+	t.Run("help flag should be ignored", func(t *testing.T) {
+		pth := path.Join(t.TempDir(), "t.log")
+
+		args := []string{"-h", "--log=" + pth}
+		t.Log(args)
+		clilog.InitializeFromArgs(args)
+
+		msg := "test message"
+		clilog.Writer.Info(msg)
+		if err := clilog.Destroy(); err != nil {
+			t.Fatal(err)
+		}
+		// check that the file was properly written to
+		if b, err := os.ReadFile(pth); err != nil {
+			t.Error(err)
+		} else if !strings.Contains(string(b), msg) {
+			t.Errorf("did not find message \"%v\" inside of file:\"%v\"", msg, string(b))
+		}
+	})
+
+	t.Run("help action should be ignored", func(t *testing.T) {
+		pth := path.Join(t.TempDir(), "t.log")
+
+		args := []string{"help", "--log=" + pth}
+		t.Log(args)
+		clilog.InitializeFromArgs(args)
+
+		msg := "test message"
+		clilog.Writer.Info(msg)
+		if err := clilog.Destroy(); err != nil {
+			t.Fatal(err)
+		}
+		// check that the file was properly written to
+		if b, err := os.ReadFile(pth); err != nil {
+			t.Error(err)
+		} else if !strings.Contains(string(b), msg) {
+			t.Errorf("did not find message \"%v\" inside of file:\"%v\"", msg, string(b))
+		}
+	})
 }
 
 func TestInit(t *testing.T) {
