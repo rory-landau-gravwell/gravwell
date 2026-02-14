@@ -95,7 +95,7 @@ type Config = map[string]Field
 
 type Values = map[string]string
 
-// CreateFunc defines the format of the subroutine that must be passed for creating data.
+// CreateFuncT defines the format of the subroutine that must be passed for creating data.
 // The function's return values must be:
 //
 // the id of the newly created value (likely as returned by the Gravwell backend)
@@ -103,17 +103,14 @@ type Values = map[string]string
 // a reason the create attempt was invalid (or the empty string)
 //
 // and an error that occurred (or nil). This is different than an invalid reason and is likely a bubbling up of an error from the client library.
-type CreateFunc func(cfg Config, values Values, fs *pflag.FlagSet) (id any, invalid string, err error)
+type CreateFuncT func(cfg Config, values Values, fs *pflag.FlagSet) (id any, invalid string, err error)
 
 // NewCreateAction returns an action pair (covering interactive and non-interactive use) capable of creating new data based on user input.
 // You must tell the create action what kind of data it accepts (in the form of fields) and
 // what function to pass the populated fields to in order to actually *create* the thing (in the form of a CreateFunc).
 //
 // Singular is the singular version of the noun you are creating. Ex: "macro", "resource", "query".
-func NewCreateAction(singular string,
-	fields Config,
-	create CreateFunc,
-	addtlFlags func() pflag.FlagSet) action.Pair {
+func NewCreateAction(singular string, fields Config, createFunc CreateFuncT, extraFlagsFunc func() pflag.FlagSet) action.Pair {
 	// nil check singular
 	if singular == "" {
 		panic("")
@@ -121,16 +118,15 @@ func NewCreateAction(singular string,
 
 	// pull flags from provided fields
 	var flags = installFlagsFromFields(fields)
-	if addtlFlags != nil {
-		afs := addtlFlags()
+	if extraFlagsFunc != nil {
+		afs := extraFlagsFunc()
 		flags.AddFlagSet(&afs)
 	}
 
-	// pull required flags from cfg
+	// pull required flags from cfg to set usage
 	requiredFlags := make([]string, 0)
 	for _, v := range fields {
 		if v.Required && v.FlagName != "" {
-			// switch on v.Type... when there is more than 1
 			txt := "--" + v.FlagName + "=" + ft.Mandatory("string")
 			requiredFlags = append(requiredFlags, txt)
 		}
@@ -168,7 +164,7 @@ func NewCreateAction(singular string,
 			}
 
 			// attempt to create the new X
-			if id, inv, err := create(fields, values, c.Flags()); err != nil {
+			if id, inv, err := createFunc(fields, values, c.Flags()); err != nil {
 				clilog.Tee(clilog.ERROR, c.ErrOrStderr(), err.Error()+"\n")
 				return
 			} else if inv != "" { // some of the flags were invalid
@@ -182,7 +178,7 @@ func NewCreateAction(singular string,
 	// attach mined flags to cmd
 	cmd.Flags().AddFlagSet(&flags)
 
-	return action.NewPair(cmd, newCreateModel(fields, singular, create, addtlFlags))
+	return action.NewPair(cmd, newCreateModel(fields, singular, createFunc, extraFlagsFunc))
 }
 
 // Given a parsed flagset and the field configuration, builds a corollary map of field values.
@@ -246,7 +242,7 @@ type createModel struct {
 	addtlFlagFunc func() pflag.FlagSet
 	// current state of the flagset, Reset to addtlFlagFunc + installFlags
 	fs pflag.FlagSet
-	cf CreateFunc // function to create the new entity
+	cf CreateFuncT // function to create the new entity
 }
 
 func (c *createModel) SubmitSelected() bool {
@@ -254,7 +250,7 @@ func (c *createModel) SubmitSelected() bool {
 }
 
 // Creates and returns a create Model, ready for interactive usage via Mother.
-func newCreateModel(fields Config, singular string, cf CreateFunc, addtlFlagFunc func() pflag.FlagSet) *createModel {
+func newCreateModel(fields Config, singular string, cf CreateFuncT, addtlFlagFunc func() pflag.FlagSet) *createModel {
 	c := &createModel{
 		mode:          inputting,
 		width:         defaultWidth,
