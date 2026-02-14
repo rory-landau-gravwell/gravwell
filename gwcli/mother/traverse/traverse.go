@@ -126,7 +126,11 @@ word:
 			pwd = Up(pwd)
 			continue word
 		}
-		// check for nav match
+		// treat the help action as a no-op
+		if word == "help" {
+			continue
+		}
+		// check for command match
 		for _, cmd := range pwd.Commands() {
 			if cmd.Name() == word || slices.ContainsFunc(cmd.Aliases, func(alias string) bool { return alias == word }) {
 				if cmd.GroupID == group.NavID { // matching nav, updated wd

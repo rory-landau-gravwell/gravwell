@@ -231,6 +231,17 @@ func TestDeriveSuggestions(t *testing.T) {
 			nil,
 			nil,
 		},
+		{"traversal ignores \"help\" and continues suggesting at pwd",
+			"help na", root, []string{"navigator", "Navigator", "noodle"},
+			[]traverse.Suggestion{
+				{FullName: "nav_a", MatchedCharacters: "na"},
+				{FullName: "nav_b", MatchedCharacters: "na"},
+			},
+			nil,
+			[]traverse.Suggestion{
+				{FullName: "navigator", MatchedCharacters: "na"},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("in:\"%s\"|%v", tt.curInput, tt.name), func(t *testing.T) {
