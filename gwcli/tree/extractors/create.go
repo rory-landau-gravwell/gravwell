@@ -161,18 +161,18 @@ func newExtractorsCreateAction() action.Pair {
 	})
 }
 
-func create(_ scaffoldcreate.Config, vals scaffoldcreate.Values, fs *pflag.FlagSet) (any, string, error) {
+func create(_ scaffoldcreate.Config, fieldValues map[string]string, fs *pflag.FlagSet) (any, string, error) {
 	// no need to nil check; Required boolean enforces that for us
 	axd := types.AX{
 		CommonFields: types.CommonFields{
-			Name:        vals[createNameKey],
-			Description: vals[createDescKey],
-			Labels:      strings.Split(strings.Replace(vals[createLabelsKey], " ", "", -1), ","),
+			Name:        fieldValues[createNameKey],
+			Description: fieldValues[createDescKey],
+			Labels:      strings.Split(strings.Replace(fieldValues[createLabelsKey], " ", "", -1), ","),
 		},
-		Module: vals[createModuleKey],
-		Tags:   strings.Split(strings.Replace(vals[createTagsKey], " ", "", -1), ","),
-		Params: vals[createParamsKey],
-		Args:   vals[createArgsKey],
+		Module: fieldValues[createModuleKey],
+		Tags:   strings.Split(strings.Replace(fieldValues[createTagsKey], " ", "", -1), ","),
+		Params: fieldValues[createParamsKey],
+		Args:   fieldValues[createArgsKey],
 	}
 
 	// check for dryrun

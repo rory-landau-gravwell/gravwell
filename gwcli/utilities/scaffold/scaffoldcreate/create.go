@@ -93,8 +93,6 @@ const (
 // A Config maps keys -> Field; used as (ReadOnly) configuration for this creation instance
 type Config = map[string]Field
 
-type Values = map[string]string
-
 // CreateFuncT defines the format of the subroutine that must be passed for creating data.
 // The function's return values must be:
 //
@@ -103,7 +101,7 @@ type Values = map[string]string
 // a reason the create attempt was invalid (or the empty string)
 //
 // and an error that occurred (or nil). This is different than an invalid reason and is likely a bubbling up of an error from the client library.
-type CreateFuncT func(cfg Config, values Values, fs *pflag.FlagSet) (id any, invalid string, err error)
+type CreateFuncT func(cfg Config, fieldValues map[string]string, fs *pflag.FlagSet) (id any, invalid string, err error)
 
 // NewCreateAction returns an action pair (covering interactive and non-interactive use) capable of creating new data based on user input.
 // You must tell the create action what kind of data it accepts (in the form of fields) and
@@ -181,14 +179,14 @@ func NewCreateAction(singular string, fields Config, createFunc CreateFuncT, ext
 	return action.NewPair(cmd, newCreateModel(fields, singular, createFunc, extraFlagsFunc))
 }
 
-// Given a parsed flagset and the field configuration, builds a corollary map of field values.
+// Given a parsed flagset and the field configuration, generates a map of values between fields and their current values
+// (field -> fieldValue).
 //
-// Returns the values for each flag (default if unset), a list of required fields (as their flag
-// names) that were not set, and an error (if one occurred).
-func getValuesFromFlags(fs *pflag.FlagSet, fields Config) (
-	values Values, missingRequireds []string, err error,
-) {
-	values = make(Values)
+// Returns the values for each flag (default if unset),
+// a list of required fields (as their flag names) that were not set,
+// and an error (if one occurred).
+func getValuesFromFlags(fs *pflag.FlagSet, fields Config) (fieldValues map[string]string, missingRequireds []string, err error) {
+	fieldValues = make(map[string]string)
 	for k, f := range fields {
 		switch f.Type {
 		case Text:
@@ -202,12 +200,12 @@ func getValuesFromFlags(fs *pflag.FlagSet, fields Config) (
 				missingRequireds = append(missingRequireds, f.FlagName)
 			}
 
-			values[k] = flagVal
+			fieldValues[k] = flagVal
 		default:
 			panic("developer error: unknown field type: " + f.Type)
 		}
 	}
-	return values, missingRequireds, nil
+	return fieldValues, missingRequireds, nil
 }
 
 //#region interactive mode (model) implementation
@@ -245,12 +243,13 @@ type createModel struct {
 	cf CreateFuncT // function to create the new entity
 }
 
+// SubmitSelect returns if the select button is currently selected by the user.
 func (c *createModel) SubmitSelected() bool {
 	return c.selected == uint(len(c.orderedTIs))
 }
 
 // Creates and returns a create Model, ready for interactive usage via Mother.
-func newCreateModel(fields Config, singular string, cf CreateFuncT, addtlFlagFunc func() pflag.FlagSet) *createModel {
+func newCreateModel(fields Config, singular string, createFunc CreateFuncT, addtlFlagFunc func() pflag.FlagSet) *createModel {
 	c := &createModel{
 		mode:          inputting,
 		width:         defaultWidth,
@@ -258,7 +257,7 @@ func newCreateModel(fields Config, singular string, cf CreateFuncT, addtlFlagFun
 		fields:        fields,
 		orderedTIs:    make([]scaffold.KeyedTI, 0),
 		addtlFlagFunc: addtlFlagFunc,
-		cf:            cf,
+		cf:            createFunc,
 	}
 
 	// set flags by mining flags and, if applicable, tacking on additional flags
@@ -399,21 +398,19 @@ func (c *createModel) focusPrevious() {
 //
 // Returns the values for each TI (mapped to their Config key), a list of required fields (as their
 // field.Title names) that were not set, and an error (if one occurred).
-func (c *createModel) extractValuesFromTIs() (
-	values Values, missingRequireds []string,
-) {
-	values = make(Values)
+func (c *createModel) extractValuesFromTIs() (fieldValues map[string]string, missingRequiredFields []string) {
+	fieldValues = make(map[string]string)
 	for _, kti := range c.orderedTIs {
 		val := strings.TrimSpace(kti.TI.Value())
 		field := c.fields[kti.Key]
 		if val == "" && field.Required {
-			missingRequireds = append(missingRequireds, field.Title)
+			missingRequiredFields = append(missingRequiredFields, field.Title)
 		}
 
-		values[kti.Key] = val
+		fieldValues[kti.Key] = val
 	}
 
-	return values, missingRequireds
+	return fieldValues, missingRequiredFields
 }
 
 // Iterates through the keymap, drawing each ti and title in key key order

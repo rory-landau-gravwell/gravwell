@@ -206,12 +206,12 @@ func newMacroCreateAction() action.Pair {
 }
 
 // create is the driver function responsible for actually sending the request to *create* a macro value to the backend.
-func create(_ scaffoldcreate.Config, vals scaffoldcreate.Values, _ *pflag.FlagSet) (any, string, error) {
+func create(_ scaffoldcreate.Config, fieldValues map[string]string, _ *pflag.FlagSet) (any, string, error) {
 	sm := types.Macro{}
 	// all three fields are required, no need to nil-check them
-	sm.Name = strings.ToUpper(vals["name"])
-	sm.Description = vals["desc"]
-	sm.Expansion = vals["exp"]
+	sm.Name = strings.ToUpper(fieldValues["name"])
+	sm.Description = fieldValues["desc"]
+	sm.Expansion = fieldValues["exp"]
 
 	id, err := connection.Client.CreateMacro(sm)
 	return id, "", err
