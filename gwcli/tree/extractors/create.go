@@ -163,14 +163,16 @@ func newExtractorsCreateAction() action.Pair {
 
 func create(_ scaffoldcreate.Config, fieldValues map[string]string, fs *pflag.FlagSet) (any, string, error) {
 	// no need to nil check; Required boolean enforces that for us
+
+	// map fields back into the underlying type
 	axd := types.AX{
 		CommonFields: types.CommonFields{
 			Name:        fieldValues[createNameKey],
 			Description: fieldValues[createDescKey],
-			Labels:      strings.Split(strings.Replace(fieldValues[createLabelsKey], " ", "", -1), ","),
+			Labels:      strings.Split(strings.ReplaceAll(fieldValues[createLabelsKey], " ", ""), ","),
 		},
 		Module: fieldValues[createModuleKey],
-		Tags:   strings.Split(strings.Replace(fieldValues[createTagsKey], " ", "", -1), ","),
+		Tags:   strings.Split(strings.ReplaceAll(fieldValues[createTagsKey], " ", ""), ","),
 		Params: fieldValues[createParamsKey],
 		Args:   fieldValues[createArgsKey],
 	}
@@ -198,7 +200,7 @@ func create(_ scaffoldcreate.Config, fieldValues map[string]string, fs *pflag.Fl
 	if len(wrs) > 0 {
 		var invSB strings.Builder
 		for _, wr := range wrs {
-			invSB.WriteString(fmt.Sprintf("%v: %v\n", wr.Name, wr.Err))
+			fmt.Fprintf(&invSB, "%v: %v\n", wr.Name, wr.Err)
 		}
 		return 0, invSB.String(), nil
 	}
