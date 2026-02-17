@@ -56,19 +56,6 @@ var profilerFile *os.File
 // ensures the logger is set up,
 // and attempts to log the user into the gravwell instance.
 func ppre(cmd *cobra.Command, args []string) error {
-	// set up the logger, if it is not already initialized
-	if clilog.Writer == nil {
-		path, err := cmd.Flags().GetString("log")
-		if err != nil {
-			return err
-		}
-		lvl, err := cmd.Flags().GetString("loglevel")
-		if err != nil {
-			return err
-		}
-		clilog.Init(path, lvl)
-	}
-
 	if isNoColor(cmd.Flags()) {
 		stylesheet.Cur = stylesheet.Plain()
 		stylesheet.NoColor = true
@@ -243,9 +230,17 @@ func ppost(cmd *cobra.Command, args []string) error {
 }
 
 // Execute adds all child commands to the root command, sets flags appropriately, and launches the
-// program according to the given parameters
-// (via cobra.Command.Execute()).
+// program according to the given parameters (via cobra.Command.Execute()).
+//
+// args is only used when unit testing tree construction and should be nil during actual use.
 func Execute(args []string) int {
+	// spool up the logger
+	if args == nil {
+		clilog.InitializeFromArgs(os.Args)
+	} else {
+		clilog.InitializeFromArgs(args)
+	}
+
 	const (
 		// usage
 		use   string = "gwcli"
@@ -260,35 +255,8 @@ func Execute(args []string) int {
 		"For instance, try: " + stylesheet.Cur.ExampleText.Render("gwcli help macros create") +
 		" or " + stylesheet.Cur.ExampleText.Render("gwcli query -h")
 
-	// spawn the cobra commands in parallel
-	var cmdFn = []func() *cobra.Command{
-		alerts.NewAlertsNav,
-		macros.NewMacrosNav,
-		queries.NewQueriesNav,
-		kits.NewKitsNav,
-		user.NewUserNav,
-		extractors.NewExtractorsNav,
-		dashboards.NewDashboardNav,
-		resources.NewResourcesNav,
-		systemshealth.NewSystemsNav,
-	}
-
-	var (
-		cmds  []*cobra.Command
-		resCh = make(chan *cobra.Command)
-	)
-	for _, fn := range cmdFn {
-		go func(f func() *cobra.Command) {
-			// execute the builder and send the command pointer to the dispatcher
-			resCh <- f()
-		}(fn)
-	}
-	for range cmdFn { // wait for an equal number of results
-		cmds = append(cmds, <-resCh)
-	}
-
 	rootCmd := treeutils.GenerateNav(use, short, long, []string{},
-		cmds,
+		nil, // navs are added later
 		[]action.Pair{
 			query.NewQueryAction(),
 			ingest.NewIngestAction(),
@@ -305,7 +273,7 @@ func Execute(args []string) int {
 		panic("some children missing a group")
 	}
 
-	// configuration the completion command as an action
+	// configure the completion command as an action
 	rootCmd.SetCompletionCommandGroupID(group.ActionID)
 
 	// configure Windows mouse trap
@@ -313,9 +281,6 @@ func Execute(args []string) int {
 		"You need to open gwcli.exe and run it from there.\n" +
 		"Press Return to close.\n"
 	cobra.MousetrapDisplayDuration = 0
-
-	// configure root's Run to launch Mother
-	rootCmd.Run = treeutils.NavRun
 
 	// if args were given (ex: we are in testing mode)
 	// use those instead of os.Args
@@ -339,6 +304,34 @@ func Execute(args []string) int {
 			"\n" + ` gwcli --api APIKEY query "tag=gravwell stats count | chart count"`
 		rootCmd.Example = "\n" + lipgloss.JoinHorizontal(lipgloss.Left, fields, examples)
 
+	}
+
+	// attach children
+	// spawn the cobra commands in parallel
+	var cmdFn = []func() *cobra.Command{
+		alerts.NewAlertsNav,
+		macros.NewMacrosNav,
+		queries.NewQueriesNav,
+		kits.NewKitsNav,
+		user.NewUserNav,
+		extractors.NewExtractorsNav,
+		dashboards.NewDashboardNav,
+		resources.NewResourcesNav,
+		systemshealth.NewSystemsNav,
+	}
+
+	var (
+		//cmds  []*cobra.Command
+		resCh = make(chan *cobra.Command)
+	)
+	for _, fn := range cmdFn {
+		go func(f func() *cobra.Command) {
+			// execute the builder and send the command pointer to the dispatcher
+			resCh <- f()
+		}(fn)
+	}
+	for range cmdFn { // wait for an equal number of results
+		rootCmd.AddCommand(<-resCh)
 	}
 
 	err := rootCmd.Execute()

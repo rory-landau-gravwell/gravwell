@@ -65,12 +65,24 @@ func list() action.Pair {
 
 				return fs
 			},
-			DefaultColumns: []string{"Name", "Description", "Disabled", "Consumers", "Dispatchers", "GUID", "Global", "Labels", "TargetTag", "ThingUUID", "UID"},
-			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
-				if listConsumerID, invalid = validateListID("consumer", fs); err != nil {
+			DefaultColumns: []string{
+				"Name",
+				"Description",
+				"Disabled",
+				"Consumers",
+				"Dispatchers",
+				"GUID",
+				"Global",
+				"Labels",
+				"TargetTag",
+				"ThingUUID",
+				"UID",
+			},
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, _ error) {
+				if listConsumerID, invalid = validateListID("consumer", fs); invalid != "" {
 					return invalid, nil
 				}
-				if listDispatcherID, invalid = validateListID("dispatcher", fs); err != nil {
+				if listDispatcherID, invalid = validateListID("dispatcher", fs); invalid != "" {
 					return invalid, nil
 				}
 

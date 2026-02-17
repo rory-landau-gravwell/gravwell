@@ -51,7 +51,6 @@ func past() action.Pair {
 		short   string = "display search history"
 		long    string = "display past searches made by your user"
 	)
-	var defaultColumns = []string{"OwnerID", "UserQuery", "EffectiveQuery"}
 
 	return scaffoldlist.NewListAction(
 		short, long,
@@ -85,7 +84,11 @@ func past() action.Pair {
 		},
 		scaffoldlist.Options{
 			Use: pastUse, AddtlFlags: flags,
-			DefaultColumns: defaultColumns, ColumnAliases: map[string]string{"EffectiveQuery": "EQuery"},
+			DefaultColumns: []string{
+				"CommonFields.OwnerID",
+				"UserQuery",
+				"EffectiveQuery",
+			},
 		})
 }
 

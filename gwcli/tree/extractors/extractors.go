@@ -54,7 +54,12 @@ func newExtractorsListAction() action.Pair {
 		long,
 		types.AX{},
 		list,
-		scaffoldlist.Options{AddtlFlags: flags, DefaultColumns: []string{"UID", "UUID", "Name", "Desc"}})
+		scaffoldlist.Options{AddtlFlags: flags, DefaultColumns: []string{
+			"CommonFields.Type",
+			"CommonFields.ID",
+			"CommonFields.Name",
+			"CommonFields.Description",
+		}})
 }
 
 func flags() pflag.FlagSet {

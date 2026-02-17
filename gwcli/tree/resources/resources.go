@@ -18,11 +18,13 @@ import (
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
-	"github.com/gravwell/gravwell/v4/gwcli/tree/resources/list"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 func NewResourcesNav() *cobra.Command {
@@ -37,9 +39,52 @@ func NewResourcesNav() *cobra.Command {
 	return treeutils.GenerateNav(use, short, long, nil,
 		[]*cobra.Command{},
 		[]action.Pair{
-			list.NewResourcesListAction(),
+			list(),
 			delete(),
 		})
+}
+
+func list() action.Pair {
+	const (
+		short string = "list resources on the system"
+		long  string = "view resources available to your user and the system"
+	)
+	return scaffoldlist.NewListAction(short, long,
+		types.Resource{}, func(fs *pflag.FlagSet) ([]types.Resource, error) {
+			if all, err := fs.GetBool("all"); err != nil {
+				uniques.ErrGetFlag("resources list", err)
+			} else if all {
+				resp, err := connection.Client.ListAllResources(nil)
+				if err != nil {
+					return nil, err
+				}
+				return resp.Results, nil
+			}
+
+			resp, err := connection.Client.ListResources(nil)
+			if err != nil {
+				return nil, err
+			}
+			return resp.Results, nil
+		},
+		scaffoldlist.Options{
+			DefaultColumns: []string{
+				"CommonFields.ID",
+				"CommonFields.Name",
+				"CommonFields.Description",
+				"Size"},
+			ColumnAliases: map[string]string{
+				"CommonFields.Name": "Name",
+				"Size":              "SizeBytes",
+			},
+			AddtlFlags: flags,
+		})
+}
+
+func flags() pflag.FlagSet {
+	addtlFlags := pflag.FlagSet{}
+	addtlFlags.Bool("all", false, "ADMIN ONLY. Lists all resources on the system")
+	return addtlFlags
 }
 
 func delete() action.Pair {
