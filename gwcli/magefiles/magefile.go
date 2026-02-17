@@ -10,9 +10,7 @@
 
 /*
 The build system for gwcli, built on Mage.
-Because it is self-contained, you can also just use go build inside of the gwcli directory
-(or go build -C gwcli from the top-level gravwell directory.)
-The Magefile serves mostly to corral the testing into a single location.
+Manages testing, code generation, and (obviously) compilation.
 
 You can use the envvar MAGEFILE_ENABLE_COLOR if you want pretty colors.
 */
@@ -115,11 +113,15 @@ func Build() error {
 
 	output := path.Join(pwd, _BINARY_TARGET)
 	verboseln("Building " + output + "...")
-	out, err := sh.Output("go", "build", "-o", output, ".")
-	if mg.Verbose() || err != nil {
-		fmt.Println(out)
+	if out, err := sh.Output("go", "build", "-o", output, "."); mg.Verbose() || err != nil {
+		fmt.Print(out)
+		if err != nil {
+			return err
+		}
 	}
-	return err
+	verboseln(good("done."))
+
+	return nil
 }
 
 // Vet runs go vet and staticcheck and should be called prior to the CI/CD pipeline.
