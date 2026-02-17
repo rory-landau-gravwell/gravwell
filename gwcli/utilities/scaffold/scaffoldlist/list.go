@@ -98,6 +98,7 @@ func (f outputFormat) String() string {
 const (
 	outFilePerm         os.FileMode = 0644
 	exportedColumnsOnly bool        = true // only allow users to query for exported fields as columns?
+	showColumnsSep      rune        = ';'  // separator between column names
 )
 
 // ListDataFunction is a function that retrieves an array of structs of type dataStruct
@@ -275,7 +276,7 @@ func generateRun[dataStruct_t any](
 			fmt.Fprintln(c.ErrOrStderr(), uniques.ErrGetFlag("list", err))
 			return
 		} else if sc {
-			fmt.Fprintln(c.OutOrStdout(), showColumnsString(availDataStructColumns, options.ColumnAliases))
+			fmt.Fprintln(c.OutOrStdout(), strings.Join(availDataStructColumns, string(showColumnsSep)))
 			return
 		}
 
@@ -329,20 +330,4 @@ func generateRun[dataStruct_t any](
 			fmt.Fprintln(c.OutOrStdout(), s)
 		}
 	}
-}
-
-// showColumnsString returns a comma-separated list of available column names.
-func showColumnsString(dqColumns []string, aliases map[string]string) string {
-	var sb strings.Builder
-	for _, dqCol := range dqColumns {
-		// check for an alias
-		if alias, found := aliases[dqCol]; found {
-			sb.WriteString(alias)
-		} else {
-			sb.WriteString(dqCol)
-		}
-		sb.WriteRune(',')
-	}
-
-	return sb.String()[:sb.Len()-1]
 }

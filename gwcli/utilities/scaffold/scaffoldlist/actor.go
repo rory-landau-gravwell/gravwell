@@ -14,6 +14,7 @@ package scaffoldlist
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -72,7 +73,7 @@ func (la *ListAction[T]) Update(msg tea.Msg) tea.Cmd {
 
 	// check for --show-columns
 	if la.showColumns {
-		return tea.Println(showColumnsString(la.availDSColumns, la.options.ColumnAliases))
+		return tea.Println(strings.Join(la.availDSColumns, string(showColumnsSep)))
 	}
 
 	// fetch the list data
