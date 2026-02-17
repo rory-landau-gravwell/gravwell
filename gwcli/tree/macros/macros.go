@@ -17,6 +17,7 @@ import (
 
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
 
@@ -56,31 +57,28 @@ func NewMacrosNav() *cobra.Command {
 //#region list
 
 type prettyMacro struct {
-	Type      types.AssetType
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt time.Time
-	ID        string
-	ParentID  string // the parent object this was cloned from
+	// Common Fields
 
-	OwnerID int32
-	Owner   types.User
-
-	// Permissions
-	Readers types.ACL
-	Writers types.ACL
-
-	// Tracks who made the last change to this item
+	Type             types.AssetType
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	DeletedAt        time.Time
+	ID               string
+	ParentID         string
+	OwnerID          int32
+	Owner            types.User
+	Readers          string
+	Writers          string
 	LastModifiedByID int32
 	LastModifiedBy   types.User
+	Name             string
+	Description      string
+	Labels           []string
+	Version          int
+	Can              types.Actions
 
-	Name        string
-	Description string
-	Labels      []string
-	Version     int
+	// Other Fields
 
-	// Auto-generated for the requesting user based on permissions of this object.
-	Can       types.Actions
 	Expansion string
 }
 
@@ -94,8 +92,8 @@ func Convert(m types.Macro) prettyMacro {
 		ParentID:         m.ParentID,
 		OwnerID:          m.OwnerID,
 		Owner:            m.Owner,
-		Readers:          m.Readers,
-		Writers:          m.Writers,
+		Readers:          scaffold.FormatACL(m.Readers),
+		Writers:          scaffold.FormatACL(m.Readers),
 		LastModifiedByID: m.LastModifiedByID,
 		LastModifiedBy:   m.LastModifiedBy,
 		Name:             m.Name,
