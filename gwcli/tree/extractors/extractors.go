@@ -124,8 +124,10 @@ func newExtractorsListAction() action.Pair {
 				"ID",
 				"Name",
 				"Description",
-				"Readers",
-				"Writers",
+				"Module",
+				"Params",
+				"Args",
+				"Tags",
 			},
 		})
 }
