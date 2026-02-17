@@ -3,10 +3,12 @@ package scaffold
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/uuid"
+	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	"golang.org/x/exp/constraints"
@@ -124,4 +126,21 @@ func FromString[I Id_t](str string) (I, error) {
 		return ret, fmt.Errorf("unknown id type %#v", p)
 	}
 	return ret, err
+}
+
+// FormatACL returns a string representation of types.ACL.
+// This function provides consistent formatting.
+//
+// Outputs in the form: "(Global) [gid1 gid2 gid3]"
+func FormatACL(in types.ACL) string {
+	var sb strings.Builder
+	if in.Global {
+		sb.WriteString("(Global) ")
+	}
+	sb.WriteString("[")
+	for _, gid := range in.GIDs {
+		fmt.Fprintf(&sb, "%v ", gid)
+	}
+	// finalize by chipping the whitespace and adding a bracket
+	return strings.TrimRight(sb.String(), " ") + "]"
 }
