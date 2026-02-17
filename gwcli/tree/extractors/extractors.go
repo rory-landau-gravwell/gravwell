@@ -17,6 +17,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
@@ -57,8 +58,8 @@ type prettyExtractor struct {
 	Owner   types.User
 
 	// Permissions
-	Readers types.ACL
-	Writers types.ACL
+	Readers string
+	Writers string
 
 	// Tracks who made the last change to this item
 	LastModifiedByID int32
@@ -78,6 +79,8 @@ type prettyExtractor struct {
 	Tags   []string `toml:"tags"` // AXs can support multiple tags. For backwards compatibility, we leave Tag and add Tags
 }
 
+// Convert maps the underlying AX type to the pretty wrapper used by List.
+// Most types are a direct copy.
 func Convert(a types.AX) prettyExtractor {
 	return prettyExtractor{
 		Type:             a.Type,
@@ -88,8 +91,8 @@ func Convert(a types.AX) prettyExtractor {
 		ParentID:         a.ParentID,
 		OwnerID:          a.OwnerID,
 		Owner:            a.Owner,
-		Readers:          a.Readers,
-		Writers:          a.Writers,
+		Readers:          scaffold.FormatACL(a.Readers),
+		Writers:          scaffold.FormatACL(a.Writers),
 		LastModifiedByID: a.LastModifiedByID,
 		LastModifiedBy:   a.LastModifiedBy,
 		Name:             a.Name,
