@@ -41,6 +41,8 @@ type Options struct {
 	// Keys must exactly match native column names (from weave.StructFields());
 	// unmatched aliases will be unused and native column names are case-sensitive.
 	// Operates in O(len(columns)) time, if not nil.
+	//
+	// Prefer altering the wrapper struct name, if possible.
 	ColumnAliases map[string]string
 	// A free-form function allowing implementations to directly alter properties on the command scaffold list creates.
 	// Applied after all other options, so changes made here may override prior options (such as Use and Aliases).
