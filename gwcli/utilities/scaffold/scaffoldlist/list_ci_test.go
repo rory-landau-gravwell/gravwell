@@ -158,6 +158,19 @@ func TestNewListAction(t *testing.T) {
 		}()
 		NewListAction(short, long, 5, func(fs *pflag.FlagSet) ([]int, error) { return nil, nil }, Options{})
 	})
+	t.Run("nil data function", func(t *testing.T) {
+		var recovered bool
+		defer func() {
+			if !recovered {
+				t.Errorf("test did not recover from panic")
+			}
+		}()
+		defer func() { // recover from the expected panic and note that we recovered
+			recover()
+			recovered = true
+		}()
+		NewListAction(short, long, struct{}{}, nil, Options{})
+	})
 	t.Run("non alphanumerics in use", func(t *testing.T) {
 		use := "<action|"
 		type st struct {
@@ -174,6 +187,22 @@ func TestNewListAction(t *testing.T) {
 			recovered = true
 		}()
 		NewListAction(short, long, st{}, func(fs *pflag.FlagSet) ([]st, error) { return nil, nil }, Options{Use: use})
+	})
+	t.Run("default columns and exclude columns given", func(t *testing.T) {
+		type st struct {
+		}
+
+		var recovered bool
+		defer func() {
+			if !recovered {
+				t.Errorf("test did not recover from panic")
+			}
+		}()
+		defer func() { // recover from the expected panic and note that we recovered
+			recover()
+			recovered = true
+		}()
+		NewListAction(short, long, st{}, func(fs *pflag.FlagSet) ([]st, error) { return nil, nil }, Options{DefaultColumns: []string{}, ExcludeColumnsFromDefault: []string{}})
 	})
 	t.Run("specific columns to outfile", func(t *testing.T) {
 		// generate the pair
@@ -617,6 +646,24 @@ func TestNewListAction(t *testing.T) {
 			Options{DefaultColumns: []string{"Col1", "Col4.SubCol1"}},
 			[]string{"--" + ft.SelectColumns.Name(), "Col3"}, // --no-interactive and --json are attached in the test
 			`[{"Col3":-1}]`,
+		},
+		{"bad default column is ignored",
+			Options{DefaultColumns: []string{"Col1", "Col2", "Col5"}},
+			[]string{},
+			`[{"Col1":"1","Col2":1}]`,
+		},
+		{"bad exclude column is ignored",
+			Options{ExcludeColumnsFromDefault: []string{"Col1", "Col5"}},
+			[]string{},
+			`[{"Col2":1,"Col3":-1,"Col4":{"SubCol1":"true"}}]`,
+		},
+		{"bad column alias is ignored",
+			Options{ColumnAliases: map[string]string{
+				"Col1": "NewCol1",
+				"Col5": "DNE",
+			}},
+			[]string{},
+			`[{"Col2":1,"Col3":-1,"Col4":{"SubCol1":"true"},"NewCol1":"1"}]`,
 		},
 	}
 	for _, tt := range jsonTests {

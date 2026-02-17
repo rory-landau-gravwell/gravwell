@@ -49,10 +49,13 @@ package scaffoldlist
 import (
 	"fmt"
 	"os"
+	"path"
 	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 
+	"github.com/crewjam/rfc5424"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
@@ -127,6 +130,14 @@ type PrettyPrinterFunc func(*pflag.FlagSet) (string, error)
 // Go's Generics are a godsend.
 func NewListAction[dataStruct_t any](short, long string,
 	dataStruct dataStruct_t, dataFn ListDataFunction[dataStruct_t], options Options) action.Pair {
+	var identifier rfc5424.SDParam // identifies the caller function to make it easier to fix developer errors
+	if clilog.Active(clilog.DEBUG) {
+		// extract the last two elements in the caller's path
+		if _, file, line, ok := runtime.Caller(1); ok {
+			d, f := path.Split(file)
+			identifier = rfc5424.SDParam{Name: "caller", Value: fmt.Sprintf("%v:%v", path.Join(path.Base(d), f), line)}
+		}
+	}
 	// check for developer errors
 	if reflect.TypeOf(dataStruct).Kind() != reflect.Struct {
 		panic("dataStruct must be a struct")
@@ -154,25 +165,27 @@ func NewListAction[dataStruct_t any](short, long string,
 		use = options.Use
 	}
 
-	// cache the struct fields so we do not need to reflect through them again later.
+	// cache the struct fields so we can save some reflection cycles later
 	availDSColumns, err := weave.StructFields(dataStruct, exportedColumnsOnly)
 	if err != nil {
 		panic(fmt.Sprintf("failed to cache available columns: %v", err))
 	}
 
-	// validate that all column aliases point to valid columns.
-	// Operates in O(n*m) time, unfortunately.
-	for dqcol := range options.ColumnAliases {
-		if !slices.Contains(availDSColumns, dqcol) {
-			panic("cannot alias unknown column '" + dqcol + "'")
+	if clilog.Active(clilog.DEBUG) { // validate that all column aliases point to valid columns.
+		for dqcol := range options.ColumnAliases {
+			if !slices.Contains(availDSColumns, dqcol) {
+				clilog.Writer.Warn("failed to alias column: unknown path",
+					identifier,
+					rfc5424.SDParam{Name: "bad_column_path", Value: dqcol},
+				)
+			}
 		}
-
 	}
 
 	// set default columns from DefaultColumns or ExcludeColumnsFromDefault
 	if options.DefaultColumns != nil && options.ExcludeColumnsFromDefault != nil { // both were given
 		panic("DefaultColumns and ExcludeColumnsFromDefault are mutually exclusive")
-	} else if options.ExcludeColumnsFromDefault != nil { // exclude was given
+	} else if options.ExcludeColumnsFromDefault != nil { // default excludes were given
 		// to exclude columns, traverse the data structure and skip excluded columns
 
 		// transmute the list to a hashset for faster look ups
@@ -180,12 +193,16 @@ func NewListAction[dataStruct_t any](short, long string,
 		for _, exCol := range options.ExcludeColumnsFromDefault {
 			// check that the column exists in dq
 			if !slices.Contains(availDSColumns, exCol) {
-				panic("cannot exclude unknown column '" + exCol + "'")
+				clilog.Writer.Warn("failed to exclude column from default set: unknown path",
+					identifier,
+					rfc5424.SDParam{Name: "bad_column_path", Value: exCol},
+				)
+				continue
 			}
 			excludeMap[exCol] = true
 		}
 		// put available data struct columns into default, minus excludes
-		options.DefaultColumns = make([]string, len(availDSColumns)-len(options.ExcludeColumnsFromDefault))
+		options.DefaultColumns = make([]string, len(availDSColumns)-len(excludeMap))
 		var excluded int // track the # skipped to decrement insertion index by that much
 		for i := range availDSColumns {
 			if _, found := excludeMap[availDSColumns[i]]; found {
@@ -195,9 +212,14 @@ func NewListAction[dataStruct_t any](short, long string,
 			}
 		}
 		options.DefaultColumns = slices.Clip(options.DefaultColumns)
-	} else if options.DefaultColumns != nil { // defaults were given
-		if err := validateColumns(options.DefaultColumns, availDSColumns); err != nil { // otherwise, validate the given defaults
-			panic(err)
+	} else if options.DefaultColumns != nil {
+		if clilog.Active(clilog.DEBUG) { // default includes were given; take them verbatim
+			if badCols := validateColumns(options.DefaultColumns, availDSColumns); len(badCols) > 0 {
+				clilog.Writer.Warn("invalid default columns",
+					identifier,
+					rfc5424.SDParam{Name: "bad_columns", Value: strings.Join(badCols, "_")},
+				)
+			}
 		}
 	} else { // nothing was given
 		options.DefaultColumns = availDSColumns

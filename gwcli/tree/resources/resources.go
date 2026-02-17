@@ -18,7 +18,6 @@ import (
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
-	. "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
@@ -69,15 +68,22 @@ func list() action.Pair {
 			return resp.Results, nil
 		},
 		scaffoldlist.Options{
-			DefaultColumns: []string{Types_Resource_CommonFields_ID, Types_Resource_CommonFields_Name, Types_Resource_CommonFields_Description, Types_Resource_Size},
-			ColumnAliases:  map[string]string{Types_Resource_CommonFields_Name: "Name", Types_Resource_Size: "SizeBytes"},
-			AddtlFlags:     flags,
+			DefaultColumns: []string{
+				"CommonFields.ID",
+				"CommonFields.Name",
+				"CommonFields.Description",
+				"Size"},
+			ColumnAliases: map[string]string{
+				"CommonFields.Name": "Name",
+				"Size":              "SizeBytes",
+			},
+			AddtlFlags: flags,
 		})
 }
 
 func flags() pflag.FlagSet {
 	addtlFlags := pflag.FlagSet{}
-	addtlFlags.Bool("all", false, "ADMIN ONLY. Lists all schedule searches on the system")
+	addtlFlags.Bool("all", false, "ADMIN ONLY. Lists all resources on the system")
 	return addtlFlags
 }
 

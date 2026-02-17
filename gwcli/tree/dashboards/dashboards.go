@@ -16,7 +16,6 @@ import (
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
-	. "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
@@ -55,9 +54,9 @@ func newDashboardsListAction() action.Pair {
 	return scaffoldlist.NewListAction(short, long,
 		types.Dashboard{}, list,
 		scaffoldlist.Options{AddtlFlags: flags, DefaultColumns: []string{
-			Types_Dashboard_ID,
-			Types_Dashboard_Name,
-			Types_Dashboard_Description,
+			"ID",
+			"Name",
+			"Description",
 		}})
 }
 

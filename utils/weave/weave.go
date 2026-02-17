@@ -6,7 +6,7 @@
  * BSD 2-clause license. See the LICENSE file for details.
  **************************************************************************/
 
-// Package weave transmogrifies Go structs into alternatives forms.
+// Package weave transmogrifies Go structs into alternative forms.
 // It is primarily used for orchestrating arbitrary types into a specified format (CSV, JSON).
 // The package also contains functionality for generating flat string mappings of dot-qualified struct fields.
 package weave
@@ -79,16 +79,23 @@ func StringMapStruct(sts []any, exportedOnly bool, dotReplacement rune, includeS
 		// the number of anonymous structs we've seen; used to index them for uniqueness
 		anonCount uint
 		// set of known structs to prevent invalid code from duplications
-		seen map[string]bool = make(map[string]bool, len(sts))
+		seen = make(map[string]bool, len(sts))
 	)
 
 	for _, st := range sts {
 		{ // duplicate check
-			TOStr := reflect.TypeOf(st).String()
-			if _, found := seen[TOStr]; found {
-				return "", errors.New("structs must be unique to produce valid code. Duplicate type: " + TOStr)
+			if st == nil {
+				return "", errors.New(ErrStructIsNil)
 			}
-			seen[TOStr] = true
+			to := reflect.TypeOf(st)
+			if to.Kind() == reflect.Pointer { // deference for consistency
+				to = to.Elem()
+			}
+			toStr := to.String()
+			if _, found := seen[toStr]; found {
+				return "", errors.New("structs must be unique to produce valid code. Duplicate type: " + toStr)
+			}
+			seen[toStr] = true
 		}
 		// get field representations
 		dqFields, err := StructFields(st, exportedOnly)
@@ -102,6 +109,9 @@ func StringMapStruct(sts []any, exportedOnly bool, dotReplacement rune, includeS
 		var prefix string
 		if includeStructPrefix {
 			to := reflect.TypeOf(st)
+			if to.Kind() == reflect.Pointer { // deference for consistency
+				to = to.Elem()
+			}
 			// anonymous structs' ToString will be "struct {x type, y type, ...}".
 			// This a valid identifier does not make.
 			// Instead, we coerce them to anon<idx>.
@@ -118,7 +128,7 @@ func StringMapStruct(sts []any, exportedOnly bool, dotReplacement rune, includeS
 		}
 		// coerce and write each field
 		for _, dqField := range dqFields {
-			var variableForm string = dqField
+			var variableForm = dqField
 			// sanitize periods
 			variableForm = strings.ReplaceAll(prefix+variableForm, ".", string(dotReplacement))
 			// ensure the mapping is accessible

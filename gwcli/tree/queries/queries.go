@@ -19,7 +19,6 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
-	. "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/queries/attach"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/queries/scheduled"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
@@ -52,11 +51,6 @@ func past() action.Pair {
 		short   string = "display search history"
 		long    string = "display past searches made by your user"
 	)
-	var defaultColumns = []string{
-		Types_SearchHistoryEntry_CommonFields_OwnerID,
-		Types_SearchHistoryEntry_UserQuery,
-		Types_SearchHistoryEntry_EffectiveQuery,
-	}
 
 	return scaffoldlist.NewListAction(
 		short, long,
@@ -90,8 +84,11 @@ func past() action.Pair {
 		},
 		scaffoldlist.Options{
 			Use: pastUse, AddtlFlags: flags,
-			DefaultColumns: defaultColumns,
-			ColumnAliases:  map[string]string{Types_SearchHistoryEntry_EffectiveQuery: "EQuery"},
+			DefaultColumns: []string{
+				"CommonFields.OwnerID",
+				"UserQuery",
+				"EffectiveQuery",
+			},
 		})
 }
 

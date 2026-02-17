@@ -25,11 +25,7 @@ import (
 	"path"
 	"time"
 
-	"github.com/dustin/go-humanize"
-	"github.com/gravwell/gravwell/v4/client/types"
-
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/cfgdir"
-	"github.com/gravwell/gravwell/v4/utils/weave"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 )
@@ -103,63 +99,12 @@ func init() {
 
 //#endregion
 
-// GenerateTypeMap writes handles for actions to use to present structured data to users.
-// These handles take the form of mappings between a struct field in source code and a dot-qualified path to access it.
-// Mappings provide action developers an easier way to use struct fields and their data as columns
-// (rather requiring developers to write the paths themselves as string, which can quietly break or contain errors).
-//
-// Writes to `gwcli/internal/typemap/typemap.go`
-func GenerateTypeMap() error {
-	const (
-		pkg  string = "typemap"
-		path string = "./internal/" + pkg + "/typemap.go"
-	)
-	// At some point, it will make more sense to give it a source file or package to scrape all types from.
-	// When that times comes, write the functionality into weave.main() so we can invoke it with `go generate` to hew closer to idiom.
-	m, err := weave.GoFormatStructs([]any{
-		// include these mappings as
-		// . "github.com/gravwell/gravwell/v4/gwcli/internal/typemap"
-		types.AlertDefinition{},
-		types.AX{},
-		types.Dashboard{},
-		types.IdKitState{},
-		types.Macro{},
-		types.Resource{},
-		types.SearchHistoryEntry{},
-	}, true, '_', pkg,
-		" Package typemap maps struct fields to their dot-qualified paths.",
-		" It is intended to ease development of actions by regenerating field names and paths if/when the underlying structs change.")
-	if err != nil {
-		return err
-	}
-
-	// write to a file, destroying any existing data
-	f, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("failed to create %v: %w\n", path, err)
-	}
-
-	if n, err := fmt.Fprintln(f, m); err != nil {
-		return err
-	} else {
-		verboseln(fmt.Sprintf("wrote %s to %s", humanize.Bytes(uint64(n)), path))
-	}
-	return nil
-}
-
 // Default target to run when none is specified
 // If not set, running mage will list available targets
 //var Default = Build
 
 // Build compiles gwcli for your local architecture and outputs it to pwd.
 func Build() error {
-	verboseln("Generating type mappings...")
-	// generate maps/bindings
-	if err := GenerateTypeMap(); err != nil {
-		return err
-	}
-	verboseln(good("done."))
-
 	pwd, err := os.Getwd()
 	if err != nil {
 		verboseln(fmt.Sprintf("failed to get pwd: %s. Defaulting to local directory.", err))
