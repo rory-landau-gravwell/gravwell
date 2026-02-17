@@ -136,11 +136,16 @@ func Vet() error {
 		}
 	}
 
+	// go mod tidy
+	tidyOut, tidyErr := sh.Output("go", "mod", "tidy")
+	display("go mod tidy", tidyErr, tidyOut)
+	// go vet
 	vetOut, vetErr := sh.Output("go", "vet", "./...")
 	display("go vet", vetErr, vetOut)
+	// staticcheck
 	scOut, scErr := sh.Output("staticcheck", "./...")
 	display("staticcheck", scErr, scOut)
-	return errors.Join(vetErr, scErr)
+	return errors.Join(tidyErr, vetErr, scErr)
 
 }
 
