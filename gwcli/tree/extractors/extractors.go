@@ -10,6 +10,8 @@
 package extractors
 
 import (
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
@@ -43,6 +45,66 @@ func NewExtractorsNav() *cobra.Command {
 
 // #region list
 
+type prettyExtractor struct {
+	Type      types.AssetType
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt time.Time
+	ID        string
+	ParentID  string // the parent object this was cloned from
+
+	OwnerID int32
+	Owner   types.User
+
+	// Permissions
+	Readers types.ACL
+	Writers types.ACL
+
+	// Tracks who made the last change to this item
+	LastModifiedByID int32
+	LastModifiedBy   types.User
+
+	Name        string
+	Description string
+	Labels      []string
+	Version     int
+
+	// Auto-generated for the requesting user based on permissions of this object.
+	Can types.Actions
+
+	Module string   `toml:"module"`
+	Params string   `toml:"params" json:",omitempty"`
+	Args   string   `toml:"args,omitempty" json:",omitempty"`
+	Tags   []string `toml:"tags"` // AXs can support multiple tags. For backwards compatibility, we leave Tag and add Tags
+}
+
+func Convert(a types.AX) prettyExtractor {
+	return prettyExtractor{
+		Type:             a.Type,
+		CreatedAt:        a.CreatedAt,
+		UpdatedAt:        a.UpdatedAt,
+		DeletedAt:        a.DeletedAt,
+		ID:               a.ID,
+		ParentID:         a.ParentID,
+		OwnerID:          a.OwnerID,
+		Owner:            a.Owner,
+		Readers:          a.Readers,
+		Writers:          a.Writers,
+		LastModifiedByID: a.LastModifiedByID,
+		LastModifiedBy:   a.LastModifiedBy,
+		Name:             a.Name,
+		Description:      a.Description,
+		Labels:           a.Labels,
+		Version:          a.Version,
+		Can:              a.Can,
+
+		Module: a.Module,
+		Params: a.Params,
+		Args:   a.Args,
+		Tags:   a.Tags,
+	}
+}
+
 func newExtractorsListAction() action.Pair {
 	const (
 		short string = "list extractors"
@@ -52,14 +114,18 @@ func newExtractorsListAction() action.Pair {
 	return scaffoldlist.NewListAction(
 		short,
 		long,
-		types.AX{},
+		prettyExtractor{},
 		list,
-		scaffoldlist.Options{AddtlFlags: flags, DefaultColumns: []string{
-			"CommonFields.Type",
-			"CommonFields.ID",
-			"CommonFields.Name",
-			"CommonFields.Description",
-		}})
+		scaffoldlist.Options{
+			AddtlFlags: flags,
+			DefaultColumns: []string{
+				"ID",
+				"Name",
+				"Description",
+				"Readers",
+				"Writers",
+			},
+		})
 }
 
 func flags() pflag.FlagSet {
@@ -68,7 +134,7 @@ func flags() pflag.FlagSet {
 	return addtlFlags
 }
 
-func list(fs *pflag.FlagSet) ([]types.AX, error) {
+func list(fs *pflag.FlagSet) ([]prettyExtractor, error) {
 	if id, err := fs.GetString("uuid"); err != nil {
 		uniques.ErrGetFlag("extractors list", err)
 	} else {
@@ -79,13 +145,17 @@ func list(fs *pflag.FlagSet) ([]types.AX, error) {
 		if uid != uuid.Nil {
 			clilog.Writer.Infof("Fetching ax with uuid %v", uid)
 			d, err := connection.Client.GetExtraction(id)
-			return []types.AX{d}, err
+			return []prettyExtractor{Convert(d)}, err
 		}
 		// if uid was nil, move on to normal get-all
 	}
 
 	lr, err := connection.Client.ListExtractions(nil)
-	return lr.Results, err
+	converted := make([]prettyExtractor, len(lr.Results))
+	for i, result := range lr.Results {
+		converted[i] = Convert(result)
+	}
+	return converted, err
 }
 
 //#endregion list
