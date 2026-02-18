@@ -77,27 +77,6 @@ func newExtractorsCreateAction() action.Pair {
 					"winlog", "xml"})
 				return ti
 			},
-			/*CustomTIFuncSetArg: func(ti *textinput.Model) textinput.Model {
-				// TODO move this.... somewhere as it depends on the tag?
-
-				// fetch current labels as suggestions
-				if mp, err := connection.Client.ExploreGenerate(); err != nil {
-					clilog.Writer.Warnf("failed to fetch ax label map: %v", err)
-					ti.ShowSuggestions = false
-				} else {
-					suggest := make([]string, len(mp))
-					i := 0
-					for k, _ := range mp {
-						suggest[i] = k
-						i += 1
-					}
-					ti.SetSuggestions(suggest)
-					ti.ShowSuggestions = true
-				}
-
-				return ti
-			}, */
-
 		},
 		createTagsKey: scaffoldcreate.Field{
 			Required:      true,

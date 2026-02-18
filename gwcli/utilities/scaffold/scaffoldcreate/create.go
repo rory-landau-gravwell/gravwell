@@ -292,10 +292,6 @@ func newCreateModel(fields Config, singular string, createFunc CreateFuncT, addt
 			c.longestTILength = kti.TI.Width
 		}
 	}
-	// buffer the field length
-	/*if c.longestFieldLength < int(minFieldWidth) {
-		c.longestFieldLength = int(minFieldWidth)
-	}*/
 
 	// sort keys from highest order to lowest order
 	slices.SortFunc(c.orderedTIs, func(a, b scaffold.KeyedTI) int {
