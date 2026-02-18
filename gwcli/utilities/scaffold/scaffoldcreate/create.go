@@ -399,7 +399,7 @@ func (c *createModel) focusPrevious() {
 	}
 }
 
-// Generates the corrollary value map from the TIs.
+// Generates the corollary value map from the TIs.
 //
 // Returns the values for each TI (mapped to their Config key), a list of required fields (as their
 // field.Title names) that were not set, and an error (if one occurred).
@@ -418,13 +418,13 @@ func (c *createModel) extractValuesFromTIs() (fieldValues map[string]string, mis
 	return fieldValues, missingRequiredFields
 }
 
-// Iterates through the keymap, drawing each ti and title in key key order
+// Iterates through the keymap, drawing each ti and title by descending field.Order
 func (c *createModel) View() string {
 
 	inputs := scaffold.ViewKTIs(uint(c.longestFieldLength), c.orderedTIs, c.selected)
 
-	var wrapSty = lipgloss.NewStyle().Width(c.longestFieldLength)
-
+	// generate submit button and align it with the center
+	var wrapSty = lipgloss.NewStyle().Width(c.longestFieldLength) // setting width keeps the button roughly proportional
 	var inE, cE string
 	if c.inputErr != "" {
 		inE = wrapSty.Render(c.inputErr)
