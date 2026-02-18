@@ -78,9 +78,9 @@ type prettyExtractor struct {
 	Tags   []string `toml:"tags"` // AXs can support multiple tags. For backwards compatibility, we leave Tag and add Tags
 }
 
-// Convert maps the underlying AX type to the pretty wrapper used by List.
+// pretty maps the underlying AX type to the pretty wrapper used by List.
 // Most types are a direct copy.
-func Convert(a types.AX) prettyExtractor {
+func pretty(a types.AX) prettyExtractor {
 	return prettyExtractor{
 		Type:             a.Type,
 		CreatedAt:        a.CreatedAt,
@@ -144,13 +144,13 @@ func list(fs *pflag.FlagSet) ([]prettyExtractor, error) {
 	} else if id != "" {
 		clilog.Writer.Infof("Fetching ax with id \"%v\"", id)
 		d, err := connection.Client.GetExtraction(id)
-		return []prettyExtractor{Convert(d)}, err
+		return []prettyExtractor{pretty(d)}, err
 	}
 
 	lr, err := connection.Client.ListExtractions(nil)
 	converted := make([]prettyExtractor, len(lr.Results))
 	for i, result := range lr.Results {
-		converted[i] = Convert(result)
+		converted[i] = pretty(result)
 	}
 	return converted, err
 }

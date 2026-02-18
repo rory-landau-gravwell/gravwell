@@ -82,7 +82,7 @@ type prettyMacro struct {
 	Expansion string
 }
 
-func Convert(m types.Macro) prettyMacro {
+func pretty(m types.Macro) prettyMacro {
 	return prettyMacro{
 		Type:             m.Type,
 		CreatedAt:        m.CreatedAt,
@@ -159,7 +159,7 @@ func listMacros(fs *pflag.FlagSet) ([]prettyMacro, error) {
 
 	mappedResults := make([]prettyMacro, len(macroResults))
 	for i, row := range macroResults {
-		mappedResults[i] = Convert(row)
+		mappedResults[i] = pretty(row)
 	}
 
 	return mappedResults, nil
