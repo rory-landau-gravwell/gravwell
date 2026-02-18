@@ -193,7 +193,7 @@ func newMacroCreateAction() action.Pair {
 			},
 		},
 		"desc": scaffoldcreate.Field{
-			Required:     true,
+			Required:     false,
 			Title:        "description",
 			Usage:        ft.Description.Usage("macro"),
 			Type:         scaffoldcreate.Text,
