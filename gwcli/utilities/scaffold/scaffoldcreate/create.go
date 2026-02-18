@@ -87,7 +87,6 @@ import (
 const (
 	errMissingRequiredFlags string = "missing required flags %v"
 	createdSuccessfully     string = "Successfully created %v (ID: %v)."
-	minFieldWidth           uint   = 25
 )
 
 // A Config maps keys -> Field; used as (ReadOnly) configuration for this creation instance
@@ -289,9 +288,10 @@ func newCreateModel(fields Config, singular string, createFunc CreateFuncT, addt
 		}
 	}
 	// buffer the field length
-	if c.longestFieldLength < int(minFieldWidth) {
+	/*if c.longestFieldLength < int(minFieldWidth) {
 		c.longestFieldLength = int(minFieldWidth)
-	}
+	}*/
+
 	// sort keys from highest order to lowest order
 	slices.SortFunc(c.orderedTIs, func(a, b scaffold.KeyedTI) int {
 		return fields[b.Key].Order - fields[a.Key].Order
