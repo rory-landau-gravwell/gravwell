@@ -156,7 +156,7 @@ func new(root *navCmd, cur *cobra.Command, trailingTokens []string, _ *lipgloss.
 		// have mother immediate act on the data we placed on her prompt
 		m.processOnStartup = true
 	}
-	m.regenerateSuggestion(m.ti.Value(), m.pwd)
+	m.regenerateSuggestion(m.ti.Value())
 
 	clilog.Writer.Debugf("Spawning mother rooted @ %v, located @ %v, with trailing tokens %v",
 		m.root.Name(), m.pwd.Name(), trailingTokens)
@@ -262,15 +262,15 @@ func (m Mother) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.ti, cmd = m.ti.Update(msg)
 
 	if _, ok := msg.(tea.KeyMsg); ok { // sort, categorize, and colourize suggestions
-		m.regenerateSuggestion(m.ti.Value(), m.pwd)
+		m.regenerateSuggestion(m.ti.Value())
 	}
 
 	return m, cmd
 }
 
-// TODO annotate
-// TODO rename
-func (m *Mother) regenerateSuggestion(userInput string, pwd *cobra.Command) {
+// regenerateSuggestion parses the user input to set next-word suggestions for navs, actions, and builtins.
+// The first suggestion (highest to lowest priority: navs, actions, builtins) is also set as a possible tab-complete on the prompt.
+func (m *Mother) regenerateSuggestion(userInput string) {
 	m.suggestions.nav, m.suggestions.action, m.suggestions.bi = traverse.DeriveSuggestions(m.ti.Value(), m.pwd, builtinKeys)
 	if len(m.suggestions.nav) > 0 {
 		m.suggestions.tab = userInput + m.suggestions.nav[0].FullName[len(m.suggestions.nav[0].MatchedCharacters):]
