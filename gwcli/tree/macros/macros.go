@@ -10,11 +10,13 @@
 package macros
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
@@ -179,6 +181,16 @@ func newMacroCreateAction() action.Pair {
 			FlagName:     ft.Name.Name(),
 			DefaultValue: "",
 			Order:        100,
+			CustomTIFuncInit: func() textinput.Model {
+				ti := stylesheet.NewTI("", false)
+				ti.Validate = func(s string) error {
+					if strings.Contains(s, " ") {
+						return errors.New("macro names may not contain spaces")
+					}
+					return nil
+				}
+				return ti
+			},
 		},
 		"desc": scaffoldcreate.Field{
 			Required:     true,
