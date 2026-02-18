@@ -230,7 +230,8 @@ type createModel struct {
 
 	orderedTIs         []scaffold.KeyedTI // Ordered array of map keys, based on Config.TI.Order
 	selected           uint               // currently focused ti (in key order index)
-	longestFieldLength int                // the longest field name of the TIs
+	longestFieldLength int                // set at create time
+	longestTILength    int                // set at create time
 
 	inputErr  string // the reason inputs are invalid
 	createErr string // the reason the last create failed (not for invalid parameters)
@@ -285,6 +286,10 @@ func newCreateModel(fields Config, singular string, createFunc CreateFuncT, addt
 		// note the longest Title for later formatting
 		if w := lipgloss.Width(f.Title); c.longestFieldLength < w {
 			c.longestFieldLength = w
+		}
+		// note the longest TI for later formatting
+		if kti.TI.Width > c.longestTILength {
+			c.longestTILength = kti.TI.Width
 		}
 	}
 	// buffer the field length
@@ -427,12 +432,11 @@ func (c *createModel) View() string {
 	if c.createErr != "" {
 		cE = wrapSty.Render(c.createErr)
 	}
-
-	return inputs +
-		"\n" +
-		lipgloss.NewStyle().Width(lipgloss.Width(inputs)).AlignHorizontal(lipgloss.Center).Render(
-			stylesheet.ViewSubmitButton(c.SubmitSelected(), inE, cE),
-		)
+	// align the submit to roughly the end of the field titles
+	sbtn := stylesheet.ViewSubmitButton(c.SubmitSelected(), inE, cE)
+	return inputs + "\n" + lipgloss.NewStyle().
+		Width(c.longestFieldLength+c.longestTILength+1+1). // +1 for pip, +1 for separator colon
+		AlignHorizontal(lipgloss.Center).Render(sbtn)
 }
 
 func (c *createModel) Done() bool {
