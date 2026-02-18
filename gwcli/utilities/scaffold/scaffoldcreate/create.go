@@ -363,6 +363,9 @@ func (c *createModel) Update(msg tea.Msg) tea.Cmd {
 		// pass message to currently focused ti
 		var cmd tea.Cmd
 		c.orderedTIs[c.selected].TI, cmd = c.orderedTIs[c.selected].TI.Update(msg)
+		if c.orderedTIs[c.selected].TI.Err != nil {
+			c.inputErr = c.orderedTIs[c.selected].TI.Err.Error()
+		}
 		return cmd
 	}
 	return nil
