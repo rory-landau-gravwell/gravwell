@@ -14,12 +14,10 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
-	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
 
@@ -58,55 +56,6 @@ func NewMacrosNav() *cobra.Command {
 
 //#region list
 
-type prettyMacro struct {
-	// Common Fields
-
-	Type             types.AssetType
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	DeletedAt        time.Time
-	ID               string
-	ParentID         string
-	OwnerID          int32
-	Owner            types.User
-	Readers          string
-	Writers          string
-	LastModifiedByID int32
-	LastModifiedBy   types.User
-	Name             string
-	Description      string
-	Labels           []string
-	Version          int
-	Can              types.Actions
-
-	// Other Fields
-
-	Expansion string
-}
-
-func pretty(m types.Macro) prettyMacro {
-	return prettyMacro{
-		Type:             m.Type,
-		CreatedAt:        m.CreatedAt,
-		UpdatedAt:        m.UpdatedAt,
-		DeletedAt:        m.DeletedAt,
-		ID:               m.ID,
-		ParentID:         m.ParentID,
-		OwnerID:          m.OwnerID,
-		Owner:            m.Owner,
-		Readers:          scaffold.FormatACL(m.Readers),
-		Writers:          scaffold.FormatACL(m.Readers),
-		LastModifiedByID: m.LastModifiedByID,
-		LastModifiedBy:   m.LastModifiedBy,
-		Name:             m.Name,
-		Description:      m.Description,
-		Labels:           m.Labels,
-		Version:          m.Version,
-		Can:              m.Can,
-		Expansion:        m.Expansion,
-	}
-}
-
 func newMacroListAction() action.Pair {
 	const (
 		listShort = "list your macros"
@@ -114,7 +63,7 @@ func newMacroListAction() action.Pair {
 			"or the system itself"
 	)
 	return scaffoldlist.NewListAction(listShort, listLong,
-		prettyMacro{}, listMacros,
+		types.Macro{}, listMacros,
 		scaffoldlist.Options{
 			AddtlFlags:     flags,
 			DefaultColumns: []string{"Name", "Description", "Expansion"},
@@ -129,19 +78,20 @@ func flags() pflag.FlagSet {
 }
 
 // lister subroutine for macros
-func listMacros(fs *pflag.FlagSet) ([]prettyMacro, error) {
+func listMacros(fs *pflag.FlagSet) ([]types.Macro, error) {
 	var macroResults []types.Macro
 	if all, err := fs.GetBool("all"); err != nil {
 		return nil, uniques.ErrGetFlag("macros list", err)
-	} else if all {
+	} else if all { // fetch all macros instead of just user macros
 		r, err := connection.Client.ListAllMacros(nil)
 		if err != nil {
 			return nil, err
 		}
-		macroResults = r.Results
-	} else if gid, err := fs.GetInt32("group"); err != nil {
+		return r.Results, nil
+	}
+	if gid, err := fs.GetInt32("group"); err != nil {
 		return nil, uniques.ErrGetFlag("macros list", err)
-	} else if gid != 0 {
+	} else if gid != 0 { // fetch all macros our group ID can read
 		macros, err := connection.Client.ListAllMacros(nil)
 		if err != nil {
 			return nil, err
@@ -151,20 +101,12 @@ func listMacros(fs *pflag.FlagSet) ([]prettyMacro, error) {
 				macroResults = append(macroResults, m)
 			}
 		}
-	} else {
-		r, err := connection.Client.ListMacros(nil)
-		if err != nil {
-			return nil, err
-		}
-		macroResults = r.Results
 	}
-
-	mappedResults := make([]prettyMacro, len(macroResults))
-	for i, row := range macroResults {
-		mappedResults[i] = pretty(row)
+	r, err := connection.Client.ListMacros(nil)
+	if err != nil {
+		return nil, err
 	}
-
-	return mappedResults, nil
+	return r.Results, nil
 }
 
 //#region create

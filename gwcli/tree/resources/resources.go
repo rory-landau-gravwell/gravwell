@@ -14,12 +14,10 @@ package resources
 import (
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
-	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
@@ -46,68 +44,13 @@ func NewResourcesNav() *cobra.Command {
 		})
 }
 
-type prettyResource struct {
-	// Common Fields
-
-	Type             types.AssetType
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	DeletedAt        time.Time
-	ID               string
-	ParentID         string
-	OwnerID          int32
-	Owner            types.User
-	Readers          string
-	Writers          string
-	LastModifiedByID int32
-	LastModifiedBy   types.User
-	Name             string
-	Description      string
-	Labels           []string
-	Version          int
-	Can              types.Actions
-
-	// Other Fields
-
-	SizeBytes   uint64
-	Hash        string
-	ContentType string // Guessed at update time if possible
-}
-
-func pretty(r types.Resource) prettyResource {
-	return prettyResource{
-		Type:             r.Type,
-		CreatedAt:        r.CreatedAt,
-		UpdatedAt:        r.UpdatedAt,
-		DeletedAt:        r.DeletedAt,
-		ID:               r.ID,
-		ParentID:         r.ParentID,
-		OwnerID:          r.OwnerID,
-		Owner:            r.Owner,
-		Readers:          scaffold.FormatACL(r.Readers),
-		Writers:          scaffold.FormatACL(r.Readers),
-		LastModifiedByID: r.LastModifiedByID,
-		LastModifiedBy:   r.LastModifiedBy,
-		Name:             r.Name,
-		Description:      r.Description,
-		Labels:           r.Labels,
-		Version:          r.Version,
-		Can:              r.Can,
-
-		SizeBytes:   r.Size,
-		Hash:        r.Hash,
-		ContentType: r.ContentType,
-	}
-}
-
 func list() action.Pair {
 	const (
 		short string = "list resources on the system"
 		long  string = "view resources available to your user and the system"
 	)
 	return scaffoldlist.NewListAction(short, long,
-		prettyResource{}, func(fs *pflag.FlagSet) ([]prettyResource, error) {
-			var rawResults []types.Resource
+		types.Resource{}, func(fs *pflag.FlagSet) ([]types.Resource, error) {
 			if all, err := fs.GetBool("all"); err != nil {
 				uniques.ErrGetFlag("resources list", err)
 			} else if all {
@@ -115,19 +58,14 @@ func list() action.Pair {
 				if err != nil {
 					return nil, err
 				}
-				rawResults = resp.Results
-			} else {
-				resp, err := connection.Client.ListResources(nil)
-				if err != nil {
-					return nil, err
-				}
-				rawResults = resp.Results
+				return resp.Results, nil
 			}
-			convertedResults := make([]prettyResource, len(rawResults))
-			for i, result := range rawResults {
-				convertedResults[i] = pretty(result)
+
+			resp, err := connection.Client.ListResources(nil)
+			if err != nil {
+				return nil, err
 			}
-			return convertedResults, nil
+			return resp.Results, nil
 		},
 		scaffoldlist.Options{
 			AddtlFlags: flags,

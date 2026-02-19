@@ -14,7 +14,6 @@ package queries
 
 import (
 	"strings"
-	"time"
 
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
@@ -22,7 +21,6 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/queries/attach"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/queries/scheduled"
-	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
@@ -48,60 +46,6 @@ func NewQueriesNav() *cobra.Command {
 
 // #region past queries
 
-type prettyPastQuery struct {
-	// Common Fields
-
-	Type             types.AssetType
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	DeletedAt        time.Time
-	ID               string
-	ParentID         string
-	OwnerID          int32
-	Owner            types.User
-	Readers          string
-	Writers          string
-	LastModifiedByID int32
-	LastModifiedBy   types.User
-	Name             string
-	Description      string
-	Labels           []string
-	Version          int
-	Can              types.Actions
-
-	// Other Fields
-
-	UserQuery      string
-	EffectiveQuery string
-	Launched       time.Time
-}
-
-func pretty(m types.SearchHistoryEntry) prettyPastQuery {
-	return prettyPastQuery{
-		Type:             m.Type,
-		CreatedAt:        m.CreatedAt,
-		UpdatedAt:        m.UpdatedAt,
-		DeletedAt:        m.DeletedAt,
-		ID:               m.ID,
-		ParentID:         m.ParentID,
-		OwnerID:          m.OwnerID,
-		Owner:            m.Owner,
-		Readers:          scaffold.FormatACL(m.Readers),
-		Writers:          scaffold.FormatACL(m.Readers),
-		LastModifiedByID: m.LastModifiedByID,
-		LastModifiedBy:   m.LastModifiedBy,
-		Name:             m.Name,
-		Description:      m.Description,
-		Labels:           m.Labels,
-		Version:          m.Version,
-		Can:              m.Can,
-
-		UserQuery:      m.UserQuery,
-		EffectiveQuery: m.EffectiveQuery,
-		Launched:       m.Launched,
-	}
-}
-
 func past() action.Pair {
 	const (
 		pastUse string = "past"
@@ -111,8 +55,8 @@ func past() action.Pair {
 
 	return scaffoldlist.NewListAction(
 		short, long,
-		prettyPastQuery{},
-		func(fs *pflag.FlagSet) ([]prettyPastQuery, error) {
+		types.SearchHistoryEntry{},
+		func(fs *pflag.FlagSet) ([]types.SearchHistoryEntry, error) {
 			opts := &types.QueryOptions{}
 			if count, e := fs.GetInt("count"); e != nil {
 				return nil, uniques.ErrGetFlag(pastUse, e)
@@ -125,17 +69,11 @@ func past() action.Pair {
 				// check for explicit no records error
 				if strings.Contains(err.Error(), "No record") {
 					clilog.Writer.Debugf("no records error: %v", err)
-					return []prettyPastQuery{}, nil
+					return nil, nil
 				}
 				return nil, err
 			}
-
-			prettyResults := make([]prettyPastQuery, len(resp.Results))
-			clilog.Writer.Debugf("found %v prior searches", len(resp.Results))
-			for i, result := range resp.Results {
-				prettyResults[i] = pretty(result)
-			}
-			return prettyResults, nil
+			return resp.Results, nil
 		},
 		scaffoldlist.Options{
 			Use: pastUse, AddtlFlags: flags,
