@@ -79,7 +79,6 @@ func flags() pflag.FlagSet {
 
 // lister subroutine for macros
 func listMacros(fs *pflag.FlagSet) ([]types.Macro, error) {
-	var macroResults []types.Macro
 	if all, err := fs.GetBool("all"); err != nil {
 		return nil, uniques.ErrGetFlag("macros list", err)
 	} else if all { // fetch all macros instead of just user macros
@@ -96,11 +95,13 @@ func listMacros(fs *pflag.FlagSet) ([]types.Macro, error) {
 		if err != nil {
 			return nil, err
 		}
+		var macroResults []types.Macro
 		for _, m := range macros.Results {
 			if m.GroupCanRead(gid) {
 				macroResults = append(macroResults, m)
 			}
 		}
+		return macroResults, nil
 	}
 	r, err := connection.Client.ListMacros(nil)
 	if err != nil {
