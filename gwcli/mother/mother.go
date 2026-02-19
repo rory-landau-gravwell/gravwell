@@ -156,7 +156,6 @@ func new(root *navCmd, cur *cobra.Command, trailingTokens []string, _ *lipgloss.
 		// have mother immediate act on the data we placed on her prompt
 		m.processOnStartup = true
 	}
-	m.regenerateSuggestion(m.ti.Value())
 
 	clilog.Writer.Debugf("Spawning mother rooted @ %v, located @ %v, with trailing tokens %v",
 		m.root.Name(), m.pwd.Name(), trailingTokens)
@@ -261,10 +260,6 @@ func (m Mother) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	m.ti, cmd = m.ti.Update(msg)
 
-	if _, ok := msg.(tea.KeyMsg); ok { // sort, categorize, and colourize suggestions
-		m.regenerateSuggestion(m.ti.Value())
-	}
-
 	return m, cmd
 }
 
@@ -317,6 +312,8 @@ func (m Mother) View() string {
 	} else if m.dieOnChildDone { // don't bother to draw
 		return ""
 	}
+
+	m.regenerateSuggestion(m.ti.Value())
 
 	// format current suggestions
 	var (
