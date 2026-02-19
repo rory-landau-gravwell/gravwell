@@ -270,6 +270,7 @@ func (m Mother) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // regenerateSuggestions parses the user input to set next-word suggestions for navs, actions, and builtins.
 // The first suggestion (highest to lowest priority: navs, actions, builtins) is also set as a possible tab-complete on the prompt.
 func (m *Mother) regenerateSuggestions(userInput string) {
+	m.suggestions.tab = "" // don't allow old suggestions to linger
 	m.suggestions.nav, m.suggestions.action, m.suggestions.bi = traverse.DeriveSuggestions(m.ti.Value(), m.pwd, builtinKeys)
 	if len(m.suggestions.nav) > 0 {
 		m.suggestions.tab = userInput + m.suggestions.nav[0].FullName[len(m.suggestions.nav[0].MatchedCharacters):]
