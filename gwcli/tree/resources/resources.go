@@ -68,6 +68,14 @@ func list() action.Pair {
 			return resp.Results, nil
 		},
 		scaffoldlist.Options{
+			DefaultColumns: []string{
+				"ID",
+				"Name",
+				"Description",
+				"Size"},
+			ColumnAliases: map[string]string{
+				"Size": "SizeBytes",
+			},
 			AddtlFlags: flags,
 		})
 }
