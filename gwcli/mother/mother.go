@@ -259,7 +259,7 @@ func (m Mother) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	m.ti, cmd = m.ti.Update(msg)
-
+	m.regenerateSuggestion(m.ti.Value())
 	return m, cmd
 }
 
@@ -312,8 +312,6 @@ func (m Mother) View() string {
 	} else if m.dieOnChildDone { // don't bother to draw
 		return ""
 	}
-
-	m.regenerateSuggestion(m.ti.Value())
 
 	// format current suggestions
 	var (
