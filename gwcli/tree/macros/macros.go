@@ -112,7 +112,6 @@ func listMacros(fs *pflag.FlagSet) ([]types.Macro, error) {
 //#region create
 
 // creates macros using 3 fields: name, description, and expansion.
-// It does not use the prettyMacro wrapper.
 func newMacroCreateAction() action.Pair {
 	fields := scaffoldcreate.Config{
 		"name": scaffoldcreate.Field{
