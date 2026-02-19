@@ -254,6 +254,10 @@ func (m Mother) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, processInput(&m)
 		case tea.KeyCtrlL:
 			return m, clear(&m, nil, nil)
+		case tea.KeyTab:
+			if m.ti.Value() == "" {
+				m.ti.SetValue("help")
+			}
 		}
 	}
 
