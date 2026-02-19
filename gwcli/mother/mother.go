@@ -87,7 +87,7 @@ type Mother struct {
 // The caller is expected to exit on Spawn's return.
 func Spawn(root, cur *cobra.Command, trailingTokens []string) error {
 	// spin up mother
-	interactive := tea.NewProgram(new(root, cur, trailingTokens, nil))
+	interactive := tea.NewProgram(New(root, cur, trailingTokens, nil))
 	// reactive the admin command
 	if c, _, err := root.Find([]string{"user", "admin"}); err != nil {
 		clilog.Writer.Warnf("failed to reveal the admin command")
@@ -104,7 +104,7 @@ func Spawn(root, cur *cobra.Command, trailingTokens []string) error {
 // internal command to provide the heavy lifting to Spawn() and flexibility to tests
 // NOTE: trailingTokens is not currently used, but is included for flexibility, in case it needs to
 // be built into the startupCommand
-func new(root *navCmd, cur *cobra.Command, trailingTokens []string, _ *lipgloss.Renderer) Mother {
+func New(root *navCmd, cur *cobra.Command, trailingTokens []string, _ *lipgloss.Renderer) Mother {
 	// spin up builtins
 	initBuiltins()
 
@@ -425,7 +425,7 @@ func (m *Mother) promptString(live bool) string {
 	} else {
 		ti = m.ti.Value()
 	}
-	return stylesheet.Cur.Prompt(m.pwd.CommandPath(), connection.Client.AdminMode()) + ti
+	return stylesheet.Cur.Prompt(m.pwd.CommandPath(), connection.AdminMode()) + ti
 }
 
 // helper subroutine for processInput
