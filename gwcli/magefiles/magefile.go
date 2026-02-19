@@ -136,11 +136,16 @@ func Vet() error {
 		}
 	}
 
+	// go mod tidy
+	tidyOut, tidyErr := sh.Output("go", "mod", "tidy")
+	display("go mod tidy", tidyErr, tidyOut)
+	// go vet
 	vetOut, vetErr := sh.Output("go", "vet", "./...")
 	display("go vet", vetErr, vetOut)
+	// staticcheck
 	scOut, scErr := sh.Output("staticcheck", "./...")
 	display("staticcheck", scErr, scOut)
-	return errors.Join(vetErr, scErr)
+	return errors.Join(tidyErr, vetErr, scErr)
 
 }
 
@@ -227,11 +232,18 @@ func TeaTests(cover, noCache bool) error {
 // Does not destroy login token.
 //
 // Running with dryrun prints out what files would be deleted, but does not actually delete them.
-// You probably want to run it with -v.
+//
+// dryrun implies -v.
 //
 // If an error occurs, it will immediately stop processing if !dryrun.
 func Clean(dryrun bool) (err error) {
-	// Destroy the binary
+	if dryrun {
+		if err := os.Setenv(mg.VerboseEnv, "1"); err != nil {
+			fmt.Println("failed to imply verbose from dryrun: ", err)
+		}
+	}
+
+	// destroy the binary
 	binPath := path.Join(".", _BINARY_TARGET)
 	if err := dryRM(binPath, dryrun); err != nil {
 		return err
