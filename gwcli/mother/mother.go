@@ -259,13 +259,13 @@ func (m Mother) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	var cmd tea.Cmd
 	m.ti, cmd = m.ti.Update(msg)
-	m.regenerateSuggestion(m.ti.Value())
+	m.regenerateSuggestions(m.ti.Value())
 	return m, cmd
 }
 
-// regenerateSuggestion parses the user input to set next-word suggestions for navs, actions, and builtins.
+// regenerateSuggestions parses the user input to set next-word suggestions for navs, actions, and builtins.
 // The first suggestion (highest to lowest priority: navs, actions, builtins) is also set as a possible tab-complete on the prompt.
-func (m *Mother) regenerateSuggestion(userInput string) {
+func (m *Mother) regenerateSuggestions(userInput string) {
 	m.suggestions.nav, m.suggestions.action, m.suggestions.bi = traverse.DeriveSuggestions(m.ti.Value(), m.pwd, builtinKeys)
 	if len(m.suggestions.nav) > 0 {
 		m.suggestions.tab = userInput + m.suggestions.nav[0].FullName[len(m.suggestions.nav[0].MatchedCharacters):]
