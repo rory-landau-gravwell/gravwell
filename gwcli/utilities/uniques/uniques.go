@@ -20,6 +20,7 @@ import (
 	"unicode"
 
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/cfgdir"
 	"github.com/spf13/cobra"
 )
 
@@ -116,13 +117,14 @@ func ParseJWT(tkn string) (header JWTHeader, payload JWTPayload, signature []byt
 // This subroutine should ONLY be used by Mother when building the root command or by test suites that omit Mother.
 func AttachPersistentFlags(cmd *cobra.Command) {
 	ft.NoInteractive.Register(cmd.PersistentFlags())
-	cmd.PersistentFlags().StringP("username", "u", "", "login credential.")
-	cmd.PersistentFlags().String("password", "", "login credential.")
+	// login flags
+	cmd.PersistentFlags().StringP("username", "u", "", "login credential. Requires either -p or \""+cfgdir.EnvKeyPassword+"\"."+
+		"If your account has MFA enabled, you must use an API token (--api or --eapi) or login interactively.")
 	cmd.PersistentFlags().StringP("passfile", "p", "", "the path to a file containing your password")
-	cmd.PersistentFlags().String("api", "", "log in via API key instead of credentials")
-
-	cmd.MarkFlagsMutuallyExclusive("password", "passfile", "api")
-	cmd.MarkFlagsMutuallyExclusive("api", "username")
+	cmd.MarkPersistentFlagFilename("passfile")
+	cmd.PersistentFlags().String("api", "", "the path to a file containing an API key to authenticate with")
+	cmd.PersistentFlags().Bool("eapi", false, "read the API key from environment variable \""+cfgdir.EnvKeyAPI+"\".")
+	cmd.MarkFlagsMutuallyExclusive("username", "api", "eapi")
 
 	ft.NoColor.Register(cmd.PersistentFlags())
 	cmd.PersistentFlags().String("server", "localhost:80", "<host>:<port> of instance to connect to.\n")
