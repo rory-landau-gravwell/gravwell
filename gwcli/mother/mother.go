@@ -258,6 +258,8 @@ func (m Mother) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.ti.Value() == "" {
 				m.ti.SetValue("help")
 			}
+		case tea.KeyCtrlU:
+			m.ti.SetValue("")
 		}
 	}
 
