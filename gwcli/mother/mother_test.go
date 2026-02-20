@@ -37,9 +37,9 @@ func Test_SuggestionCompletion_TeaTest(t *testing.T) {
 
 		}
 	})
-	// enable no color
+	// use a plain stylesheet, but not NoColor as NoColor disables suggestions
 	stylesheet.Cur = stylesheet.Plain()
-	stylesheet.NoColor = true
+	//stylesheet.NoColor = true
 	// build up some example commands
 	nav1Action1 := scaffold.NewBasicAction("actionone", "action1 short", "action1 long",
 		func(cmd *cobra.Command, fs *pflag.FlagSet) (string, tea.Cmd) { return "", nil }, scaffold.BasicOptions{})
@@ -70,15 +70,18 @@ func Test_SuggestionCompletion_TeaTest(t *testing.T) {
 		testsupport.TTMatchGolden(t, tm, false, 0)
 	})
 
+	// NOTE(rlandau): golden file matching is finicky.
+	// The should work, but be careful while editing it or adding new golden file tests;
+	// golden files tend to contain multiple outputs from Mother rather than an exact, point-in-time snapshot.
 	t.Run("navs are prioritized over actions", func(t *testing.T) {
 		// navs should be sorted alphanumerically, but always suggested before actions
 		tm.Type("top")
 		time.Sleep(100 * time.Millisecond)
-		testsupport.TTSendSpecial(tm, tea.KeyTab)
-		time.Sleep(100 * time.Millisecond)
+		testsupport.TTSendSpecial(tm, tea.KeyTab) // autocomplete topnav1
 
 		out := testsupport.TTMatchGolden(t, tm, false, 0)
-		if count := strings.Count(string(out), "topNav1"); count != 2 {
+		// should contain help exactly twice; once for the prompt, once for the suggestion bars
+		if count := strings.Count(string(out), "topnav1"); count != 2 {
 			t.Error("incorrect suggestion count", testsupport.ExpectedActual(2, count), "\noutput:", string(out))
 		}
 	})
