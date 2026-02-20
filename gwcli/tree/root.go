@@ -149,59 +149,18 @@ func EnforceLogin(cmd *cobra.Command, args []string) error {
 			return err
 		}
 	}
-
-	// gather credentials to pass to the login process
-	// cobra will guarantee !(username && (api||eapi))
-	noInteractive, err := cmd.Flags().GetBool(ft.NoInteractive.Name())
+	username, password, apiToken, noInteractive, err := GatherCredentials(cmd.Flags())
 	if err != nil {
 		return err
 	}
-	var apiToken string
-	{ // fetch api token
-		if apiToken, err = cmd.Flags().GetString("api"); err != nil {
-			clilog.LogFlagFailedGet("api", err)
-		} else if apiToken == "" { // check env var
-			if k, found := os.LookupEnv(cfgdir.EnvKeyAPI); found {
-				apiToken = k
-			}
-		}
-		// ensure token is clobbered, though the point is moot
-		defer func() {
-			// clobber at least the length of the token
-			apiToken = randomdata.RandStringRunes(len(apiToken) + rand.Int())
-		}()
-	}
-	var username, password string
-	{ // fetch username and password
-		if username, err = cmd.Flags().GetString("username"); err != nil {
-			return err
-		} else if strings.TrimSpace(username) != "" {
-			// also try to get the password from a file or env var
+	defer func() { // clobber sensitive data to ensure it doesn't linger in memory
+		clobberString(apiToken)
+		clobberString(password)
 
-			if passfilePath, err := cmd.Flags().GetString("passfile"); err != nil {
-				return err
-			} else if strings.TrimSpace(passfilePath) != "" {
-				if p, err := skimPassFile(passfilePath); err != nil {
-					return err
-				} else if p != "" {
-					password = p
-				}
-			} else if p, set := os.LookupEnv(cfgdir.EnvKeyPassword); set {
-				password = p
-			}
-
-			// ensure password is clobbered, though the point is moot
-			defer func() {
-				// clobber at least the length of the password
-				password = randomdata.RandStringRunes(len(password) + rand.Int())
-			}()
-		} else if cmd.Flags().Changed("passfile") { // if passfile was set but username was not, that's an error
-			return errors.New("--passfile requires --username")
-		}
-	}
-
+	}()
 	// pass all information to Login to decide how to proceed
-	if err := connection.Login(username, password, apiToken, noInteractive); err != nil {
+	// TODO make Login take pass and api ptrs
+	if err := connection.Login(username, *password, *apiToken, noInteractive); err != nil {
 		return err
 	}
 
@@ -209,6 +168,68 @@ func EnforceLogin(cmd *cobra.Command, args []string) error {
 
 	return nil
 
+}
+
+// GatherCredentials reads username, password, and api token from flags and the environment, returning all set values.
+func GatherCredentials(flags *pflag.FlagSet) (username string, password, apiToken *string, noInteractive bool, _ error) {
+	// gather credentials to pass to the login process
+	// cobra will guarantee !(username && (api||eapi))
+	noInteractive, err := flags.GetBool(ft.NoInteractive.Name())
+	if err != nil {
+		return "", nil, nil, false, err
+	}
+	{ // fetch api token
+		var tkn string
+		if tkn, err = flags.GetString("api"); err != nil {
+			clilog.LogFlagFailedGet("api", err)
+		} else if tkn != "" {
+			apiToken = &tkn
+		} else { // check env var
+			var found bool
+			if tkn, found = os.LookupEnv(cfgdir.EnvKeyAPI); found {
+				*apiToken = tkn
+			}
+		}
+		clobberString(&tkn)
+	}
+	{ // fetch username and password
+		// sanity check: if passfile was set but username was not, that's an error
+		if flags.Changed("passfile") && !flags.Changed("username") {
+			return "", nil, nil, false, errors.New("--passfile requires --username")
+
+		}
+
+		if username, err = flags.GetString("username"); err != nil {
+			clilog.LogFlagFailedGet("username", err)
+		} else if strings.TrimSpace(username) != "" {
+			// also try to get the password from a file or env var
+
+			if passfilePath, err := flags.GetString("passfile"); err != nil {
+				clilog.LogFlagFailedGet("passfile", err)
+			} else if strings.TrimSpace(passfilePath) != "" {
+				if p, err := skimPassFile(passfilePath); err != nil {
+					return "", nil, nil, false, err
+				} else if p != "" {
+					*password = p
+					clobberString(&p)
+				}
+			} else if p, set := os.LookupEnv(cfgdir.EnvKeyPassword); set {
+				*password = p
+				clobberString(&p)
+			}
+		}
+	}
+	return
+}
+
+// clobberString destroys the value pointed to by v to mitigate the change it gets dumped during a panic or the like.
+//
+// Honestly, it is kind of moot until we get an actual secret mode.
+// This stuff tends to get optimized out (at least in C) as dead code.
+func clobberString(v *string) {
+	if v != nil {
+		*v = randomdata.RandStringRunes(len(*v) + rand.Int())
+	}
 }
 
 // skimPassFile slurps the file at the given path if path != "".
