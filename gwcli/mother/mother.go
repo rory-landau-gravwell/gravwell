@@ -101,9 +101,14 @@ func Spawn(root, cur *cobra.Command, trailingTokens []string) error {
 	return interactive.ReleaseTerminal() // should be redundant
 }
 
-// internal command to provide the heavy lifting to Spawn() and flexibility to tests
-// NOTE: trailingTokens is not currently used, but is included for flexibility, in case it needs to
-// be built into the startupCommand
+// New spawns a new Mother instance on the root tree.
+// Returns the new instance, which can be fed into bubble tea as a model.
+//
+// cur must be a child of root or you'll get some really weird traversal.
+//
+// NOTE: trailingTokens is not currently used, but is included for flexibility, in case it needs to be built into the startupCommand.
+//
+// Renderer is only to be used for tests; it should be left nil otherwise.
 func New(root *navCmd, cur *cobra.Command, trailingTokens []string, _ *lipgloss.Renderer) Mother {
 	// spin up builtins
 	initBuiltins()
