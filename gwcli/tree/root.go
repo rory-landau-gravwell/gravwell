@@ -17,10 +17,12 @@ package tree
 import (
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"os"
 	"runtime/pprof"
 	"strings"
 
+	"github.com/Pallinder/go-randomdata"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/crewjam/rfc5424"
 	"github.com/gravwell/gravwell/v4/client"
@@ -41,6 +43,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/tree/resources"
 	systemshealth "github.com/gravwell/gravwell/v4/gwcli/tree/systems"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/user"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/cfgdir"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
 
@@ -147,47 +150,58 @@ func EnforceLogin(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// generate credentials
-	var (
-		err           error
-		noInteractive bool
-		username      string
-		password      string
-		passfilePath  string
-		apiKey        string
-	)
-	if noInteractive, err = cmd.Flags().GetBool(ft.NoInteractive.Name()); err != nil {
+	// gather credentials to pass to the login process
+	// cobra will guarantee !(username && (api||eapi))
+	noInteractive, err := cmd.Flags().GetBool(ft.NoInteractive.Name())
+	if err != nil {
 		return err
 	}
-	if username, err = cmd.Flags().GetString("username"); err != nil {
-		return err
+	var apiToken string
+	{ // fetch api token
+		if apiToken, err = cmd.Flags().GetString("api"); err != nil {
+			clilog.LogFlagFailedGet("api", err)
+		} else if apiToken == "" { // check env var
+			if k, found := os.LookupEnv(cfgdir.EnvKeyAPI); found {
+				apiToken = k
+			}
+		}
+		// ensure token is clobbered, though the point is moot
+		defer func() {
+			// clobber at least the length of the token
+			apiToken = randomdata.RandStringRunes(len(apiToken) + rand.Int())
+		}()
 	}
-	if password, err = cmd.Flags().GetString("password"); err != nil {
-		return err
-	}
-	if passfilePath, err = cmd.Flags().GetString("passfile"); err != nil {
-		return err
-	}
-	if apiKey, err = cmd.Flags().GetString("api"); err != nil {
-		return err
-	}
+	var username, password string
+	{ // fetch username and password
+		if username, err = cmd.Flags().GetString("username"); err != nil {
+			return err
+		} else if strings.TrimSpace(username) != "" {
+			// also try to get the password from a file or env var
 
-	// password/passfile/apikey are marked mutually exclusive, so we do not have to check here
+			if passfilePath, err := cmd.Flags().GetString("passfile"); err != nil {
+				return err
+			} else if strings.TrimSpace(passfilePath) != "" {
+				if p, err := skimPassFile(passfilePath); err != nil {
+					return err
+				} else if p != "" {
+					password = p
+				}
+			} else if p, set := os.LookupEnv(cfgdir.EnvKeyPassword); set {
+				password = p
+			}
 
-	// need to check that, if password/passfile are supplied, username is also supplied
-	if (passfilePath != "" || password != "") && username == "" {
-		return errors.New("if password or passkey are specified, you must also specify username (-u)")
-	}
-
-	// if a passfile was specified, skim it out of the file
-	if p, err := skimPassFile(passfilePath); err != nil {
-		clilog.Writer.Warnf("failed to skim passfile: %v", err)
-	} else if p != "" {
-		password = p
+			// ensure password is clobbered, though the point is moot
+			defer func() {
+				// clobber at least the length of the password
+				password = randomdata.RandStringRunes(len(password) + rand.Int())
+			}()
+		} else if cmd.Flags().Changed("passfile") { // if passfile was set but username was not, that's an error
+			return errors.New("--passfile requires --username")
+		}
 	}
 
 	// pass all information to Login to decide how to proceed
-	if err := connection.Login(username, password, apiKey, noInteractive); err != nil {
+	if err := connection.Login(username, password, apiToken, noInteractive); err != nil {
 		return err
 	}
 
