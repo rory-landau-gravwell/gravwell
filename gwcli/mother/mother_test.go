@@ -5,6 +5,7 @@ import (
 	"path"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/exp/teatest"
@@ -69,23 +70,16 @@ func Test_SuggestionCompletion_TeaTest(t *testing.T) {
 		testsupport.TTMatchGolden(t, tm, false, 0)
 	})
 
-	// The following test does not work properly.
-	// Sometimes "top" and tab are sent and everything works fine.
-	// Sometimes only "top" is sent and the tab completion does not occur.
-	// Sometimes no characters are sent.
-	// This inconsistency makes it difficult to generate a golden file and impossible to diff it with any reliability.
-	//
-	// The issue likely hides in the complexity of Mother as the characters seem to arrive,
-	// but that is not necessarily reflected in the output of the golden file.
-	// I am unable to replicate this outside of TeaTests.
-	/*t.Run("navs are prioritized over actions", func(t *testing.T) {
+	t.Run("navs are prioritized over actions", func(t *testing.T) {
 		// navs should be sorted alphanumerically, but always suggested before actions
-		tm.Type("top	")
+		tm.Type("top")
+		time.Sleep(100 * time.Millisecond)
 		testsupport.TTSendSpecial(tm, tea.KeyTab)
-		//time.Sleep(100 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
+
 		out := testsupport.TTMatchGolden(t, tm, false, 0)
 		if count := strings.Count(string(out), "topNav1"); count != 2 {
 			t.Error("incorrect suggestion count", testsupport.ExpectedActual(2, count), "\noutput:", string(out))
 		}
-	})*/
+	})
 }
