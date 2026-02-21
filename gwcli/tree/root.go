@@ -172,6 +172,7 @@ func EnforceLogin(cmd *cobra.Command, args []string) error {
 
 // GatherCredentials reads username, password, and api token from flags and the environment, returning all set values.
 func GatherCredentials(flags *pflag.FlagSet) (username string, password, apiToken *string, noInteractive bool, _ error) {
+
 	// gather credentials to pass to the login process
 	// cobra will guarantee !(username && (api||eapi))
 	noInteractive, err := flags.GetBool(ft.NoInteractive.Name())
@@ -187,10 +188,9 @@ func GatherCredentials(flags *pflag.FlagSet) (username string, password, apiToke
 		} else { // check env var
 			var found bool
 			if tkn, found = os.LookupEnv(cfgdir.EnvKeyAPI); found {
-				*apiToken = tkn
+				apiToken = &tkn
 			}
 		}
-		clobberString(&tkn)
 	}
 	{ // fetch username and password
 		// sanity check: if passfile was set but username was not, that's an error
@@ -210,12 +210,10 @@ func GatherCredentials(flags *pflag.FlagSet) (username string, password, apiToke
 				if p, err := skimPassFile(passfilePath); err != nil {
 					return "", nil, nil, false, err
 				} else if p != "" {
-					*password = p
-					clobberString(&p)
+					password = &p
 				}
 			} else if p, set := os.LookupEnv(cfgdir.EnvKeyPassword); set {
-				*password = p
-				clobberString(&p)
+				password = &p
 			}
 		}
 	}
@@ -227,8 +225,10 @@ func GatherCredentials(flags *pflag.FlagSet) (username string, password, apiToke
 // Honestly, it is kind of moot until we get an actual secret mode.
 // This stuff tends to get optimized out (at least in C) as dead code.
 func clobberString(v *string) {
-	if v != nil {
-		*v = randomdata.RandStringRunes(len(*v) + rand.Int())
+	if v != nil && *v != "" {
+		l := len(*v)
+		rand := randomdata.RandStringRunes(l + rand.IntN(64))
+		*v = rand
 	}
 }
 
