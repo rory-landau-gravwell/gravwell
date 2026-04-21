@@ -80,6 +80,11 @@ func ppre(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// if this is the 'completion' command or any of its children, do not enforce login
+	if cmd.Name() == "completion" || (cmd.HasParent() && cmd.Parent().Name() == "completion") {
+		return nil
+	}
+
 	// if a profiler was specified, spin one up targeting the given path
 	if fn, err := cmd.Flags().GetString("profile"); err != nil {
 		panic(err)
