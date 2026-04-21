@@ -204,6 +204,8 @@ func normalizeColumns(cols []string, reverseAliasMap map[string]string) []string
 // getColumns checks for --columns then validates and returns them if found and returns the default columns otherwise.
 // aliases is the ColumnAliases map (dq -> alias); if non-nil, user-specified column names that match
 // an alias are automatically translated to their dot-qualified equivalents before validation.
+// Validation errors report the original names provided by the user (post-normalization, so an
+// unrecognized name that is neither a valid dq path nor a known alias appears as-is in the error).
 func getColumns(fs *pflag.FlagSet, defaultColumns []string, availDSColumns []string, aliases map[string]string) ([]string, error) {
 	if all, err := fs.GetBool(ft.AllColumns.Name()); err != nil {
 		return nil, uniques.ErrGetFlag("list", err) // does not return the actual 'use' of the action, but I don't want to include it as a param just for this super rare case

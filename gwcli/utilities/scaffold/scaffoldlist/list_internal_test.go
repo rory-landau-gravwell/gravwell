@@ -388,6 +388,159 @@ func TestNewListAction(t *testing.T) {
 		}
 	})
 
+	t.Run("alias in DefaultColumns is stored as dq internally", func(t *testing.T) {
+		// Aliases: Col1->C1, Col4.SubCol1->SC1
+		// DefaultColumns given as aliases; after init, model should store the dq equivalents.
+		pair := NewListAction(short, long, st{}, func(fs *pflag.FlagSet) ([]st, error) {
+			return nil, nil
+		}, Options{
+			ColumnAliases:  map[string]string{"Col1": "C1", "Col4.SubCol1": "SC1"},
+			DefaultColumns: []string{"C1", "SC1"}, // aliases
+		})
+		la, ok := pair.Model.(*ListAction[st])
+		if !ok {
+			t.Fatal("failed to assert model to listAction")
+		}
+		// internally must be dq names
+		if !testsupport.SlicesUnorderedEqual(la.defaultColumns, []string{"Col1", "Col4.SubCol1"}) {
+			t.Fatal("defaultColumns should be dq names.", testsupport.ExpectedActual([]string{"Col1", "Col4.SubCol1"}, la.defaultColumns))
+		}
+	})
+
+	t.Run("alias in ExcludeColumnsFromDefault excludes correctly", func(t *testing.T) {
+		data := []st{
+			{"1", 1, -1, struct {
+				SubCol1        bool
+				privateSubCol2 float32
+			}{true, 3.14}},
+		}
+		// Alias Col1->C1; exclude Col1 using its alias "C1"
+		pair := NewListAction(short, long, st{}, func(fs *pflag.FlagSet) ([]st, error) {
+			return data, nil
+		}, Options{
+			ColumnAliases:             map[string]string{"Col1": "C1"},
+			ExcludeColumnsFromDefault: []string{"C1"}, // alias for Col1
+		})
+
+		la, ok := pair.Model.(*ListAction[st])
+		if !ok {
+			t.Fatal("failed to assert model to listAction")
+		}
+		// Col1 must be absent from defaults
+		if testsupport.SlicesUnorderedEqual(la.defaultColumns, []string{"Col1", "Col2", "Col3", "Col4.SubCol1"}) {
+			t.Fatal("Col1 should have been excluded from default columns")
+		}
+		for _, c := range la.defaultColumns {
+			if c == "Col1" {
+				t.Fatal("Col1 (aliased as C1) should not appear in defaultColumns after exclusion")
+			}
+		}
+	})
+
+	t.Run("aliased --columns produces correct table data", func(t *testing.T) {
+		data := []st{
+			{"hello", 42, -7, struct {
+				SubCol1        bool
+				privateSubCol2 float32
+			}{true, 0}},
+		}
+		aliases := map[string]string{"Col1": "C1", "Col4.SubCol1": "SC1"}
+
+		pair := NewListAction(short, long, st{}, func(fs *pflag.FlagSet) ([]st, error) {
+			return data, nil
+		}, Options{ColumnAliases: aliases})
+
+		// request Col1 via alias "C1" and Col4.SubCol1 via alias "SC1"
+		pair.Action.SetArgs([]string{
+			"--" + ft.NoInteractive.Name(),
+			"--" + ft.Table.Name(),
+			"--" + ft.SelectColumns.Name() + "=C1,SC1",
+		})
+		var sb strings.Builder
+		var sbErr strings.Builder
+		pair.Action.SetOut(&sb)
+		pair.Action.SetErr(&sbErr)
+		pair.Action.Flags().Bool(ft.NoInteractive.Name(), false, "")
+		if err := pair.Action.Execute(); err != nil {
+			t.Fatal(err)
+		} else if sbErr.String() != "" {
+			t.Fatal(sbErr.String())
+		}
+
+		// the expected output: table of Col1+Col4.SubCol1, headers shown as aliases
+		expected := weave.ToTable(data, []string{"Col1", "Col4.SubCol1"}, weave.TableOptions{
+			Base:    stylesheet.Table,
+			Aliases: aliases,
+		})
+		actual := strings.TrimSpace(sb.String())
+		if expected != actual {
+			t.Fatal(testsupport.ExpectedActual(expected, actual))
+		}
+	})
+
+	t.Run("aliased --columns produces correct CSV data", func(t *testing.T) {
+		data := []st{
+			{"world", 99, 3, struct {
+				SubCol1        bool
+				privateSubCol2 float32
+			}{false, 0}},
+		}
+		aliases := map[string]string{"Col1": "C1"}
+
+		pair := NewListAction(short, long, st{}, func(fs *pflag.FlagSet) ([]st, error) {
+			return data, nil
+		}, Options{ColumnAliases: aliases})
+
+		pair.Action.SetArgs([]string{
+			"--" + ft.NoInteractive.Name(),
+			"--" + ft.CSV.Name(),
+			"--" + ft.SelectColumns.Name() + "=C1,Col3",
+		})
+		var sb strings.Builder
+		var sbErr strings.Builder
+		pair.Action.SetOut(&sb)
+		pair.Action.SetErr(&sbErr)
+		pair.Action.Flags().Bool(ft.NoInteractive.Name(), false, "")
+		if err := pair.Action.Execute(); err != nil {
+			t.Fatal(err)
+		} else if sbErr.String() != "" {
+			t.Fatal(sbErr.String())
+		}
+
+		expected := weave.ToCSV(data, []string{"Col1", "Col3"}, weave.CSVOptions{Aliases: aliases})
+		actual := strings.TrimSpace(sb.String())
+		if expected != actual {
+			t.Fatal(testsupport.ExpectedActual(expected, actual))
+		}
+	})
+
+	t.Run("invalid alias in --columns reports error containing alias name", func(t *testing.T) {
+		pair := NewListAction(short, long, st{}, func(fs *pflag.FlagSet) ([]st, error) {
+			return nil, nil
+		}, Options{ColumnAliases: map[string]string{"Col1": "C1"}})
+
+		pair.Action.SetArgs([]string{
+			"--" + ft.NoInteractive.Name(),
+			"--" + ft.CSV.Name(),
+			"--" + ft.SelectColumns.Name() + "=NotAnAlias",
+		})
+		var sb strings.Builder
+		var sbErr strings.Builder
+		pair.Action.SetOut(&sb)
+		pair.Action.SetErr(&sbErr)
+		pair.Action.Flags().Bool(ft.NoInteractive.Name(), false, "")
+		if err := pair.Action.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		errS := strings.TrimSpace(sbErr.String())
+		if !strings.Contains(errS, "NotAnAlias") {
+			t.Fatalf("error should contain the invalid column name, got: %q", errS)
+		}
+		if sb.String() != "" {
+			t.Error("stdout should be empty when an error occurs")
+		}
+	})
+
 	t.Run("aliased columns CSV", func(t *testing.T) {
 		data := []st{
 			{"1", 1, -1, struct {
@@ -1109,4 +1262,313 @@ func TestModel(t *testing.T) {
 		}
 	})
 
+	// alias-based --columns in interactive (SetArgs) mode
+	aliasModelTests := []struct {
+		name            string
+		options         Options
+		columnsArg      []string // values passed to --columns
+		wantColumns     []string // expected la.columns after SetArgs (always in dq form)
+		wantInvalidArgs bool
+	}{
+		{
+			name:        "alias in --columns translates to dq",
+			options:     Options{ColumnAliases: map[string]string{"Col1": "C1", "Col4.SubCol1": "SC1"}},
+			columnsArg:  []string{"C1"},
+			wantColumns: []string{"Col1"},
+		},
+		{
+			name:        "dq in --columns unchanged",
+			options:     Options{ColumnAliases: map[string]string{"Col1": "C1"}},
+			columnsArg:  []string{"Col1", "Col3"},
+			wantColumns: []string{"Col1", "Col3"},
+		},
+		{
+			name:        "mixed alias and dq in --columns",
+			options:     Options{ColumnAliases: map[string]string{"Col1": "C1"}},
+			columnsArg:  []string{"C1", "Col3"},
+			wantColumns: []string{"Col1", "Col3"},
+		},
+		{
+			name:            "invalid alias in --columns returns invalid",
+			options:         Options{ColumnAliases: map[string]string{"Col1": "C1"}},
+			columnsArg:      []string{"NotAnAlias"},
+			wantInvalidArgs: true,
+		},
+		{
+			name:        "alias-based DefaultColumns resolves correctly in interactive mode",
+			options:     Options{ColumnAliases: map[string]string{"Col1": "C1"}, DefaultColumns: []string{"C1"}},
+			columnsArg:  nil,
+			wantColumns: []string{"Col1"}, // alias resolved at init time
+		},
+	}
+	for _, tt := range aliasModelTests {
+		t.Run(tt.name, func(t *testing.T) {
+			pair := NewListAction("short", "long", st{}, func(fs *pflag.FlagSet) ([]st, error) {
+				return []st{{Col1: "x"}}, nil
+			}, tt.options)
+
+			args := []string{}
+			if tt.columnsArg != nil {
+				args = append(args, "--"+ft.SelectColumns.Name()+"="+strings.Join(tt.columnsArg, ","))
+			}
+
+			invalid, _, err := pair.Model.SetArgs(pair.Action.Flags(), args, 80, 50)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tt.wantInvalidArgs {
+				if invalid == "" {
+					t.Fatal("expected invalid args but got none")
+				}
+				return
+			}
+			if invalid != "" {
+				t.Fatalf("unexpected invalid args: %v", invalid)
+			}
+
+			la, ok := pair.Model.(*ListAction[st])
+			if !ok {
+				t.Fatal("failed to assert model to listAction")
+			}
+			if !testsupport.SlicesUnorderedEqual(la.columns, tt.wantColumns) {
+				t.Fatal(testsupport.ExpectedActual(tt.wantColumns, la.columns))
+			}
+		})
+	}
 }
+
+// Test_buildReverseAliasMap tests the helper that inverts the ColumnAliases map.
+func Test_buildReverseAliasMap(t *testing.T) {
+	t.Run("nil aliases", func(t *testing.T) {
+		if got := buildReverseAliasMap(nil); got != nil {
+			t.Fatalf("expected nil, got %v", got)
+		}
+	})
+	t.Run("empty aliases", func(t *testing.T) {
+		if got := buildReverseAliasMap(map[string]string{}); got != nil {
+			t.Fatalf("expected nil, got %v", got)
+		}
+	})
+	t.Run("single mapping", func(t *testing.T) {
+		aliases := map[string]string{"Col1": "C1"}
+		got := buildReverseAliasMap(aliases)
+		if got == nil {
+			t.Fatal("expected non-nil map")
+		}
+		if dq, ok := got["C1"]; !ok || dq != "Col1" {
+			t.Fatalf("expected C1->Col1, got %v", got)
+		}
+		if len(got) != 1 {
+			t.Fatalf("expected map of length 1, got %v", got)
+		}
+	})
+	t.Run("multiple mappings", func(t *testing.T) {
+		aliases := map[string]string{
+			"Col1":         "C1",
+			"Col4.SubCol1": "SC1",
+			"Col2":         "Two",
+		}
+		got := buildReverseAliasMap(aliases)
+		if len(got) != len(aliases) {
+			t.Fatalf("expected map of length %d, got length %d: %v", len(aliases), len(got), got)
+		}
+		for dq, alias := range aliases {
+			if resolved, ok := got[alias]; !ok {
+				t.Errorf("alias %q not found in reverse map", alias)
+			} else if resolved != dq {
+				t.Errorf("alias %q: expected dq %q, got %q", alias, dq, resolved)
+			}
+		}
+	})
+	t.Run("reverse is inverse of forward", func(t *testing.T) {
+		aliases := map[string]string{"A.B": "AB", "C": "Cee"}
+		rev := buildReverseAliasMap(aliases)
+		for dq, alias := range aliases {
+			if got := rev[alias]; got != dq {
+				t.Errorf("reverse[%q] = %q, want %q", alias, got, dq)
+			}
+		}
+	})
+}
+
+// Test_normalizeColumns tests the helper that translates alias names to dot-qualified names.
+func Test_normalizeColumns(t *testing.T) {
+	aliases := map[string]string{
+		"Col1":         "C1",
+		"Col4.SubCol1": "SC1",
+	}
+	rev := buildReverseAliasMap(aliases)
+
+	t.Run("nil reverse map", func(t *testing.T) {
+		cols := []string{"Col1", "Col2"}
+		got := normalizeColumns(cols, nil)
+		if !testsupport.SlicesUnorderedEqual(got, cols) {
+			t.Fatalf("expected unchanged, got %v", got)
+		}
+	})
+	t.Run("empty reverse map", func(t *testing.T) {
+		cols := []string{"Col1", "Col2"}
+		got := normalizeColumns(cols, map[string]string{})
+		if !testsupport.SlicesUnorderedEqual(got, cols) {
+			t.Fatalf("expected unchanged, got %v", got)
+		}
+	})
+	t.Run("all aliases translated", func(t *testing.T) {
+		got := normalizeColumns([]string{"C1", "SC1"}, rev)
+		want := []string{"Col1", "Col4.SubCol1"}
+		if !testsupport.SlicesUnorderedEqual(got, want) {
+			t.Fatalf("%v", testsupport.ExpectedActual(want, got))
+		}
+	})
+	t.Run("dq names pass through unchanged", func(t *testing.T) {
+		cols := []string{"Col1", "Col4.SubCol1"}
+		got := normalizeColumns(cols, rev)
+		if !testsupport.SlicesUnorderedEqual(got, cols) {
+			t.Fatalf("expected unchanged, got %v", got)
+		}
+	})
+	t.Run("mixed aliases and dq", func(t *testing.T) {
+		got := normalizeColumns([]string{"C1", "Col4.SubCol1"}, rev)
+		want := []string{"Col1", "Col4.SubCol1"}
+		if !testsupport.SlicesUnorderedEqual(got, want) {
+			t.Fatalf("%v", testsupport.ExpectedActual(want, got))
+		}
+	})
+	t.Run("unrecognized name passes through unchanged", func(t *testing.T) {
+		got := normalizeColumns([]string{"UNKNOWN"}, rev)
+		if len(got) != 1 || got[0] != "UNKNOWN" {
+			t.Fatalf("expected [UNKNOWN], got %v", got)
+		}
+	})
+	t.Run("empty column list", func(t *testing.T) {
+		got := normalizeColumns([]string{}, rev)
+		if len(got) != 0 {
+			t.Fatalf("expected empty, got %v", got)
+		}
+	})
+}
+
+// Test_getColumns tests column selection, validation, and alias translation.
+func Test_getColumns(t *testing.T) {
+	tDir := t.TempDir()
+	if err := clilog.Init(path.Join(tDir, "dev.log"), "debug"); err != nil {
+		t.Fatal("failed to spawn logger:", err)
+	}
+
+	avail := []string{"Col1", "Col2", "Col3", "Col4.SubCol1"}
+	defaults := []string{"Col1", "Col2"}
+	aliases := map[string]string{
+		"Col1":         "C1",
+		"Col4.SubCol1": "SC1",
+	}
+
+	newFS := func(args []string) *pflag.FlagSet {
+		fs := buildFlagSet(nil, false)
+		if err := fs.Parse(args); err != nil {
+			t.Fatalf("failed to parse flags: %v", err)
+		}
+		return fs
+	}
+
+	t.Run("no flags returns defaults", func(t *testing.T) {
+		fs := newFS([]string{})
+		got, err := getColumns(fs, defaults, avail, aliases)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !testsupport.SlicesUnorderedEqual(got, defaults) {
+			t.Fatal(testsupport.ExpectedActual(defaults, got))
+		}
+	})
+	t.Run("--all-columns returns all", func(t *testing.T) {
+		fs := newFS([]string{"--" + ft.AllColumns.Name()})
+		got, err := getColumns(fs, defaults, avail, aliases)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !testsupport.SlicesUnorderedEqual(got, avail) {
+			t.Fatal(testsupport.ExpectedActual(avail, got))
+		}
+	})
+	t.Run("dq name in --columns", func(t *testing.T) {
+		fs := newFS([]string{"--" + ft.SelectColumns.Name() + "=Col3"})
+		got, err := getColumns(fs, defaults, avail, aliases)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !testsupport.SlicesUnorderedEqual(got, []string{"Col3"}) {
+			t.Fatal(testsupport.ExpectedActual([]string{"Col3"}, got))
+		}
+	})
+	t.Run("alias in --columns is translated to dq", func(t *testing.T) {
+		fs := newFS([]string{"--" + ft.SelectColumns.Name() + "=C1"})
+		got, err := getColumns(fs, defaults, avail, aliases)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !testsupport.SlicesUnorderedEqual(got, []string{"Col1"}) {
+			t.Fatal(testsupport.ExpectedActual([]string{"Col1"}, got))
+		}
+	})
+	t.Run("nested dq alias in --columns is translated", func(t *testing.T) {
+		fs := newFS([]string{"--" + ft.SelectColumns.Name() + "=SC1"})
+		got, err := getColumns(fs, defaults, avail, aliases)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !testsupport.SlicesUnorderedEqual(got, []string{"Col4.SubCol1"}) {
+			t.Fatal(testsupport.ExpectedActual([]string{"Col4.SubCol1"}, got))
+		}
+	})
+	t.Run("mixed alias and dq in --columns", func(t *testing.T) {
+		fs := newFS([]string{"--" + ft.SelectColumns.Name() + "=C1,Col3"})
+		got, err := getColumns(fs, defaults, avail, aliases)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !testsupport.SlicesUnorderedEqual(got, []string{"Col1", "Col3"}) {
+			t.Fatal(testsupport.ExpectedActual([]string{"Col1", "Col3"}, got))
+		}
+	})
+	t.Run("invalid column name errors", func(t *testing.T) {
+		fs := newFS([]string{"--" + ft.SelectColumns.Name() + "=Xol1"})
+		_, err := getColumns(fs, defaults, avail, aliases)
+		if err == nil {
+			t.Fatal("expected error for unknown column, got nil")
+		}
+		if !strings.Contains(err.Error(), "Xol1") {
+			t.Fatalf("error should mention the bad column name, got: %v", err)
+		}
+	})
+	t.Run("error message contains the original invalid name", func(t *testing.T) {
+		fs := newFS([]string{"--" + ft.SelectColumns.Name() + "=FakeAlias"})
+		_, err := getColumns(fs, defaults, avail, aliases)
+		if err == nil {
+			t.Fatal("expected error for unknown column, got nil")
+		}
+		if !strings.Contains(err.Error(), "FakeAlias") {
+			t.Fatalf("error should mention the bad column name, got: %v", err)
+		}
+	})
+	t.Run("nil aliases map still validates dq names", func(t *testing.T) {
+		fs := newFS([]string{"--" + ft.SelectColumns.Name() + "=Col1,Col3"})
+		got, err := getColumns(fs, defaults, avail, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !testsupport.SlicesUnorderedEqual(got, []string{"Col1", "Col3"}) {
+			t.Fatal(testsupport.ExpectedActual([]string{"Col1", "Col3"}, got))
+		}
+	})
+	t.Run("multiple invalid columns listed in error", func(t *testing.T) {
+		fs := newFS([]string{"--" + ft.SelectColumns.Name() + "=Bad1,Bad2"})
+		_, err := getColumns(fs, defaults, avail, aliases)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if !strings.Contains(err.Error(), "Bad1") || !strings.Contains(err.Error(), "Bad2") {
+			t.Fatalf("error should mention both bad column names, got: %v", err)
+		}
+	})
+}
+
