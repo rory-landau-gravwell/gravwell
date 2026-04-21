@@ -170,8 +170,41 @@ func initOutFile(fs *pflag.FlagSet) (*os.File, error) {
 	return os.OpenFile(outPath, flags, outFilePerm)
 }
 
+// buildReverseAliasMap builds a reverse lookup map from alias -> dot-qualified column name.
+// It is the inverse of ColumnAliases (which maps dq -> alias).
+func buildReverseAliasMap(aliases map[string]string) map[string]string {
+	if len(aliases) == 0 {
+		return nil
+	}
+	rev := make(map[string]string, len(aliases))
+	for dq, alias := range aliases {
+		rev[alias] = dq
+	}
+	return rev
+}
+
+// normalizeColumns translates any alias names in cols to their dot-qualified equivalents,
+// leaving names that are already dot-qualified (or unrecognized) unchanged.
+// reverseAliasMap must be the inverse of ColumnAliases (alias -> dq); build it with buildReverseAliasMap.
+func normalizeColumns(cols []string, reverseAliasMap map[string]string) []string {
+	if len(reverseAliasMap) == 0 {
+		return cols
+	}
+	result := make([]string, len(cols))
+	for i, col := range cols {
+		if dq, found := reverseAliasMap[col]; found {
+			result[i] = dq
+		} else {
+			result[i] = col
+		}
+	}
+	return result
+}
+
 // getColumns checks for --columns then validates and returns them if found and returns the default columns otherwise.
-func getColumns(fs *pflag.FlagSet, defaultColumns []string, availDSColumns []string) ([]string, error) {
+// aliases is the ColumnAliases map (dq -> alias); if non-nil, user-specified column names that match
+// an alias are automatically translated to their dot-qualified equivalents before validation.
+func getColumns(fs *pflag.FlagSet, defaultColumns []string, availDSColumns []string, aliases map[string]string) ([]string, error) {
 	if all, err := fs.GetBool(ft.AllColumns.Name()); err != nil {
 		return nil, uniques.ErrGetFlag("list", err) // does not return the actual 'use' of the action, but I don't want to include it as a param just for this super rare case
 	} else if all {
@@ -183,6 +216,9 @@ func getColumns(fs *pflag.FlagSet, defaultColumns []string, availDSColumns []str
 	} else if len(cols) < 1 {
 		return defaultColumns, nil
 	}
+
+	// translate any alias names to their dot-qualified equivalents
+	cols = normalizeColumns(cols, buildReverseAliasMap(aliases))
 
 	if badCols := validateColumns(cols, availDSColumns); len(badCols) > 0 {
 		plural := ""

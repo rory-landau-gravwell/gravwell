@@ -490,6 +490,25 @@ func TestNewListAction(t *testing.T) {
 			[]string{"--" + ft.SelectColumns.Name(), "Col3"}, // --no-interactive and --csv are attached in the test
 			[]string{"Col3"},
 		},
+		{"alias accepted in --columns",
+			Options{ColumnAliases: map[string]string{"Col1": "C1", "Col4.SubCol1": "SC1"}},
+			[]string{"--" + ft.SelectColumns.Name(), "C1,SC1"},
+			// aliases in the header are resolved using ColumnAliases; underlying dq names are used internally
+			[]string{"C1", "SC1"},
+		},
+		{"alias accepted in DefaultColumns",
+			Options{
+				ColumnAliases:  map[string]string{"Col1": "C1", "Col4.SubCol1": "SC1"},
+				DefaultColumns: []string{"C1", "SC1"}, // specified as aliases
+			},
+			[]string{},
+			[]string{"C1", "SC1"},
+		},
+		{"mixed alias and dq in --columns",
+			Options{ColumnAliases: map[string]string{"Col1": "C1"}},
+			[]string{"--" + ft.SelectColumns.Name(), "C1,Col3"},
+			[]string{"C1", "Col3"},
+		},
 	}
 	for _, tt := range csvTests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -666,6 +685,27 @@ func TestNewListAction(t *testing.T) {
 			}},
 			[]string{},
 			`[{"Col2":1,"Col3":-1,"Col4":{"SubCol1":"true"},"NewCol1":"1"}]`,
+		},
+		{"alias accepted in --columns for JSON",
+			Options{ColumnAliases: map[string]string{"Col1": "C1"}},
+			[]string{"--" + ft.SelectColumns.Name(), "C1"},
+			`[{"C1":"1"}]`,
+		},
+		{"alias accepted in DefaultColumns for JSON",
+			Options{
+				ColumnAliases:  map[string]string{"Col1": "C1"},
+				DefaultColumns: []string{"C1"}, // specified as alias
+			},
+			[]string{},
+			`[{"C1":"1"}]`,
+		},
+		{"alias accepted in ExcludeColumnsFromDefault for JSON",
+			Options{
+				ColumnAliases:             map[string]string{"Col1": "C1"},
+				ExcludeColumnsFromDefault: []string{"C1"}, // specified as alias
+			},
+			[]string{},
+			`[{"Col2":1,"Col3":-1,"Col4":{"SubCol1":"true"}}]`,
 		},
 	}
 	for _, tt := range jsonTests {

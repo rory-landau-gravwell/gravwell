@@ -174,11 +174,17 @@ func NewListAction[dataStruct_t any](short, long string,
 		}
 	}
 
+	// build reverse alias map once for use in column normalization (alias -> dq)
+	revAliasMap := buildReverseAliasMap(options.ColumnAliases)
+
 	// set default columns from DefaultColumns or ExcludeColumnsFromDefault
 	if options.DefaultColumns != nil && options.ExcludeColumnsFromDefault != nil { // both were given
 		panic("DefaultColumns and ExcludeColumnsFromDefault are mutually exclusive")
 	} else if options.ExcludeColumnsFromDefault != nil { // default excludes were given
 		// to exclude columns, traverse the data structure and skip excluded columns
+
+		// normalize any aliases in the exclusion list to dq names
+		options.ExcludeColumnsFromDefault = normalizeColumns(options.ExcludeColumnsFromDefault, revAliasMap)
 
 		// transmute the list to a hashset for faster look ups
 		var excludeMap = make(map[string]bool, len(options.ExcludeColumnsFromDefault))
@@ -205,6 +211,8 @@ func NewListAction[dataStruct_t any](short, long string,
 		}
 		options.DefaultColumns = slices.Clip(options.DefaultColumns)
 	} else if options.DefaultColumns != nil {
+		// normalize any aliases in DefaultColumns to their dq equivalents
+		options.DefaultColumns = normalizeColumns(options.DefaultColumns, revAliasMap)
 		if clilog.Active(clilog.DEBUG) { // default includes were given; take them verbatim
 			if badCols := validateColumns(options.DefaultColumns, availDSColumns); len(badCols) > 0 {
 				clilog.Writer.Warn("invalid default columns",
@@ -294,7 +302,7 @@ func generateRun[dataStruct_t any](
 				stylesheet.Cur = stylesheet.Plain()
 			}
 
-			columns, err = getColumns(c.Flags(), options.DefaultColumns, availDataStructColumns)
+			columns, err = getColumns(c.Flags(), options.DefaultColumns, availDataStructColumns, options.ColumnAliases)
 			if err != nil {
 				fmt.Fprintln(c.ErrOrStderr(), err)
 				return

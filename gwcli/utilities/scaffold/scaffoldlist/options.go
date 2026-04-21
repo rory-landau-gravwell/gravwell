@@ -26,20 +26,22 @@ type Options struct {
 	// NOTE(rlandau): It must be a function returning a fresh struct because FlagSets are shallow copies, even when passed by reference.
 	AddtlFlags AddtlFlagFunction
 	// Sets the default columns to display if --columns is not specified.
-	// Column names must be dot-qualified exact matches, not aliases.
+	// Column names may be dot-qualified exact matches or aliases defined in ColumnAliases;
+	// aliases are automatically resolved to their dot-qualified equivalents at initialization.
 	// If set, only these columns will be displayed by default.
 	// Mutually exclusive with ExcludeColumnsFromDefault.
 	DefaultColumns []string
 	// Sets the list to display all columns EXCEPT for these by default.
-	// Column names must be dot-qualified exact matches, not aliases.
+	// Column names may be dot-qualified exact matches or aliases defined in ColumnAliases;
+	// aliases are automatically resolved to their dot-qualified equivalents at initialization.
 	// Overridden by --columns.
 	// Mutually exclusive with DefaultColumns.
 	ExcludeColumnsFromDefault []string
-	// ! Currently only applies to tables.
-	//
-	// ColumnAliases maps fully-dot-qualified field names -> display names in the table header.
+	// ColumnAliases maps fully-dot-qualified field names -> display names in column headers.
 	// Keys must exactly match native column names (from weave.StructFields());
 	// unmatched aliases will be unused and native column names are case-sensitive.
+	// Applies to table, CSV, and JSON output formats.
+	// Aliases may also be used in DefaultColumns, ExcludeColumnsFromDefault, and --columns.
 	// Operates in O(len(columns)) time, if not nil.
 	ColumnAliases map[string]string
 	// A free-form function allowing implementations to directly alter properties on the command scaffold list creates.

@@ -169,7 +169,7 @@ func (la *ListAction[T]) SetArgs(fs *pflag.FlagSet, tokens []string, width, heig
 		return "", nil, err
 	} else if !la.showColumns {
 		// fetch columns if it exists
-		la.columns, err = getColumns(la.fs, la.defaultColumns, la.availDSColumns)
+		la.columns, err = getColumns(la.fs, la.defaultColumns, la.availDSColumns, la.options.ColumnAliases)
 		if err != nil {
 			return err.Error(), nil, nil
 		}
