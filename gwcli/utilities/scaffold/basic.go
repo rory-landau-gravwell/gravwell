@@ -79,18 +79,20 @@ func NewBasicAction(use, short, long string,
 		short,
 		long,
 		options.Aliases,
-		func(c *cobra.Command, _ []string) {
+		func(c *cobra.Command, _ []string) error {
 			if options.ValidateArgs != nil {
 				if inv, err := options.ValidateArgs(c.Flags()); err != nil {
 					fmt.Fprintf(c.ErrOrStderr(), "%v", err)
-					return
+					return err
 				} else if inv != "" {
-					fmt.Fprintf(c.ErrOrStderr(), "invalid arguments: %v", inv)
-					return
+					err := fmt.Errorf("invalid arguments: %v", inv)
+					fmt.Fprintf(c.ErrOrStderr(), "%v", err)
+					return err
 				}
 			}
 			s, _ := act(c.Flags())
 			fmt.Fprintf(c.OutOrStdout(), "%v\n", s)
+			return nil
 		})
 	ba := basicAction{options: options, fn: act}
 

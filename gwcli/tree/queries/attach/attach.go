@@ -90,14 +90,15 @@ func initialLocalFlagSet() pflag.FlagSet {
 
 // invoked from the commandline.
 // Invokes Mother if !script.
-func run(cmd *cobra.Command, args []string) {
+func run(cmd *cobra.Command, args []string) error {
 	// fetch flags
 	flags := querysupport.TransmogrifyFlags(cmd.Flags())
 
 	// check arg count
 	if len(args) > 1 || (flags.NoInteractive && len(args) == 0) {
-		fmt.Fprint(cmd.ErrOrStderr(), errWrongArgCount(flags.NoInteractive)+"\n")
-		return
+		err := fmt.Errorf("%v", errWrongArgCount(flags.NoInteractive))
+		fmt.Fprint(cmd.ErrOrStderr(), err.Error()+"\n")
+		return err
 	}
 	// if a sid was given, attempt to fetch results
 	if len(args) == 1 {
@@ -105,26 +106,29 @@ func run(cmd *cobra.Command, args []string) {
 		s, err := connection.Client.AttachSearch(sid)
 		if err != nil {
 			if errors.Is(err, grav.ErrNotFound) {
-				fmt.Fprintln(cmd.ErrOrStderr(), querysupport.ErrUnknownSID(sid))
-				return
+				err = fmt.Errorf("%v", querysupport.ErrUnknownSID(sid))
+				fmt.Fprintln(cmd.ErrOrStderr(), err)
+				return err
 			}
 			clilog.Tee(clilog.ERROR, cmd.ErrOrStderr(), err.Error()+"\n")
-			return
+			return err
 		}
 
 		querysupport.HandleFGCobraSearch(&s, flags, cmd.OutOrStdout(), cmd.ErrOrStderr())
 
 		if err := s.Close(); err != nil {
 			clilog.Tee(clilog.ERROR, cmd.ErrOrStderr(), err.Error()+"\n")
-			return
+			return err
 		}
 
-		return
+		return nil
 	}
 
 	// sid was not given, launch Mother into bare `attach` call
 	if err := mother.Spawn(cmd.Root(), cmd, args); err != nil {
 		clilog.Tee(clilog.CRITICAL, cmd.ErrOrStderr(),
 			"failed to spawn a mother instance: "+err.Error()+"\n")
+		return err
 	}
+	return nil
 }

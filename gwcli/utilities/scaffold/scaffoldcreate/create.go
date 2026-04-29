@@ -134,27 +134,28 @@ func NewCreateAction(singular string, fields map[string]Field, createFunc Create
 		"create a "+singular,     // short
 		"create a new "+singular, // long
 		[]string{},               // aliases
-		func(c *cobra.Command, s []string) {
+		func(c *cobra.Command, s []string) error {
 			// check non-interactive
 			noInteractive, err := c.Flags().GetBool(ft.NoInteractive.Name())
 			if err != nil {
 				clilog.Tee(clilog.ERROR, c.ErrOrStderr(), err.Error()+"\n")
-				return
+				return err
 			}
 			// check and set flags; spool up mother to prompt for missing required flags if !non-interactive
 			if mr, err := setValuesFromFlags(c.Flags(), fields); err != nil {
 				clilog.Tee(clilog.ERROR, c.ErrOrStderr(), err.Error()+"\n")
-				return
+				return err
 			} else if mr != nil {
 				if !noInteractive {
 					if err := mother.Spawn(c.Root(), c, s); err != nil {
 						clilog.Writer.Critical(err.Error())
+						return err
 					}
-					return
-				} else {
-					fmt.Fprintf(c.OutOrStdout(), errMissingRequiredFlags+"\n", mr)
+					return nil
 				}
-				return
+				err := fmt.Errorf(errMissingRequiredFlags, mr)
+				fmt.Fprintln(c.OutOrStdout(), err)
+				return err
 			}
 
 			// if all files were valid and we aren't missing any requires, we can attempt to jump directly into creation.
@@ -163,13 +164,14 @@ func NewCreateAction(singular string, fields map[string]Field, createFunc Create
 			// attempt to create the new X
 			if id, inv, err := createFunc(fields, c.Flags()); err != nil {
 				clilog.Tee(clilog.ERROR, c.ErrOrStderr(), err.Error()+"\n")
-				return
+				return err
 			} else if inv != "" { // some of the flags were invalid
 				fmt.Fprintln(c.OutOrStdout(), inv)
-				return
+				return fmt.Errorf("%v", inv)
 			} else {
 				fmt.Fprintf(c.OutOrStdout(), createdSuccessfully, singular, id)
 			}
+			return nil
 		}, treeutils.GenerateActionOptions{Usage: strings.Join(requiredFlags, " ")})
 
 	opts.Apply(cmd)

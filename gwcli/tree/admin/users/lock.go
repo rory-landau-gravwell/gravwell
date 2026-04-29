@@ -27,7 +27,7 @@ func lockAction() action.Pair {
 		"Locks a user account.\n"+
 			"The user will be unable to log in until unlocked, and all existing sessions will be terminated.",
 		nil,
-		func(c *cobra.Command, args []string) {
+		func(c *cobra.Command, args []string) error {
 			if c.Flags().NArg() == 0 { // none specified; boot mother or fail out
 				ni, err := c.Flags().GetBool(ft.NoInteractive.Name())
 				if err != nil {
@@ -38,11 +38,13 @@ func lockAction() action.Pair {
 					if err := mother.Spawn(c.Root(), c, args); err != nil {
 						clilog.Tee(clilog.CRITICAL, c.ErrOrStderr(),
 							"failed to spawn a mother instance: "+err.Error()+"\n")
+						return err
 					}
-					return
+					return nil
 				}
-				fmt.Fprintln(c.ErrOrStderr(), phrases.AtLeast1ArgRequired("user IDs"))
-				return
+				err = fmt.Errorf("%v", phrases.AtLeast1ArgRequired("user IDs"))
+				fmt.Fprintln(c.ErrOrStderr(), err)
+				return err
 			}
 
 			self, err := c.Flags().GetBool("include-self")
@@ -55,8 +57,9 @@ func lockAction() action.Pair {
 			for i, s := range c.Flags().Args() {
 				uid, err := strconv.ParseInt(s, 10, 32)
 				if err != nil {
-					clilog.Tee(clilog.INFO, c.ErrOrStderr(), "\""+c.Flags().Arg(i)+"\" is not a valid integer; no accounts were locked")
-					return
+					err = fmt.Errorf("%q is not a valid integer; no accounts were locked", c.Flags().Arg(i))
+					clilog.Tee(clilog.INFO, c.ErrOrStderr(), err.Error())
+					return err
 				}
 				// if the user attempts to lock their own account and did not specify --include-self, skip
 				if !self && uid == int64(connection.CurrentUser().ID) {
@@ -68,11 +71,13 @@ func lockAction() action.Pair {
 			}
 			for _, uid := range uids {
 				if err := connection.Client.LockUserAccount(int32(uid)); err != nil {
-					clilog.Tee(clilog.INFO, c.ErrOrStderr(), fmt.Sprintf("failed to lock user account %d: %v", uid, err))
-					return
+					err = fmt.Errorf("failed to lock user account %d: %v", uid, err)
+					clilog.Tee(clilog.INFO, c.ErrOrStderr(), err.Error())
+					return err
 				}
 				fmt.Fprintf(c.OutOrStdout(), "User %v locked\n", uid)
 			}
+			return nil
 		}, treeutils.GenerateActionOptions{
 			Usage:   fmt.Sprintf("%s %s ...", ft.Mandatory("UID1"), ft.Optional("UID2")),
 			Example: "7",

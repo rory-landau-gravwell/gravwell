@@ -85,17 +85,17 @@ func initialLocalFlagSet() pflag.FlagSet {
 
 // driver subroutine invoked by Cobra when ingest is called from an external shell.
 // run boots Mother if !script && no files were specified; otherwise it attempts to autoingest the files.
-func run(c *cobra.Command, args []string) {
+func run(c *cobra.Command, args []string) error {
 	// fetch flags
 	flags, invalids, err := transmogrifyFlags(c.Flags())
 	if err != nil {
 		fmt.Fprintf(c.ErrOrStderr(), "%v", err)
-		return
+		return err
 	} else if len(invalids) > 0 { // spit out each invalid and die
 		for _, reason := range invalids {
 			fmt.Fprintln(c.ErrOrStderr(), reason)
 		}
-		return
+		return fmt.Errorf("%v", invalids[0])
 	}
 
 	// branch on --stdin
@@ -107,32 +107,34 @@ func run(c *cobra.Command, args []string) {
 		)
 		if err != nil {
 			clilog.Tee(clilog.WARN, c.ErrOrStderr(), "failed to ingest from stdin: "+err.Error())
-			return
+			return err
 		}
 		clilog.Tee(clilog.INFO, c.OutOrStdout(), phrases.SuccessfullyLoadedFile("from STDIN")+fmt.Sprintf(" (returned tags: %v)", resp.Tags))
-		return
+		return nil
 	}
 
 	// fetch pairs from bare arguments
 	pairs, err := parsePairs(c.Flags().Args())
 	if err != nil {
 		fmt.Fprintln(c.ErrOrStderr(), err)
-		return
+		return err
 	}
 	clilog.Writer.Debugf("ingest pairs: %v", pairs)
 
 	// if no files were given, launch mother or fail out
 	if len(pairs) == 0 {
 		if flags.noInteractive {
-			fmt.Fprintln(c.ErrOrStderr(), errNoFilesSpecified(true))
-			return
+			err := fmt.Errorf("%v", errNoFilesSpecified(true))
+			fmt.Fprintln(c.ErrOrStderr(), err)
+			return err
 		}
 
 		if err := mother.Spawn(c.Root(), c, args); err != nil {
 			clilog.Tee(clilog.CRITICAL, c.ErrOrStderr(),
 				"failed to spawn a mother instance: "+err.Error()+"\n")
+			return err
 		}
-		return
+		return nil
 	}
 
 	// attempt autoingestion
@@ -159,10 +161,14 @@ func run(c *cobra.Command, args []string) {
 		go func() { spinner.Run() }()
 	}
 	// print each result to stdout/stderr
+	var firstErr error
 	for range count {
 		res := <-resultCh
 		if res.error != nil {
 			clilog.Tee(clilog.WARN, c.ErrOrStderr(), fmt.Sprintf("failed to ingest file '%v': %v\n", res.string, res.error))
+			if firstErr == nil {
+				firstErr = res.error
+			}
 		} else {
 			fmt.Fprintf(c.OutOrStdout(), "successfully ingested file '%v'\n", res.string)
 		}
@@ -171,4 +177,5 @@ func run(c *cobra.Command, args []string) {
 	if spinner != nil {
 		spinner.Kill()
 	}
+	return firstErr
 }

@@ -26,7 +26,7 @@ func unlockAction() action.Pair {
 	cmd := treeutils.GenerateAction("unlock", "unlock a user account",
 		"Unlocks a locked user account.",
 		nil,
-		func(c *cobra.Command, args []string) {
+		func(c *cobra.Command, args []string) error {
 			if c.Flags().NArg() == 0 { // none specified; boot mother or fail out
 				ni, err := c.Flags().GetBool(ft.NoInteractive.Name())
 				if err != nil {
@@ -37,11 +37,13 @@ func unlockAction() action.Pair {
 					if err := mother.Spawn(c.Root(), c, args); err != nil {
 						clilog.Tee(clilog.CRITICAL, c.ErrOrStderr(),
 							"failed to spawn a mother instance: "+err.Error()+"\n")
+						return err
 					}
-					return
+					return nil
 				}
-				fmt.Fprintln(c.ErrOrStderr(), phrases.AtLeast1ArgRequired("user IDs"))
-				return
+				err = fmt.Errorf("%v", phrases.AtLeast1ArgRequired("user IDs"))
+				fmt.Fprintln(c.ErrOrStderr(), err)
+				return err
 			}
 
 			// at least one ID was specified, attempt to unlock each account
@@ -49,18 +51,21 @@ func unlockAction() action.Pair {
 			for i, s := range c.Flags().Args() {
 				uid, err := strconv.ParseInt(s, 10, 32)
 				if err != nil {
-					clilog.Tee(clilog.INFO, c.ErrOrStderr(), "\""+c.Flags().Arg(i)+"\" is not a valid integer; no accounts were unlocked")
-					return
+					err = fmt.Errorf("%q is not a valid integer; no accounts were unlocked", c.Flags().Arg(i))
+					clilog.Tee(clilog.INFO, c.ErrOrStderr(), err.Error())
+					return err
 				}
 				uids[i] = int32(uid)
 			}
 			for _, uid := range uids {
 				if err := connection.Client.UnlockUserAccount(int32(uid)); err != nil {
-					clilog.Tee(clilog.INFO, c.ErrOrStderr(), fmt.Sprintf("failed to unlock user account %d: %v", uid, err))
-					return
+					err = fmt.Errorf("failed to unlock user account %d: %v", uid, err)
+					clilog.Tee(clilog.INFO, c.ErrOrStderr(), err.Error())
+					return err
 				}
 				fmt.Fprintf(c.OutOrStdout(), "User %v unlocked\n", uid)
 			}
+			return nil
 		}, treeutils.GenerateActionOptions{
 			Usage:   fmt.Sprintf("%s %s ...", ft.Mandatory("UID1"), ft.Optional("UID2")),
 			Example: "7",

@@ -117,41 +117,44 @@ func NewDeleteAction[I scaffold.Id_t](
 		"delete a "+singular,
 		"delete a "+singular+" by id or selection",
 		[]string{},
-		func(c *cobra.Command, s []string) {
+		func(c *cobra.Command, s []string) error {
 			// fetch values from flags
 			id, dryrun, err := fetchFlagValues[I](c.Flags())
 			if err != nil {
 				clilog.Tee(clilog.ERROR, c.ErrOrStderr(), err.Error())
-				return
+				return err
 			}
 
 			var zero I
 			if id == zero {
 				if noInteractive, err := c.Flags().GetBool(ft.NoInteractive.Name()); err != nil {
 					clilog.Tee(clilog.ERROR, c.ErrOrStderr(), err.Error())
-					return
+					return err
 				} else if noInteractive {
-					fmt.Fprintln(c.ErrOrStderr(), "--id is required in no-interactive mode")
-					return
+					err := fmt.Errorf("--id is required in no-interactive mode")
+					fmt.Fprintln(c.ErrOrStderr(), err)
+					return err
 				}
 				// spin up mother
 				if err := mother.Spawn(c.Root(), c, s); err != nil {
 					clilog.Tee(clilog.CRITICAL, c.ErrOrStderr(),
 						"failed to spawn a mother instance: "+err.Error())
+					return err
 				}
-				return
+				return nil
 
 			}
 
 			if err := del(dryrun, id); err != nil {
 				clilog.Tee(clilog.ERROR, c.ErrOrStderr(), err.Error())
-				return
+				return err
 			} else if dryrun {
 				fmt.Fprintf(c.OutOrStdout(), dryrunSuccessText+"\n", singular, id)
 			} else {
 				fmt.Fprintf(c.OutOrStdout(), deleteSuccessText+"\n",
 					singular, id)
 			}
+			return nil
 		}, treeutils.GenerateActionOptions{Usage: "--id=" + ft.Mandatory(singular+" id")})
 	fs := flags()
 	cmd.Flags().AddFlagSet(&fs)

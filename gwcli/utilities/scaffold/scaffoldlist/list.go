@@ -234,26 +234,26 @@ func NewListAction[dataStruct_t any](short, long string,
 func generateRun[dataStruct_t any](
 	dataFn ListDataFunction[dataStruct_t],
 	options Options,
-	availDataStructColumns []string) func(c *cobra.Command, _ []string) {
-	return func(c *cobra.Command, _ []string) {
+	availDataStructColumns []string) func(c *cobra.Command, _ []string) error {
+	return func(c *cobra.Command, _ []string) error {
 		// run custom validation
 		if options.ValidateArgs != nil {
 			if invalid, err := options.ValidateArgs(c.Flags()); err != nil {
 				clilog.Tee(clilog.ERROR, c.ErrOrStderr(), err.Error())
-				return
+				return err
 			} else if invalid != "" {
 				fmt.Fprintln(c.OutOrStdout(), invalid)
-				return
+				return fmt.Errorf("%v", invalid)
 			}
 		}
 
 		// check for --show-columns
 		if sc, err := c.Flags().GetBool(ft.ShowColumns.Name()); err != nil {
 			fmt.Fprintln(c.ErrOrStderr(), uniques.ErrGetFlag("list", err))
-			return
+			return err
 		} else if sc {
 			fmt.Fprintln(c.OutOrStdout(), ShowColumns(availDataStructColumns, options.ColumnAliases))
-			return
+			return nil
 		}
 
 		var (
@@ -267,12 +267,12 @@ func generateRun[dataStruct_t any](
 			noInteractive, err = c.Flags().GetBool(ft.NoInteractive.Name())
 			if err != nil {
 				fmt.Fprintln(c.ErrOrStderr(), uniques.ErrGetFlag(c.Use, err))
-				return
+				return err
 			}
 			outFile, err = initOutFile(c.Flags())
 			if err != nil {
 				clilog.Tee(clilog.ERROR, c.ErrOrStderr(), err.Error())
-				return
+				return err
 			} else if outFile != nil {
 				defer outFile.Close()
 				// ensure color is disabled.
@@ -282,7 +282,7 @@ func generateRun[dataStruct_t any](
 			columns, err = getColumns(c.Flags(), options.DefaultColumns, availDataStructColumns)
 			if err != nil {
 				fmt.Fprintln(c.ErrOrStderr(), err)
-				return
+				return err
 			}
 			format = determineFormat(c.Flags(), options.Pretty != nil)
 		}
@@ -290,14 +290,14 @@ func generateRun[dataStruct_t any](
 		s, err := listOutput(c.Flags(), format, columns, dataFn, options.Pretty, options.ColumnAliases)
 		if err != nil {
 			clilog.Tee(clilog.ERROR, c.ErrOrStderr(), err.Error())
-			return
+			return err
 		}
 
 		if s == "" {
 			if outFile == nil && !noInteractive {
 				fmt.Fprintln(c.OutOrStdout(), "no data found")
 			}
-			return
+			return nil
 		}
 
 		if outFile != nil {
@@ -305,6 +305,7 @@ func generateRun[dataStruct_t any](
 		} else {
 			fmt.Fprintln(c.OutOrStdout(), s)
 		}
+		return nil
 	}
 }
 

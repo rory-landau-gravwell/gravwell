@@ -136,7 +136,7 @@ func initialLocalFlagSet() pflag.FlagSet {
 // Walks through the given flags and checks them in order: scheduled query, background query, normal query.
 // Invokes Mother iff query is called bare.
 // Invokes a Motherless datascope if a valid query is given and --script is not given.
-func run(cmd *cobra.Command, args []string) {
+func run(cmd *cobra.Command, args []string) error {
 	var err error
 
 	// fetch flags
@@ -156,7 +156,7 @@ func run(cmd *cobra.Command, args []string) {
 				errMsg = "query cannot be empty"
 			}
 			clilog.Tee(clilog.INFO, cmd.OutOrStdout(), "invalid query: "+errMsg+"\n")
-			return
+			return fmt.Errorf("invalid query: %v", errMsg)
 		}
 
 		// spawn mother on the query prompt
@@ -164,8 +164,9 @@ func run(cmd *cobra.Command, args []string) {
 		if err := mother.Spawn(cmd.Root(), cmd, args); err != nil {
 			clilog.Tee(clilog.CRITICAL, cmd.ErrOrStderr(),
 				"failed to spawn a mother instance: "+err.Error()+"\n")
+			return err
 		}
-		return
+		return nil
 	}
 
 	// check if this is a scheduled query
@@ -176,20 +177,21 @@ func run(cmd *cobra.Command, args []string) {
 		}
 		if invalid != "" {
 			clilog.Tee(clilog.ERROR, cmd.ErrOrStderr(), invalid+"\n")
+			return fmt.Errorf("%v", invalid)
 		} else if err != nil {
 			clilog.Tee(clilog.ERROR, cmd.ErrOrStderr(), err.Error()+"\n")
-		} else {
-			clilog.Tee(clilog.INFO, cmd.OutOrStdout(),
-				fmt.Sprintf("Successfully scheduled query '%v' (ID: %v)\n", flags.Schedule.Name, ssid))
+			return err
 		}
-		return
+		clilog.Tee(clilog.INFO, cmd.OutOrStdout(),
+			fmt.Sprintf("Successfully scheduled query '%v' (ID: %v)\n", flags.Schedule.Name, ssid))
+		return nil
 	}
 
 	// submit the query
 	var s grav.Search
 	if s, err = connection.StartQuery(qry, -flags.Duration, flags.Background); err != nil {
 		clilog.Tee(clilog.ERROR, cmd.ErrOrStderr(), err.Error()+"\n")
-		return
+		return err
 	}
 
 	clilog.Tee(clilog.INFO, cmd.OutOrStdout(),
@@ -208,14 +210,15 @@ func run(cmd *cobra.Command, args []string) {
 		// close our handle to the search
 		// it will survive, as it is backgrounded
 		s.Close()
-		return
+		return nil
 	}
 
 	querysupport.HandleFGCobraSearch(&s, flags, cmd.OutOrStdout(), cmd.ErrOrStderr())
 	if err := s.Close(); err != nil {
 		clilog.Tee(clilog.ERROR, cmd.ErrOrStderr(), err.Error()+"\n")
-		return
+		return err
 	}
+	return nil
 }
 
 //#endregion
