@@ -10,6 +10,7 @@
 package alertscreate
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gravwell/gravwell/v4/client/types"
@@ -36,17 +37,17 @@ func Action() action.Pair {
 				return err
 			} else if inv != "" {
 				fmt.Fprintln(c.OutOrStdout(), inv)
-				return fmt.Errorf("%v", inv)
+				return errors.New(inv)
 			}
 			flagVals, inv := readFlags(c.Flags())
 			if inv != "" {
 				fmt.Fprintln(c.OutOrStdout(), inv)
-				return fmt.Errorf("%v", inv)
+				return errors.New(inv)
 			}
 			inv, ad := validateFlagValues(availConsumers, availDispatchers, flagVals)
 			if inv != "" {
 				fmt.Fprintln(c.ErrOrStderr(), inv)
-				return fmt.Errorf("%v", inv)
+				return errors.New(inv)
 			}
 
 			res, err := connection.Client.CreateAlert(ad)

@@ -1,6 +1,7 @@
 package admin_users
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -42,7 +43,7 @@ func lockAction() action.Pair {
 					}
 					return nil
 				}
-				err = fmt.Errorf("%v", phrases.AtLeast1ArgRequired("user IDs"))
+				err = errors.New(phrases.AtLeast1ArgRequired("user IDs"))
 				fmt.Fprintln(c.ErrOrStderr(), err)
 				return err
 			}

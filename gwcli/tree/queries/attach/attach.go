@@ -106,7 +106,7 @@ func run(cmd *cobra.Command, args []string) error {
 		s, err := connection.Client.AttachSearch(sid)
 		if err != nil {
 			if errors.Is(err, grav.ErrNotFound) {
-				err = fmt.Errorf("%v", querysupport.ErrUnknownSID(sid))
+				err = querysupport.ErrUnknownSID(sid)
 				fmt.Fprintln(cmd.ErrOrStderr(), err)
 				return err
 			}

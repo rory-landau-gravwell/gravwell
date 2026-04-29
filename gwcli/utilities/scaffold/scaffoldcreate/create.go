@@ -60,6 +60,7 @@ Example implementation:
 package scaffoldcreate
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -167,7 +168,7 @@ func NewCreateAction(singular string, fields map[string]Field, createFunc Create
 				return err
 			} else if inv != "" { // some of the flags were invalid
 				fmt.Fprintln(c.OutOrStdout(), inv)
-				return fmt.Errorf("%v", inv)
+				return errors.New(inv)
 			} else {
 				fmt.Fprintf(c.OutOrStdout(), createdSuccessfully, singular, id)
 			}

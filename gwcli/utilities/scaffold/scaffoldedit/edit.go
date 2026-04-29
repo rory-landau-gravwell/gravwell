@@ -207,7 +207,7 @@ func runNonInteractive[I scaffold.Id_t, S any](cmd *cobra.Command, cfg Config, f
 				return err
 			} else if inv != "" {
 				fmt.Fprintln(cmd.OutOrStdout(), inv)
-				return fmt.Errorf("%v", inv)
+				return errors.New(inv)
 			}
 		}
 	}

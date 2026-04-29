@@ -47,6 +47,7 @@ Implementations will probably look a lot like:
 package scaffoldlist
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -243,7 +244,7 @@ func generateRun[dataStruct_t any](
 				return err
 			} else if invalid != "" {
 				fmt.Fprintln(c.OutOrStdout(), invalid)
-				return fmt.Errorf("%v", invalid)
+				return errors.New(invalid)
 			}
 		}
 

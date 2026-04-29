@@ -11,6 +11,7 @@
 package ingest
 
 import (
+	"errors"
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -95,7 +96,7 @@ func run(c *cobra.Command, args []string) error {
 		for _, reason := range invalids {
 			fmt.Fprintln(c.ErrOrStderr(), reason)
 		}
-		return fmt.Errorf("%v", invalids[0])
+		return errors.New(invalids[0])
 	}
 
 	// branch on --stdin

@@ -48,6 +48,7 @@ package query
  */
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -177,7 +178,7 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 		if invalid != "" {
 			clilog.Tee(clilog.ERROR, cmd.ErrOrStderr(), invalid+"\n")
-			return fmt.Errorf("%v", invalid)
+			return errors.New(invalid)
 		} else if err != nil {
 			clilog.Tee(clilog.ERROR, cmd.ErrOrStderr(), err.Error()+"\n")
 			return err

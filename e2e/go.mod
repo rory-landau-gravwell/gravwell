@@ -25,7 +25,7 @@ require (
 	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/cpuguy83/dockercfg v0.3.2 // indirect
 	github.com/crewjam/rfc5424 v0.1.0 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
@@ -35,14 +35,15 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/gofrs/flock v0.8.0 // indirect
+	github.com/gofrs/flock v0.12.1 // indirect
 	github.com/google/renameio v1.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/gravwell/gcfg v1.2.10-0.20251024173739-a5ba5db9985f // indirect
-	github.com/gravwell/jsonparser v0.0.0-20240802164212-e3c50dc78005 // indirect
-	github.com/klauspost/compress v1.18.4 // indirect
+	github.com/gravwell/gravwell/v3 v3.8.73 // indirect
+	github.com/gravwell/jsonparser v0.0.0-20241122184510-d9e3b05f5d3b // indirect
+	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/magiconair/properties v1.8.10 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
@@ -56,7 +57,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/shirou/gopsutil v2.20.9+incompatible // indirect
 	github.com/shirou/gopsutil/v4 v4.26.2 // indirect
