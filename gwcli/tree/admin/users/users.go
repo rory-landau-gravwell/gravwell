@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
@@ -46,6 +47,8 @@ func NewNav() *cobra.Command {
 			lockAction(),
 			unlockAction(),
 			sessionsAction(),
+			changePassword(),
+			toggleAdmin(),
 		})
 }
 
@@ -370,3 +373,101 @@ func sessionsAction() action.Pair {
 }
 
 //#endregion sessions
+
+func changePassword() action.Pair {
+	return scaffold.NewBasicAction("change-password", "change a user's password", "Change a user's password. Requires admin privileges.",
+		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			uid, err := fs.GetInt32("uid")
+			if err != nil {
+				clilog.LogFlagFailedGet("uid", err)
+				return "failed to get uid flag", nil
+			}
+			password, err := fs.GetString("password")
+			if err != nil {
+				clilog.LogFlagFailedGet("password", err)
+				return "failed to get password flag", nil
+			}
+			if err := connection.Client.AdminChangePass(uid, password); err != nil {
+				return err.Error(), nil
+			}
+			return fmt.Sprintf("successfully changed password for user %d", uid), nil
+		},
+		scaffold.BasicOptions{
+			CommonOptions: scaffold.CommonOptions{
+				AddtlFlags: func() *pflag.FlagSet {
+					fs := &pflag.FlagSet{}
+					fs.Int32("uid", 0, "ID of the user")
+					fs.String("password", "", "new password")
+					return fs
+				},
+			},
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+				uid, err := fs.GetInt32("uid")
+				if err != nil {
+					clilog.LogFlagFailedGet("uid", err)
+				}
+				if uid == 0 {
+					return "--uid must be set and nonzero", nil
+				}
+				password, err := fs.GetString("password")
+				if err != nil {
+					clilog.LogFlagFailedGet("password", err)
+				}
+				if password == "" {
+					return "--password must be non-empty", nil
+				}
+				return "", nil
+			},
+		})
+}
+
+func toggleAdmin() action.Pair {
+	return scaffold.NewBasicAction("toggle-admin", "toggle a user's admin status",
+		"Toggle admin status for a user. Optionally use --grant or --revoke to set explicitly.",
+		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			uid, err := strconv.ParseInt(fs.Arg(0), 10, 32)
+			if err != nil {
+				return fs.Arg(0) + " is not a valid user ID", nil
+			}
+			uwcbac, err := connection.Client.GetUser(int32(uid))
+			if err != nil {
+				return err.Error(), nil
+			}
+			user := uwcbac.User
+			user.Admin = !user.Admin
+
+			if grant, err := fs.GetBool("grant"); err != nil {
+				clilog.LogFlagFailedGet("grant", err)
+			} else if grant {
+				user.Admin = true
+			}
+			if revoke, err := fs.GetBool("revoke"); err != nil {
+				clilog.LogFlagFailedGet("revoke", err)
+			} else if revoke {
+				user.Admin = false
+			}
+			if err := connection.Client.UpdateUser(user); err != nil {
+				return err.Error(), nil
+			}
+			return fmt.Sprintf("user '%s' admin status set to %v", user.Username, user.Admin), nil
+		},
+		scaffold.BasicOptions{
+			CommonOptions: scaffold.CommonOptions{
+				AddtlFlags: func() *pflag.FlagSet {
+					fs := &pflag.FlagSet{}
+					fs.Bool("grant", false, "explicitly grant admin status")
+					fs.Bool("revoke", false, "explicitly revoke admin status")
+					return fs
+				},
+			},
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+				if fs.NArg() != 1 {
+					return phrases.Exactly1ArgRequired("user ID"), nil
+				}
+				if fs.Changed("grant") && fs.Changed("revoke") {
+					return "--grant and --revoke are mutually exclusive", nil
+				}
+				return "", nil
+			},
+		})
+}

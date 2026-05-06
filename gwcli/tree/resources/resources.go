@@ -228,7 +228,15 @@ func delete() action.Pair {
 			return connection.Client.DeleteResource(id)
 		},
 		func() ([]scaffolddelete.Item[string], error) {
-			resources, err := connection.Client.ListResources(nil)
+			var (
+				resources types.ResourceListResponse
+				err       error
+			)
+			if connection.Client.AdminMode() {
+				resources, err = connection.Client.ListAllResources(nil)
+			} else {
+				resources, err = connection.Client.ListResources(nil)
+			}
 			if err != nil {
 				return nil, err
 			}

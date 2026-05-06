@@ -12,15 +12,19 @@ Package templates defines the templates nav, which holds data related to... er, 
 package templates
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
+	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldedit"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
@@ -42,8 +46,9 @@ For instance, templates which expect an IP address as their variable can be used
 			list(),
 			//create(),
 			delete(),
+			edit(),
+			show(),
 			//download(),
-			//edit(),
 		})
 }
 
@@ -181,5 +186,83 @@ func delete() action.Pair {
 				items[i] = scaffolddelete.NewItem(r.Name, r.Description, r.ID)
 			}
 			return items, nil
+		})
+}
+
+func edit() action.Pair {
+	cfg := scaffoldedit.Config{
+		"name":        scaffoldedit.FieldName("template"),
+		"description": scaffoldedit.FieldDescription("template"),
+		"query": &scaffoldedit.Field{
+			Required: true,
+			Title:    "Query",
+			Usage:    "the query string for this template",
+			FlagName: "query",
+			Order:    60,
+		},
+	}
+	funcs := scaffoldedit.SubroutineSet[string, types.Template]{
+		SelectSub: func(id string) (types.Template, error) {
+			return connection.Client.GetTemplate(id)
+		},
+		FetchSub: func() ([]types.Template, error) {
+			resp, err := connection.Client.ListTemplates(nil)
+			return resp.Results, err
+		},
+		GetFieldSub: func(item types.Template, fieldKey string) (string, error) {
+			switch fieldKey {
+			case "name":
+				return item.Name, nil
+			case "description":
+				return item.Description, nil
+			case "query":
+				return item.Query, nil
+			}
+			return "", fmt.Errorf("unknown field key: %v", fieldKey)
+		},
+		SetFieldSub: func(item *types.Template, fieldKey, val string) (string, error) {
+			switch fieldKey {
+			case "name":
+				item.Name = val
+			case "description":
+				item.Description = val
+			case "query":
+				item.Query = val
+			default:
+				return "", fmt.Errorf("unknown field key: %v", fieldKey)
+			}
+			return "", nil
+		},
+		GetTitleSub:       func(item types.Template) string { return item.Name },
+		GetDescriptionSub: func(item types.Template) string { return item.Description },
+		UpdateSub: func(data *types.Template) (string, error) {
+			_, err := connection.Client.UpdateTemplate(*data)
+			return data.Name, err
+		},
+	}
+	return scaffoldedit.NewEditAction("template", "templates", cfg, funcs)
+}
+
+func show() action.Pair {
+	return scaffold.NewBasicAction("show", "display a template", "Display the details of a template by its ID.",
+		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			id := fs.Arg(0)
+			t, err := connection.Client.GetTemplate(id)
+			if err != nil {
+				return err.Error(), nil
+			}
+			return fmt.Sprintf("Name: %s\nDescription: %s\nQuery: %s\nVariables: %v",
+				t.Name, t.Description, t.Query, t.Variables), nil
+		},
+		scaffold.BasicOptions{
+			CommonOptions: scaffold.CommonOptions{
+				Aliases: []string{"print", "get"},
+			},
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+				if fs.NArg() != 1 {
+					return phrases.Exactly1ArgRequired("template ID"), nil
+				}
+				return "", nil
+			},
 		})
 }

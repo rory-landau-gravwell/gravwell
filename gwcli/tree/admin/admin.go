@@ -5,17 +5,23 @@ package admin
 import (
 	"fmt"
 	"maps"
+	"os"
 	"slices"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
+	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
+	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
+	"github.com/gravwell/gravwell/v4/gwcli/tree/admin/email"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/admin/groups"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/admin/license"
 	admin_users "github.com/gravwell/gravwell/v4/gwcli/tree/admin/users"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -33,9 +39,16 @@ func NewNav() *cobra.Command {
 			groups.NewNav(),
 			admin_users.NewNav(),
 			license.NewNav(),
+			email.NewNav(),
 		},
 		[]action.Pair{
 			cleanup(),
+			logLevel(),
+			addIndexer(),
+			backup(),
+			restore(),
+			listQueries(),
+			deleteQuery(),
 		},
 	)
 }
@@ -156,4 +169,179 @@ func runCleanup(targetsToRun []string) (msgs []string) {
 		msgs = append(msgs, "successfully purged "+target)
 	}
 	return
+}
+
+func logLevel() action.Pair {
+	return scaffold.NewBasicAction("log-level", "get or set the server log level",
+		"Display the current server log level. Use --set to change it.\nValid levels are typically: OFF, ERROR, WARN, INFO, DEBUG",
+		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			if fs.Changed("set") {
+				level, err := fs.GetString("set")
+				if err != nil {
+					clilog.LogFlagFailedGet("set", err)
+					return "failed to get set flag", nil
+				}
+				if err := connection.Client.SetLogLevel(level); err != nil {
+					return err.Error(), nil
+				}
+				return "log level set to " + level, nil
+			}
+			level, err := connection.Client.GetLogLevel()
+			if err != nil {
+				return err.Error(), nil
+			}
+			return "current log level: " + level, nil
+		},
+		scaffold.BasicOptions{
+			CommonOptions: scaffold.CommonOptions{
+				AddtlFlags: func() *pflag.FlagSet {
+					fs := &pflag.FlagSet{}
+					fs.String("set", "", "log level to set (empty = display current)")
+					return fs
+				},
+			},
+		})
+}
+
+func addIndexer() action.Pair {
+	return scaffold.NewBasicAction("add-indexer", "add an indexer to the system",
+		"Add a remote indexer using its dial string (e.g. host:port).",
+		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			dialstring := fs.Arg(0)
+			result, err := connection.Client.AddIndexer(dialstring)
+			if err != nil {
+				return err.Error(), nil
+			}
+			var sb strings.Builder
+			for k, v := range result {
+				sb.WriteString(k + ": " + v + "\n")
+			}
+			out := strings.TrimRight(sb.String(), "\n")
+			if out == "" {
+				return "indexer added successfully", nil
+			}
+			return out, nil
+		},
+		scaffold.BasicOptions{
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+				if fs.NArg() != 1 {
+					return phrases.Exactly1ArgRequired("dial string"), nil
+				}
+				return "", nil
+			},
+		})
+}
+
+func backup() action.Pair {
+	return scaffold.NewBasicAction("backup", "backup the system",
+		"Download a backup of the Gravwell system to a file.",
+		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			output, err := fs.GetString("output")
+			if err != nil {
+				clilog.LogFlagFailedGet("output", err)
+				return "failed to get output flag", nil
+			}
+			f, err := os.Create(output)
+			if err != nil {
+				return err.Error(), nil
+			}
+			defer f.Close()
+			cfg := types.BackupConfig{}
+			if noHistory, err := fs.GetBool("no-search-history"); err != nil {
+				clilog.LogFlagFailedGet("no-search-history", err)
+			} else if noHistory {
+				cfg.OmitSensitive = true
+			}
+			if err := connection.Client.BackupWithConfig(f, cfg); err != nil {
+				return err.Error(), nil
+			}
+			return fmt.Sprintf("backup written to %s", output), nil
+		},
+		scaffold.BasicOptions{
+			CommonOptions: scaffold.CommonOptions{
+				AddtlFlags: func() *pflag.FlagSet {
+					fs := &pflag.FlagSet{}
+					fs.String("output", "", "path to write backup to")
+					fs.Bool("no-search-history", false, "exclude search history from backup")
+					return fs
+				},
+			},
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+				output, err := fs.GetString("output")
+				if err != nil {
+					clilog.LogFlagFailedGet("output", err)
+				}
+				if output == "" {
+					return "--output must be non-empty", nil
+				}
+				return "", nil
+			},
+		})
+}
+
+func restore() action.Pair {
+	return scaffold.NewBasicAction("restore", "restore the system from a backup",
+		"Restore the Gravwell system from a backup file.",
+		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			path := fs.Arg(0)
+			f, err := os.Open(path)
+			if err != nil {
+				return err.Error(), nil
+			}
+			defer f.Close()
+			if err := connection.Client.Restore(f); err != nil {
+				return err.Error(), nil
+			}
+			return fmt.Sprintf("successfully restored from %s", path), nil
+		},
+		scaffold.BasicOptions{
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+				if fs.NArg() != 1 {
+					return phrases.Exactly1ArgRequired("backup file path"), nil
+				}
+				if _, err := os.Stat(fs.Arg(0)); err != nil {
+					return "file " + fs.Arg(0) + " does not exist or is not accessible", nil
+				}
+				return "", nil
+			},
+		})
+}
+
+func listQueries() action.Pair {
+	return scaffoldlist.NewListAction("list active searches", "List currently active/recent searches on the system.",
+		types.SearchCtrlStatus{},
+		func(fs *pflag.FlagSet) ([]types.SearchCtrlStatus, error) {
+			if connection.Client.AdminMode() {
+				return connection.Client.ListAllSearchStatuses()
+			}
+			return connection.Client.ListSearchStatuses()
+		},
+		nil,
+		scaffoldlist.Options{
+			CommonOptions: scaffold.CommonOptions{
+				Use:     "list-queries",
+				Aliases: []string{"list-searches"},
+			},
+			DefaultColumns: []string{"ID", "UserQuery", "State"},
+		})
+}
+
+func deleteQuery() action.Pair {
+	return scaffold.NewBasicAction("delete-query", "delete an active search",
+		"Delete an active search by its ID.",
+		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			sid := fs.Arg(0)
+			if err := connection.Client.DeleteSearch(sid); err != nil {
+				return err.Error(), nil
+			}
+			return fmt.Sprintf("successfully deleted search %s", sid), nil
+		},
+		scaffold.BasicOptions{
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+				if fs.NArg() != 1 {
+					return phrases.Exactly1ArgRequired("search ID"), nil
+				}
+				return "", nil
+			},
+		})
 }

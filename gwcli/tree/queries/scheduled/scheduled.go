@@ -13,15 +13,19 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
+	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
+	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldcreate"
@@ -43,6 +47,10 @@ func NewScheduledNav() *cobra.Command {
 			list(),
 			delete(),
 			edit(),
+			cancelAction(),
+			backfillToggle(),
+			setOffset(),
+			clearResults(),
 		})
 }
 
@@ -175,7 +183,15 @@ func createFunc(cfg map[string]scaffoldcreate.Field, _ *pflag.FlagSet) (any, str
 func delete() action.Pair {
 	return scaffolddelete.NewDeleteAction(
 		"query", "queries", del, func() ([]scaffolddelete.Item[string], error) {
-			ss, err := connection.Client.ListScheduledSearches(nil)
+			var (
+				ss  types.ScheduledSearchListResponse
+				err error
+			)
+			if connection.Client.AdminMode() {
+				ss, err = connection.Client.ListAllScheduledSearches(nil)
+			} else {
+				ss, err = connection.Client.ListScheduledSearches(nil)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -311,3 +327,135 @@ func edit() action.Pair {
 }
 
 //#endregion edit
+
+func cancelAction() action.Pair {
+	return scaffold.NewBasicAction("cancel", "cancel a running scheduled search",
+		"Cancel a currently-executing scheduled search by its ID.",
+		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			id := fs.Arg(0)
+			if err := connection.Client.CancelScheduledSearch(id); err != nil {
+				return err.Error(), nil
+			}
+			return fmt.Sprintf("successfully cancelled scheduled search %s", id), nil
+		},
+		scaffold.BasicOptions{
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+				if fs.NArg() != 1 {
+					return phrases.Exactly1ArgRequired("scheduled search ID"), nil
+				}
+				return "", nil
+			},
+		})
+}
+
+func backfillToggle() action.Pair {
+	return scaffold.NewBasicAction("toggle-backfill", "toggle scheduled search backfill",
+		"Toggle backfill for a scheduled search. Use --enable or --disable to set explicitly.",
+		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			id := fs.Arg(0)
+			ss, err := connection.Client.GetScheduledSearch(id)
+			if err != nil {
+				return err.Error(), nil
+			}
+			ss.BackfillEnabled = !ss.BackfillEnabled
+
+			if enable, err := fs.GetBool("enable"); err != nil {
+				clilog.LogFlagFailedGet("enable", err)
+			} else if enable {
+				ss.BackfillEnabled = true
+			}
+			if disable, err := fs.GetBool("disable"); err != nil {
+				clilog.LogFlagFailedGet("disable", err)
+			} else if disable {
+				ss.BackfillEnabled = false
+			}
+
+			if err := connection.Client.UpdateScheduledSearch(ss); err != nil {
+				return err.Error(), nil
+			}
+			state := "enabled"
+			if !ss.BackfillEnabled {
+				state = "disabled"
+			}
+			return fmt.Sprintf("scheduled search '%s' backfill %s", id, state), nil
+		},
+		scaffold.BasicOptions{
+			CommonOptions: scaffold.CommonOptions{
+				AddtlFlags: func() *pflag.FlagSet {
+					fs := &pflag.FlagSet{}
+					fs.Bool("enable", false, "enable backfill")
+					fs.Bool("disable", false, "disable backfill")
+					return fs
+				},
+			},
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+				if fs.NArg() != 1 {
+					return phrases.Exactly1ArgRequired("scheduled search ID"), nil
+				}
+				if fs.Changed("enable") && fs.Changed("disable") {
+					return "--enable and --disable are mutually exclusive", nil
+				}
+				return "", nil
+			},
+		})
+}
+
+func setOffset() action.Pair {
+	return scaffold.NewBasicAction("set-offset", "set the time offset for a scheduled search",
+		"Set the time offset (in seconds, must be <= 0) for a scheduled search.\nNegative values represent seconds in the past from the scheduled execution time, controlling how far back the search's time window starts.",
+		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			id := fs.Arg(0)
+			offsetStr := fs.Arg(1)
+			offset, err := strconv.ParseInt(offsetStr, 10, 64)
+			if err != nil {
+				return offsetStr + " is not a valid integer", nil
+			}
+			ss, err := connection.Client.GetScheduledSearch(id)
+			if err != nil {
+				return err.Error(), nil
+			}
+			ss.TimeframeOffset = offset
+			if err := connection.Client.UpdateScheduledSearch(ss); err != nil {
+				return err.Error(), nil
+			}
+			return fmt.Sprintf("successfully set offset for scheduled search %s to %d", id, offset), nil
+		},
+		scaffold.BasicOptions{
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+				if fs.NArg() != 2 {
+					return "exactly 2 arguments required: scheduled search ID and offset seconds", nil
+				}
+				offset, err := strconv.ParseInt(fs.Arg(1), 10, 64)
+				if err != nil {
+					return fs.Arg(1) + " is not a valid integer", nil
+				}
+				if offset > 0 {
+					return "offset must be <= 0", nil
+				}
+				return "", nil
+			},
+		})
+}
+
+func clearResults() action.Pair {
+	return scaffold.NewBasicAction("clear-results", "clear results for a scheduled search",
+		"Clear the execution results (including errors and state) for a scheduled search.",
+		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			id := fs.Arg(0)
+			if err := connection.Client.ClearScheduledSearchResults(id); err != nil {
+				return err.Error(), nil
+			}
+			return fmt.Sprintf("successfully cleared results for scheduled search %s", id), nil
+		},
+		scaffold.BasicOptions{
+			CommonOptions: scaffold.CommonOptions{
+				Aliases: []string{"clear-error", "clear-state"},
+			},
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+				if fs.NArg() != 1 {
+					return phrases.Exactly1ArgRequired("scheduled search ID"), nil
+				}
+				return "", nil
+			},
+		})
+}

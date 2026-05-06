@@ -19,10 +19,12 @@ import (
 	"slices"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
+	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldcreate"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
@@ -50,6 +52,7 @@ func NewNav() *cobra.Command {
 			create(),
 			delete(),
 			edit(),
+			updateValue(),
 		})
 }
 
@@ -224,4 +227,40 @@ func edit() action.Pair {
 			return s.Name, err
 		},
 	})
+}
+
+func updateValue() action.Pair {
+	return scaffold.NewBasicAction("update", "update a secret's value",
+		"Update the value stored in a secret. The secret is identified by its ID.\n"+
+			"Use --value to provide the new value.",
+		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			id := fs.Arg(0)
+			value, err := fs.GetString("value")
+			if err != nil {
+				return err.Error(), nil
+			}
+			s, err := connection.Client.UpdateSecretValue(id, value)
+			if err != nil {
+				return err.Error(), nil
+			}
+			return fmt.Sprintf("successfully updated value for secret '%s'", s.Name), nil
+		},
+		scaffold.BasicOptions{
+			CommonOptions: scaffold.CommonOptions{
+				AddtlFlags: func() *pflag.FlagSet {
+					fs := &pflag.FlagSet{}
+					fs.String("value", "", "new value for the secret")
+					return fs
+				},
+			},
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+				if fs.NArg() != 1 {
+					return phrases.Exactly1ArgRequired("secret ID"), nil
+				}
+				if !fs.Changed("value") {
+					return "--value is required", nil
+				}
+				return "", nil
+			},
+		})
 }

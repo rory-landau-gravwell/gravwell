@@ -21,6 +21,7 @@ import (
 	"runtime/pprof"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/crewjam/rfc5424"
 	"github.com/gravwell/gravwell/v4/client"
@@ -40,6 +41,8 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/tree/kits"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/logout"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/macros"
+	"github.com/gravwell/gravwell/v4/gwcli/tree/pivots"
+	"github.com/gravwell/gravwell/v4/gwcli/tree/playbooks"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/queries"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/query"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/resources"
@@ -49,6 +52,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/tree/templates"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/tokens"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/cfgdir"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
 
@@ -294,6 +298,7 @@ func Execute(args []string) int {
 			query.NewQueryAction(),
 			showTags(),
 			notifications(),
+			logoutAll(),
 		})
 	rootCmd.SilenceUsage = true
 	rootCmd.PersistentPreRunE = ppre
@@ -351,6 +356,8 @@ func Execute(args []string) int {
 		systemshealth.NewSystemsNav,
 		templates.NewNav,
 		tokens.NewNav,
+		pivots.NewNav,
+		playbooks.NewNav,
 	}
 
 	var (
@@ -380,4 +387,15 @@ func Execute(args []string) int {
 	}
 
 	return 0
+}
+
+func logoutAll() action.Pair {
+	return scaffold.NewBasicAction("logout-all", "logout all sessions", "Terminate all active sessions for your user.",
+		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			if err := connection.Client.LogoutAll(); err != nil {
+				return err.Error(), nil
+			}
+			connection.End()
+			return "Successfully logged out all sessions", tea.Quit
+		}, scaffold.BasicOptions{})
 }

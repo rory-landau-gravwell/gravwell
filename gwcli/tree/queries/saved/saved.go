@@ -14,11 +14,13 @@ import (
 	"slices"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
+	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldcreate"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
@@ -40,6 +42,7 @@ func NewSavedNav() *cobra.Command {
 			create(),
 			delete(),
 			edit(),
+			show(),
 		})
 }
 
@@ -210,3 +213,32 @@ func delete() action.Pair {
 }
 
 //#endregion delete
+
+//#region show
+
+func show() action.Pair {
+	return scaffold.NewBasicAction("show", "display a saved query",
+		"Display the full details of a saved query by its ID.",
+		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			id := fs.Arg(0)
+			sq, err := connection.Client.GetSavedQuery(id)
+			if err != nil {
+				return err.Error(), nil
+			}
+			return fmt.Sprintf("Name:        %s\nDescription: %s\nQuery:       %s",
+				sq.Name, sq.Description, sq.Query), nil
+		},
+		scaffold.BasicOptions{
+			CommonOptions: scaffold.CommonOptions{
+				Aliases: []string{"print", "get"},
+			},
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+				if fs.NArg() != 1 {
+					return phrases.Exactly1ArgRequired("saved query ID"), nil
+				}
+				return "", nil
+			},
+		})
+}
+
+//#endregion show

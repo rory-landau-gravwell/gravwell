@@ -17,6 +17,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldcreate"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldedit"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
@@ -37,6 +38,7 @@ func NewNav() *cobra.Command {
 			download(),
 			create(),
 			edit(),
+			deleteAction(),
 		})
 }
 
@@ -243,4 +245,26 @@ func edit() action.Pair {
 			},
 		},
 	)
+}
+
+func deleteAction() action.Pair {
+	return scaffolddelete.NewDeleteAction("file", "files",
+		func(dryrun bool, id string) error {
+			if dryrun {
+				_, err := connection.Client.GetFileMetadata(id)
+				return err
+			}
+			return connection.Client.DeleteFile(id)
+		},
+		func() ([]scaffolddelete.Item[string], error) {
+			flr, err := connection.Client.ListFiles(nil)
+			if err != nil {
+				return nil, err
+			}
+			var items = make([]scaffolddelete.Item[string], len(flr.Results))
+			for i, f := range flr.Results {
+				items[i] = scaffolddelete.NewItem(f.Name, f.Description, f.ID)
+			}
+			return items, nil
+		})
 }
