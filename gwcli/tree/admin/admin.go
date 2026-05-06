@@ -23,6 +23,8 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
+	"github.com/gravwell/gravwell/v4/ingest/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -171,21 +173,22 @@ func runCleanup(targetsToRun []string) (msgs []string) {
 	return
 }
 
+// get/set log level
 func logLevel() action.Pair {
 	return scaffold.NewBasicAction("log-level", "get or set the server log level",
-		"Display the current server log level. Use --set to change it.\nValid levels are typically: OFF, ERROR, WARN, INFO, DEBUG",
+		"Display the current server log level."+
+			"Use --set to change it.\n"+
+			"Valid levels are typically: OFF, ERROR, WARN, INFO, WEB ACCESS",
 		func(fs *pflag.FlagSet) (string, tea.Cmd) {
-			if fs.Changed("set") {
-				level, err := fs.GetString("set")
-				if err != nil {
-					clilog.LogFlagFailedGet("set", err)
-					return "failed to get set flag", nil
-				}
+			if level, err := fs.GetString("set"); err != nil {
+				clilog.LogFlagFailedGet("set", err)
+			} else if level != "" { // set
 				if err := connection.Client.SetLogLevel(level); err != nil {
 					return err.Error(), nil
 				}
 				return "log level set to " + level, nil
 			}
+			// get
 			level, err := connection.Client.GetLogLevel()
 			if err != nil {
 				return err.Error(), nil
@@ -196,7 +199,7 @@ func logLevel() action.Pair {
 			CommonOptions: scaffold.CommonOptions{
 				AddtlFlags: func() *pflag.FlagSet {
 					fs := &pflag.FlagSet{}
-					fs.String("set", "", "log level to set (empty = display current)")
+					fs.String("set", "", "log level to set")
 					return fs
 				},
 			},
@@ -205,15 +208,16 @@ func logLevel() action.Pair {
 
 func addIndexer() action.Pair {
 	return scaffold.NewBasicAction("add-indexer", "add an indexer to the system",
-		"Add a remote indexer using its dial string (e.g. host:port).",
+		"Tells the webserver to connect to a new indexer. "+
+			"The indexer will be added to the list of indexers in the webserver's config file and persist in the future.",
 		func(fs *pflag.FlagSet) (string, tea.Cmd) {
 			dialstring := fs.Arg(0)
-			result, err := connection.Client.AddIndexer(dialstring)
+			errors, err := connection.Client.AddIndexer(dialstring)
 			if err != nil {
 				return err.Error(), nil
 			}
 			var sb strings.Builder
-			for k, v := range result {
+			for k, v := range errors {
 				sb.WriteString(k + ": " + v + "\n")
 			}
 			out := strings.TrimRight(sb.String(), "\n")
@@ -223,6 +227,9 @@ func addIndexer() action.Pair {
 			return out, nil
 		},
 		scaffold.BasicOptions{
+			CommonOptions: scaffold.CommonOptions{
+				Usage: fmt.Sprintf("add-indexer %s %s ", ft.Optional("Flags"), ft.Mandatory("host:port")),
+			},
 			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
 				if fs.NArg() != 1 {
 					return phrases.Exactly1ArgRequired("dial string"), nil
@@ -236,22 +243,45 @@ func backup() action.Pair {
 	return scaffold.NewBasicAction("backup", "backup the system",
 		"Download a backup of the Gravwell system to a file.",
 		func(fs *pflag.FlagSet) (string, tea.Cmd) {
+			// ! failing to get ANY flag is fatal for this error; we don't want to screw up a user's backup.
+
 			output, err := fs.GetString("output")
 			if err != nil {
-				clilog.LogFlagFailedGet("output", err)
-				return "failed to get output flag", nil
+				return uniques.ErrGetFlag("backup", err).Error(), nil
 			}
 			f, err := os.Create(output)
 			if err != nil {
 				return err.Error(), nil
 			}
 			defer f.Close()
-			cfg := types.BackupConfig{}
-			if noHistory, err := fs.GetBool("no-search-history"); err != nil {
-				clilog.LogFlagFailedGet("no-search-history", err)
-			} else if noHistory {
-				cfg.OmitSensitive = true
+
+			ss, err := fs.GetBool("include-scheduled-searches")
+			if err != nil {
+				return uniques.ErrGetFlag("backup", err).Error(), nil
 			}
+			omitSensitive, err := fs.GetBool("omit-sensitive")
+			if err != nil {
+				return uniques.ErrGetFlag("backup", err).Error(), nil
+			}
+			pass, err := fs.GetString("encrypt")
+			if err != nil {
+				return uniques.ErrGeneric.Error(), nil
+			}
+
+			cfg := types.BackupConfig{
+				IncludeSS:     ss,
+				OmitSensitive: omitSensitive,
+				Password:      pass,
+			}
+			var logPass string // "password" to log
+			if pass != "" {
+				logPass = "*****"
+			}
+			clilog.Writer.Info("issuing backup command",
+				log.KV("IncludeSS", ss),
+				log.KV("OmitSensitive", omitSensitive),
+				log.KV("encryption", logPass))
+
 			if err := connection.Client.BackupWithConfig(f, cfg); err != nil {
 				return err.Error(), nil
 			}
@@ -261,18 +291,21 @@ func backup() action.Pair {
 			CommonOptions: scaffold.CommonOptions{
 				AddtlFlags: func() *pflag.FlagSet {
 					fs := &pflag.FlagSet{}
-					fs.String("output", "", "path to write backup to")
-					fs.Bool("no-search-history", false, "exclude search history from backup")
+					fs.StringP(ft.Output.Name(), ft.Output.Shorthand(), "", "path to write backup to")
+					fs.Bool("include-scheduled-searches", false, "include scheduled searches in the backup")
+					fs.Bool("omit-sensitive", false, "include scheduled searches in the backup")
+					fs.String("encrypt", "", "encrypt the backup with the given password. No encryption will be applied if unset.")
 					return fs
 				},
 			},
 			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
-				output, err := fs.GetString("output")
+				output, err := fs.GetString(ft.Output.Name())
 				if err != nil {
-					clilog.LogFlagFailedGet("output", err)
+					return "", uniques.ErrGetFlag("backup", err)
 				}
+				output = strings.TrimSpace(output)
 				if output == "" {
-					return "--output must be non-empty", nil
+					return "--" + ft.Output.Name() + " must be non-empty", nil
 				}
 				return "", nil
 			},
