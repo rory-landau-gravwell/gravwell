@@ -1,3 +1,11 @@
+/*************************************************************************
+ * Copyright 2026 Gravwell, Inc. All rights reserved.
+ * Contact: <legal@gravwell.io>
+ *
+ * This software may be modified and distributed under the terms of the
+ * BSD 2-clause license. See the LICENSE file for details.
+ **************************************************************************/
+
 // Package admin provides actions reserved for admins.
 // It should be hidden to non-admin users.
 package admin
@@ -21,7 +29,6 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/tree/admin/license"
 	admin_users "github.com/gravwell/gravwell/v4/gwcli/tree/admin/users"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
-	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
 	"github.com/gravwell/gravwell/v4/ingest/log"
@@ -49,14 +56,12 @@ func NewNav() *cobra.Command {
 			addIndexer(),
 			backup(),
 			restore(),
-			listQueries(),
-			deleteQuery(),
 		},
 	)
 }
 
 // does not include "all"
-var targets = []string{
+var cleanupTargets = []string{
 	"macros",
 	"resources",
 	"search_history",
@@ -94,14 +99,14 @@ func getTarget(target string) func() error {
 
 // clean up is responsible for calling all specified cleanup functions, thus purging the respective type/resource/asset/entity
 func cleanup() action.Pair {
-	slices.Sort(targets)
+	slices.Sort(cleanupTargets)
 	return scaffold.NewBasicAction(
 		"cleanup",
 		"purges deleted items from the system",
 		"Purges deleted items of the given type, rendered them unable to be restored.\n"+
 			"Available targets:\n"+
 			"- all\n- "+
-			strings.Join(targets, "\n- "),
+			strings.Join(cleanupTargets, "\n- "),
 		func(fs *pflag.FlagSet) (string, tea.Cmd) {
 			// compact the list of items to clean so we don't make duplicate m
 			var (
@@ -122,7 +127,7 @@ func cleanup() action.Pair {
 					out = "\"all\" specified; other targets are redundant\n"
 				}
 
-				return out + strings.Join(runCleanup(targets), "\n"), nil
+				return out + strings.Join(runCleanup(cleanupTargets), "\n"), nil
 			}
 
 			// validate all cleanups before calling *any*
@@ -245,11 +250,8 @@ func backup() action.Pair {
 		func(fs *pflag.FlagSet) (string, tea.Cmd) {
 			// ! failing to get ANY flag is fatal for this error; we don't want to screw up a user's backup.
 
-			output, err := fs.GetString("output")
-			if err != nil {
-				return uniques.ErrGetFlag("backup", err).Error(), nil
-			}
-			f, err := os.Create(output)
+			out := fs.Arg(0)
+			f, err := os.Create(out)
 			if err != nil {
 				return err.Error(), nil
 			}
@@ -285,13 +287,13 @@ func backup() action.Pair {
 			if err := connection.Client.BackupWithConfig(f, cfg); err != nil {
 				return err.Error(), nil
 			}
-			return fmt.Sprintf("backup written to %s", output), nil
+			f.Sync()
+			return fmt.Sprintf("backup written to %s", out), nil
 		},
 		scaffold.BasicOptions{
 			CommonOptions: scaffold.CommonOptions{
 				AddtlFlags: func() *pflag.FlagSet {
 					fs := &pflag.FlagSet{}
-					fs.StringP(ft.Output.Name(), ft.Output.Shorthand(), "", "path to write backup to")
 					fs.Bool("include-scheduled-searches", false, "include scheduled searches in the backup")
 					fs.Bool("omit-sensitive", false, "include scheduled searches in the backup")
 					fs.String("encrypt", "", "encrypt the backup with the given password. No encryption will be applied if unset.")
@@ -299,13 +301,8 @@ func backup() action.Pair {
 				},
 			},
 			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
-				output, err := fs.GetString(ft.Output.Name())
-				if err != nil {
-					return "", uniques.ErrGetFlag("backup", err)
-				}
-				output = strings.TrimSpace(output)
-				if output == "" {
-					return "--" + ft.Output.Name() + " must be non-empty", nil
+				if fs.NArg() != 1 {
+					return phrases.Exactly1ArgRequired("output path"), nil
 				}
 				return "", nil
 			},
@@ -333,46 +330,7 @@ func restore() action.Pair {
 					return phrases.Exactly1ArgRequired("backup file path"), nil
 				}
 				if _, err := os.Stat(fs.Arg(0)); err != nil {
-					return "file " + fs.Arg(0) + " does not exist or is not accessible", nil
-				}
-				return "", nil
-			},
-		})
-}
-
-func listQueries() action.Pair {
-	return scaffoldlist.NewListAction("list active searches", "List currently active/recent searches on the system.",
-		types.SearchCtrlStatus{},
-		func(fs *pflag.FlagSet) ([]types.SearchCtrlStatus, error) {
-			if connection.Client.AdminMode() {
-				return connection.Client.ListAllSearchStatuses()
-			}
-			return connection.Client.ListSearchStatuses()
-		},
-		nil,
-		scaffoldlist.Options{
-			CommonOptions: scaffold.CommonOptions{
-				Use:     "list-queries",
-				Aliases: []string{"list-searches"},
-			},
-			DefaultColumns: []string{"ID", "UserQuery", "State"},
-		})
-}
-
-func deleteQuery() action.Pair {
-	return scaffold.NewBasicAction("delete-query", "delete an active search",
-		"Delete an active search by its ID.",
-		func(fs *pflag.FlagSet) (string, tea.Cmd) {
-			sid := fs.Arg(0)
-			if err := connection.Client.DeleteSearch(sid); err != nil {
-				return err.Error(), nil
-			}
-			return fmt.Sprintf("successfully deleted search %s", sid), nil
-		},
-		scaffold.BasicOptions{
-			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
-				if fs.NArg() != 1 {
-					return phrases.Exactly1ArgRequired("search ID"), nil
+					return err.Error(), nil
 				}
 				return "", nil
 			},
