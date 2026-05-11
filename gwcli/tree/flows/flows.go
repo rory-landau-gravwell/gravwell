@@ -176,7 +176,7 @@ func download() action.Pair {
 			}
 			// check for output
 			if outPath, err := fs.GetString(ft.Output.Name()); err != nil {
-				clilog.LogFlagFailedGet(ft.Output.Name(), err)
+				clilog.GetFlag(err)
 			} else if outPath != "" {
 				out, err := os.Create(outPath)
 				if err != nil {
@@ -263,12 +263,12 @@ func backfillToggle() action.Pair {
 			flow.BackfillEnabled = !flow.BackfillEnabled
 
 			if enable, err := fs.GetBool("enable"); err != nil {
-				clilog.LogFlagFailedGet("enable", err)
+				clilog.GetFlag(err)
 			} else if enable {
 				flow.BackfillEnabled = true
 			}
 			if disable, err := fs.GetBool("disable"); err != nil {
-				clilog.LogFlagFailedGet("disable", err)
+				clilog.GetFlag(err)
 			} else if disable {
 				flow.BackfillEnabled = false
 			}

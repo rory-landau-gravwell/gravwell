@@ -17,7 +17,6 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
-	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -63,8 +62,7 @@ func admin() action.Pair {
 
 			// branch on toggle flag
 			if t, err := fs.GetBool("toggle"); err != nil {
-				clilog.LogFlagFailedGet("toggle", err)
-				return uniques.ErrGeneric.Error(), nil
+				clilog.GetFlag(err)
 			} else if t {
 				return toggle(isAdministrator)
 			}
@@ -184,7 +182,7 @@ func sessions() action.Pair {
 				since = time.Time{} // ensure it is reset
 				snc, err := fs.GetString("since")
 				if err != nil {
-					clilog.LogFlagFailedGet("since", err)
+					clilog.GetFlag(err)
 				}
 				if snc != "" {
 					// try to parse in our supported formats, breaking on the first one
@@ -235,12 +233,12 @@ func changePassword() action.Pair {
 		func(fs *pflag.FlagSet) (string, tea.Cmd) {
 			currentPass, err := fs.GetString("current-password")
 			if err != nil {
-				clilog.LogFlagFailedGet("current-password", err)
+				clilog.GetFlag(err)
 				return "failed to get current-password flag", nil
 			}
 			newPass, err := fs.GetString("new-password")
 			if err != nil {
-				clilog.LogFlagFailedGet("new-password", err)
+				clilog.GetFlag(err)
 				return "failed to get new-password flag", nil
 			}
 			uid := connection.CurrentUser().ID
@@ -260,12 +258,12 @@ func changePassword() action.Pair {
 			},
 			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
 				if currentPass, err := fs.GetString("current-password"); err != nil {
-					clilog.LogFlagFailedGet("current-password", err)
+					clilog.GetFlag(err)
 				} else if currentPass == "" {
 					return "--current-password must be non-empty", nil
 				}
 				if newPass, err := fs.GetString("new-password"); err != nil {
-					clilog.LogFlagFailedGet("new-password", err)
+					clilog.GetFlag(err)
 				} else if newPass == "" {
 					return "--new-password must be non-empty", nil
 				}
@@ -282,7 +280,7 @@ func searchGroup() action.Pair {
 			if fs.Changed("set") {
 				setVal, err := fs.GetString("set")
 				if err != nil {
-					clilog.LogFlagFailedGet("set", err)
+					clilog.GetFlag(err)
 					return "failed to get set flag", nil
 				}
 				setVal = strings.TrimSpace(setVal)

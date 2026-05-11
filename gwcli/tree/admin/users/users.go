@@ -25,7 +25,6 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldedit"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
-	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
 	"github.com/gravwell/gravwell/v4/ingest/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -108,7 +107,7 @@ func create() action.Pair {
 			admin, err := strconv.ParseBool(fields["admin"].Provider.Get())
 			if err != nil {
 				clilog.Writer.Error("failed to parse bool provider", log.KVErr(err))
-				return 0, "", uniques.ErrGeneric
+				return 0, "", clilog.ErrInternal{}
 			}
 			if _, err := connection.Client.CreateUser(
 				types.AddUser{Username: fields["username"].Provider.Get(), Password: fields["password"].Provider.Get(),
@@ -322,7 +321,7 @@ func sessionsAction() action.Pair {
 				since = time.Time{} // ensure it is reset
 				snc, err := fs.GetString("since")
 				if err != nil {
-					clilog.LogFlagFailedGet("since", err)
+					clilog.GetFlag(err)
 				}
 				if snc != "" {
 					// try to parse in our supported formats, breaking on the first one
@@ -379,13 +378,11 @@ func changePassword() action.Pair {
 		func(fs *pflag.FlagSet) (string, tea.Cmd) {
 			uid, err := fs.GetInt32("uid")
 			if err != nil {
-				clilog.LogFlagFailedGet("uid", err)
-				return "failed to get uid flag", nil
+				return clilog.GetFlag(err).Error(), nil
 			}
 			password, err := fs.GetString("password")
 			if err != nil {
-				clilog.LogFlagFailedGet("password", err)
-				return "failed to get password flag", nil
+				return clilog.GetFlag(err).Error(), nil
 			}
 			if err := connection.Client.AdminChangePass(uid, password); err != nil {
 				return err.Error(), nil
@@ -404,14 +401,14 @@ func changePassword() action.Pair {
 			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
 				uid, err := fs.GetInt32("uid")
 				if err != nil {
-					clilog.LogFlagFailedGet("uid", err)
+					clilog.GetFlag(err)
 				}
 				if uid == 0 {
 					return "--uid must be set and nonzero", nil
 				}
 				password, err := fs.GetString("password")
 				if err != nil {
-					clilog.LogFlagFailedGet("password", err)
+					clilog.GetFlag(err)
 				}
 				if password == "" {
 					return "--password must be non-empty", nil
@@ -437,12 +434,12 @@ func toggleAdmin() action.Pair {
 			user.Admin = !user.Admin
 
 			if grant, err := fs.GetBool("grant"); err != nil {
-				clilog.LogFlagFailedGet("grant", err)
+				clilog.GetFlag(err)
 			} else if grant {
 				user.Admin = true
 			}
 			if revoke, err := fs.GetBool("revoke"); err != nil {
-				clilog.LogFlagFailedGet("revoke", err)
+				clilog.GetFlag(err)
 			} else if revoke {
 				user.Admin = false
 			}

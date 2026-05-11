@@ -89,13 +89,13 @@ func flags() *pflag.FlagSet {
 
 func listScheduledSearch(fs *pflag.FlagSet) ([]types.ScheduledSearch, error) {
 	if all, err := fs.GetBool("all"); err != nil {
-		uniques.ErrGetFlag("scheduled list", err)
+		clilog.GetFlag(err)
 	} else if all {
 		list, err := connection.Client.ListAllScheduledSearches(nil)
 		return list.Results, err
 	}
 	if id, err := fs.GetString("id"); err != nil {
-		uniques.ErrGetFlag("scheduled list", err)
+		clilog.GetFlag(err)
 	} else if id != "" {
 		ss, err := connection.Client.GetScheduledSearch(id)
 		return []types.ScheduledSearch{ss}, err
@@ -360,12 +360,12 @@ func backfillToggle() action.Pair {
 			ss.BackfillEnabled = !ss.BackfillEnabled
 
 			if enable, err := fs.GetBool("enable"); err != nil {
-				clilog.LogFlagFailedGet("enable", err)
+				clilog.GetFlag(err)
 			} else if enable {
 				ss.BackfillEnabled = true
 			}
 			if disable, err := fs.GetBool("disable"); err != nil {
-				clilog.LogFlagFailedGet("disable", err)
+				clilog.GetFlag(err)
 			} else if disable {
 				ss.BackfillEnabled = false
 			}
