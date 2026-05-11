@@ -1,17 +1,35 @@
+/*************************************************************************
+ * Copyright 2026 Gravwell, Inc. All rights reserved.
+ * Contact: <legal@gravwell.io>
+ *
+ * This software may be modified and distributed under the terms of the
+ * BSD 2-clause license. See the LICENSE file for details.
+ **************************************************************************/
+
 // Package groups introduces actions to managing groups.
 //
 // Only available to admins.
 package groups
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"strconv"
 
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
+	"github.com/gravwell/gravwell/v4/gwcli/mother"
+
+	"github.com/charmbracelet/bubbles/list"
+
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
+	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
+	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldcreate"
@@ -19,6 +37,9 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldedit"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/validate"
+	"github.com/gravwell/gravwell/v4/ingest/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -33,18 +54,18 @@ func NewNav() *cobra.Command {
 	return treeutils.GenerateNav(use, short, long, []string{"group"},
 		nil,
 		[]action.Pair{
-			list(),
+			listGroups(),
 			create(),
 			delete(),
 			edit(),
 			listUsers(),
-			addUser(),
-			removeUser(),
+			addUserToGroup(),
+			removeUserFromGroup(),
 		})
 }
 
 // lists all groups the current user is able to see
-func list() action.Pair {
+func listGroups() action.Pair {
 	return scaffoldlist.NewListAction("list groups", "Retrieves a list of groups available on the system",
 		types.Group{},
 		func(fs *pflag.FlagSet) ([]types.Group, error) {
@@ -97,18 +118,36 @@ func edit() action.Pair {
 	cfg := scaffoldedit.Config{
 		"name":        scaffoldedit.FieldName("group"),
 		"description": scaffoldedit.FieldDescription("group"),
+		"search priority": &scaffoldedit.Field{
+			Title: "Search Priority",
+			Usage: "Set the search priority of the group",
+			Order: 80,
+			CustomTIFuncInit: func() textinput.Model {
+				ti := stylesheet.NewTI("0", true)
+				ti.Validate = func(s string) error {
+					if err := validate.Numeric(s); err != nil {
+						return fmt.Errorf("Search Priority: %w", err)
+					}
+					return nil
+				}
+				return ti
+			},
+		},
 	}
 	funcs := scaffoldedit.SubroutineSet[int32, types.Group]{
 		SelectSub: func(id int32) (types.Group, error) {
-			gwcbac, err := connection.Client.GetGroup(id)
+			gcbac, err := connection.Client.GetGroup(id)
 			if err != nil {
 				return types.Group{}, err
 			}
-			return gwcbac.Group, nil
+			return gcbac.Group, nil
 		},
 		FetchSub: func() ([]types.Group, error) {
 			resp, err := connection.Client.ListGroups(nil)
-			return resp.Results, err
+			if err != nil {
+				return nil, err
+			}
+			return resp.Results, nil
 		},
 		GetFieldSub: func(item types.Group, fieldKey string) (string, error) {
 			switch fieldKey {
@@ -116,6 +155,8 @@ func edit() action.Pair {
 				return item.Name, nil
 			case "description":
 				return item.Description, nil
+			case "search priority":
+				return strconv.FormatInt(int64(item.SearchPriority), 10), nil
 			}
 			return "", fmt.Errorf("unknown field key: %v", fieldKey)
 		},
@@ -125,6 +166,16 @@ func edit() action.Pair {
 				item.Name = val
 			case "description":
 				item.Description = val
+			case "search priority":
+				if err := validate.Numeric(val); err != nil {
+					return "", err
+				}
+				sp, err := strconv.ParseInt(val, 10, 32)
+				if err != nil {
+					return "", err
+				}
+
+				item.SearchPriority = int(sp)
 			default:
 				return "", fmt.Errorf("unknown field key: %v", fieldKey)
 			}
@@ -141,6 +192,7 @@ func edit() action.Pair {
 
 var listUsersGID int32
 
+// list the users in a group
 func listUsers() action.Pair {
 	return scaffoldlist.NewListAction("list users in a group", "Display the users that are members of a given group.",
 		types.User{},
@@ -149,9 +201,10 @@ func listUsers() action.Pair {
 		},
 		nil,
 		scaffoldlist.Options{
-			CommonOptions:  scaffold.CommonOptions{Use: "list-users"},
+			CommonOptions:  scaffold.CommonOptions{Use: "users"},
 			DefaultColumns: []string{"ID", "Username", "Name", "Email", "Admin"},
 			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+				listUsersGID = 0 // ensure it is wiped
 				if fs.NArg() != 1 {
 					return phrases.Exactly1ArgRequired("group ID"), nil
 				}
@@ -165,139 +218,159 @@ func listUsers() action.Pair {
 		})
 }
 
-func addUser() action.Pair {
-	return scaffold.NewBasicAction("add-user", "add a user to a group", "Add a user to a group by providing the user ID and group ID.",
+var addGIDs, addUIDs []uint
+
+// add users to groups
+func addUserToGroup() action.Pair {
+	return scaffold.NewBasicAction("associate", "add users to groups", "Add one or many users to one or many groups."+
+		"Attempts to insert each user ID into each group, ignoring duplicate inserts."+
+		"Prints what changes were actually effectual.",
 		func(fs *pflag.FlagSet) (string, tea.Cmd) {
-			uid, err := fs.GetInt32("uid")
-			if err != nil {
-				clilog.LogFlagFailedGet("uid", err)
-				return "failed to get uid flag", nil
+			clilog.Writer.Debug("Adding users to groups", log.KV("UIDs", addUIDs), log.KV("GIDs", addGIDs))
+
+			var cmds []tea.Cmd
+			var successes uint
+			for _, gid := range addGIDs {
+				if gid > math.MaxInt32 {
+					return "Group IDs must satisfy 0 < gid <=" + strconv.FormatInt(math.MaxInt32, 10), nil
+				}
+				for _, uid := range addUIDs {
+					if uid > math.MaxInt32 {
+						return "User IDs must satisfy 0 < uid <=" + strconv.FormatInt(math.MaxInt32, 10), nil
+					}
+					if err := connection.Client.AddUserToGroup(int32(uid), int32(gid)); err != nil {
+						cmds = append(cmds, tea.Printf("Failed to add user ID %d to group %d: %v", err))
+					} else {
+						// the user may have already been a part of this group, but we can't tell so.... Job's done.
+						cmds = append(cmds, tea.Printf("Added user ID %d to group %d", uid, gid))
+						successes += 0
+					}
+				}
 			}
-			gid, err := fs.GetInt32("gid")
-			if err != nil {
-				clilog.LogFlagFailedGet("gid", err)
-				return "failed to get gid flag", nil
+
+			// add the final print to the cmds so it is printed afterwards
+			if successes == 0 {
+				cmds = append(cmds, tea.Println("All requested changes failed"))
 			}
-			if err := connection.Client.AddUserToGroup(uid, gid); err != nil {
-				return err.Error(), nil
-			}
-			return fmt.Sprintf("successfully added user %d to group %d", uid, gid), nil
+			return "", tea.Sequence(cmds...)
 		},
 		scaffold.BasicOptions{
 			CommonOptions: scaffold.CommonOptions{
+				Aliases: []string{"add-user", "add-users"},
 				AddtlFlags: func() *pflag.FlagSet {
 					fs := &pflag.FlagSet{}
-					fs.Int32("uid", 0, "user ID")
-					fs.Int32("gid", 0, "group ID")
+					fs.UintSliceVar(&addUIDs, "uid", nil, "ID of users to insert into each group")
+					fs.UintSliceVar(&addGIDs, "gid", nil, "ID of groups into which to each user should be inserted")
 					return fs
 				},
 			},
 			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
-				uid, err := fs.GetInt32("uid")
-				if err != nil {
-					clilog.LogFlagFailedGet("uid", err)
-				}
-				gid, err := fs.GetInt32("gid")
-				if err != nil {
-					clilog.LogFlagFailedGet("gid", err)
-				}
-				if uid == 0 || gid == 0 {
-					return "both --uid and --gid must be set and nonzero", nil
+				if len(addUIDs) < 1 || len(addGIDs) < 1 {
+					return "You must specify at least one group (--gid) and at least one user (--uid)", nil
 				}
 				return "", nil
 			},
 		})
 }
 
-func removeUser() action.Pair {
-	return scaffold.NewBasicAction("remove-user", "remove a user from a group", "Remove a user from a group by providing the user ID and group ID.",
+//#region add users to groups
+
+func AddUsersToGroups() action.Pair {
+	return action.NewPair(treeutils.GenerateAction("associate", "add users to groups",
+		"Associate any number of user to all specified groups. Users already in the given group will be ignored.",
+		[]string{"add-users", "add-user"}, func(c *cobra.Command, args []string) error {
+			x, err := c.Flags().GetBool(ft.NoInteractive.Name())
+			if err != nil {
+				uniques.ErrGetFlag("associate", err)
+			}
+			// TODO migrate uniques.ErrGetFlag into clilog package and throw away the current LogFlagFailedGet
+
+			uids, err := c.Flags().GetUintSlice("uid")
+			if err != nil {
+				uniques.ErrGetFlag("associate", err)
+			}
+			gids, err := c.Flags().GetUintSlice("gid")
+			if err != nil {
+				uniques.ErrGetFlag("associate", err)
+			}
+			if len(uids) < 1 || len(gids) < 1 {
+				if x { // if we are in no-interactive, this is fatal
+					return errors.New("You must specify at least one group (--gid) and at least one user (--uid)")
+				}
+				return mother.Spawn(c.Root(), c, args)
+			}
+		}), newAUtG())
+}
+
+// addUsersToGroup enables a user to insert any number of users into a given group.
+// In script mode, any number of users may be inserted into any number of groups.
+type addUsersToGroup struct {
+	users  multiselectlist.Model[int32]
+	groups list.Model
+
+	fs *pflag.FlagSet
+}
+
+func newAUtG() *addUsersToGroup {
+	m := &addUsersToGroup{}
+	m.Reset()
+	m.fs = autgFlagset()
+	return m
+}
+
+func autgFlagset() *pflag.FlagSet {
+	fs := &pflag.FlagSet{}
+	fs.UintSlice("uid", nil, "ID of users to insert into each group")
+	fs.UintSlice("gid", nil, "ID of groups into which to each user should be inserted.")
+	return fs
+}
+
+func (m *addUsersToGroup) SetArgs(parentFS *pflag.FlagSet, tokens []string, width, height int) (
+	invalid string, onStart tea.Cmd, err error) {
+	// SetArgs is only called w/o -x, so we can immediately reject a call that provides multiple.
+
+}
+
+func (m *addUsersToGroup) Reset() error {
+	m.users = multiselectlist.Model[int32]{}
+	m.groups = list.Model{}
+
+	return nil
+}
+
+type Model interface {
+	Update(msg tea.Msg) tea.Cmd // action processing
+	View() string               // action displaying
+	Done() bool                 // should Mother reassert control?
+	Reset() error               // clean up action post-run
+}
+
+var rmGID, rmUID *uint32
+
+// remove a user from a group
+func removeUserFromGroup() action.Pair {
+	return scaffold.NewBasicAction("disassociate", "remove a user from a group", "Remove a user from a group by providing the user ID and group ID.",
 		func(fs *pflag.FlagSet) (string, tea.Cmd) {
-			uid, err := fs.GetInt32("uid")
-			if err != nil {
-				clilog.LogFlagFailedGet("uid", err)
-				return "failed to get uid flag", nil
-			}
-			gid, err := fs.GetInt32("gid")
-			if err != nil {
-				clilog.LogFlagFailedGet("gid", err)
-				return "failed to get gid flag", nil
-			}
-			if err := connection.Client.DeleteUserFromGroup(uid, gid); err != nil {
+			if err := connection.Client.DeleteUserFromGroup(int32(*rmUID), int32(*rmGID)); err != nil {
 				return err.Error(), nil
 			}
-			return fmt.Sprintf("successfully removed user %d from group %d", uid, gid), nil
+			return fmt.Sprintf("successfully removed user %d from group %d", *rmUID, *rmGID), nil
 		},
 		scaffold.BasicOptions{
 			CommonOptions: scaffold.CommonOptions{
+				Aliases: []string{"rm-user", "remove-user", "rm-users", "remove-users"},
 				AddtlFlags: func() *pflag.FlagSet {
 					fs := &pflag.FlagSet{}
-					fs.Int32("uid", 0, "user ID")
-					fs.Int32("gid", 0, "group ID")
+					rmUID = fs.Uint32("uid", 0, "user ID")
+					rmGID = fs.Uint32("gid", 0, "group ID")
 					return fs
 				},
 			},
 			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
-				uid, err := fs.GetInt32("uid")
-				if err != nil {
-					clilog.LogFlagFailedGet("uid", err)
-				}
-				gid, err := fs.GetInt32("gid")
-				if err != nil {
-					clilog.LogFlagFailedGet("gid", err)
-				}
-				if uid == 0 || gid == 0 {
-					return "both --uid and --gid must be set and nonzero", nil
+				if rmUID == nil || *rmUID == 0 || rmGID == nil || *rmGID == 0 {
+					return "both --uid and --gid must be set and non-zero", nil
 				}
 				return "", nil
 			},
 		})
 }
-
-// TODO this probably requires a custom action to ensure it is as usable as possible
-/*func addUser_old() action.Pair {
-	return scaffold.NewBasicAction("adduser", "add a user to a group", "Add a user to a group",
-		func(cmd *cobra.Command, fs *pflag.FlagSet) (string, tea.Cmd) {
-			var (
-				uid, gid int32
-				err      error
-			)
-
-			uid, err = fs.GetInt32("uid")
-			if err != nil {
-				clilog.LogFlagFailedGet("uid", err)
-			}
-			gid, err = fs.GetInt32("gid")
-			if err != nil {
-				clilog.LogFlagFailedGet("gid", err)
-			}
-			if err := connection.Client.AddUserToGroup(uid, gid); err != nil {
-				return err.Error(), nil
-			}
-			return fmt.Sprintf("Successfully added user %d to group %d", uid, gid), nil
-		},
-		scaffold.BasicOptions{
-			AddtlFlagFunc: func() pflag.FlagSet {
-				fs := pflag.FlagSet{}
-				fs.Int32("uid", 0, "id of the user to add")
-				fs.Int32("gid", 0, "id of the group to add the user to")
-				return fs
-			},
-			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
-				if !connection.CurrentUser().Admin {
-					return "you must be an admin to use this function", nil
-				}
-				uid, err := fs.GetInt32("uid")
-				if err != nil {
-					clilog.LogFlagFailedGet("uid", err)
-				}
-				gid, err := fs.GetInt32("gid")
-				if err != nil {
-					clilog.LogFlagFailedGet("gid", err)
-				}
-				if gid == 0 || uid == 0 {
-					return "you must specify both --uid and --gid", nil
-				}
-				return "", nil
-			},
-		})
-}*/
