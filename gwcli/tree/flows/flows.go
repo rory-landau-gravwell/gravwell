@@ -38,6 +38,10 @@ func NewNav() *cobra.Command {
 			list(),
 			importCreate(),
 			download(),
+			deleteAction(),
+			cancel(),
+			backfillToggle(),
+			clearResults(),
 		},
 	)
 }
@@ -228,96 +232,4 @@ func deleteAction() action.Pair {
 		})
 }
 
-func cancel() action.Pair {
-	return scaffold.NewBasicAction("cancel", "cancel a running flow", "Cancel a currently-executing flow by its ID or GUID.",
-		func(fs *pflag.FlagSet) (string, tea.Cmd) {
-			id := fs.Arg(0)
-			if err := connection.Client.CancelFlow(id); err != nil {
-				return err.Error(), nil
-			}
-			return fmt.Sprintf("successfully cancelled flow %s", id), nil
-		},
-		scaffold.BasicOptions{
-			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
-				if fs.NArg() != 1 {
-					return phrases.Exactly1ArgRequired("flow ID"), nil
-				}
-				return "", nil
-			},
-		})
-}
-
-func backfillToggle() action.Pair {
-	return scaffold.NewBasicAction("toggle-backfill", "toggle flow backfill",
-		"Toggle backfill for a flow. Use --enable or --disable to set explicitly.\nBackfill causes the automation to run for missed time periods.",
-		func(fs *pflag.FlagSet) (string, tea.Cmd) {
-			id := fs.Arg(0)
-			flow, err := connection.Client.GetFlow(id)
-			if err != nil {
-				return err.Error(), nil
-			}
-			flow.BackfillEnabled = !flow.BackfillEnabled
-
-			if enable, err := fs.GetBool("enable"); err != nil {
-				clilog.GetFlag(err)
-			} else if enable {
-				flow.BackfillEnabled = true
-			}
-			if disable, err := fs.GetBool("disable"); err != nil {
-				clilog.GetFlag(err)
-			} else if disable {
-				flow.BackfillEnabled = false
-			}
-
-			if err := connection.Client.UpdateFlow(flow); err != nil {
-				return err.Error(), nil
-			}
-			state := "enabled"
-			if !flow.BackfillEnabled {
-				state = "disabled"
-			}
-			return fmt.Sprintf("flow '%s' backfill %s", id, state), nil
-		},
-		scaffold.BasicOptions{
-			CommonOptions: scaffold.CommonOptions{
-				AddtlFlags: func() *pflag.FlagSet {
-					fs := &pflag.FlagSet{}
-					fs.Bool("enable", false, "enable backfill")
-					fs.Bool("disable", false, "disable backfill")
-					return fs
-				},
-			},
-			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
-				if fs.NArg() != 1 {
-					return phrases.Exactly1ArgRequired("flow ID"), nil
-				}
-				if fs.Changed("enable") && fs.Changed("disable") {
-					return "--enable and --disable are mutually exclusive", nil
-				}
-				return "", nil
-			},
-		})
-}
-
-func clearResults() action.Pair {
-	return scaffold.NewBasicAction("clear-results", "clear results for a flow",
-		"Clear the execution results (including errors and state) for a flow.",
-		func(fs *pflag.FlagSet) (string, tea.Cmd) {
-			id := fs.Arg(0)
-			if err := connection.Client.ClearFlowResults(id); err != nil {
-				return err.Error(), nil
-			}
-			return fmt.Sprintf("successfully cleared results for flow %s", id), nil
-		},
-		scaffold.BasicOptions{
-			CommonOptions: scaffold.CommonOptions{
-				Aliases: []string{"clear-error", "clear-state"},
-			},
-			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
-				if fs.NArg() != 1 {
-					return phrases.Exactly1ArgRequired("flow ID"), nil
-				}
-				return "", nil
-			},
-		})
-}
+// cancel, backfillToggle, and clearResults are defined in interactive.go

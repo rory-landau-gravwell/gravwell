@@ -36,6 +36,9 @@ func NewSelfNav() *cobra.Command {
 			MyInfo(),
 			sessions(),
 			groups(),
+			changePassword(),
+			searchGroup(),
+			updateUser(),
 		})
 }
 
@@ -225,140 +228,33 @@ func groups() action.Pair {
 		})
 }
 
-func changePassword() action.Pair {
-	return scaffold.NewBasicAction("change-password", "change your password", "Change the password for your account.",
-		func(fs *pflag.FlagSet) (string, tea.Cmd) {
-			currentPass, err := fs.GetString("current-password")
-			if err != nil {
-				clilog.GetFlag(err)
-				return "failed to get current-password flag", nil
-			}
-			newPass, err := fs.GetString("new-password")
-			if err != nil {
-				clilog.GetFlag(err)
-				return "failed to get new-password flag", nil
-			}
-			uid := connection.CurrentUser().ID
-			if err := connection.Client.UserChangePass(uid, currentPass, newPass); err != nil {
-				return err.Error(), nil
-			}
-			return "password changed successfully", nil
-		},
-		scaffold.BasicOptions{
-			CommonOptions: scaffold.CommonOptions{
-				AddtlFlags: func() *pflag.FlagSet {
-					fs := &pflag.FlagSet{}
-					fs.String("current-password", "", "your current password")
-					fs.String("new-password", "", "your new password")
-					return fs
-				},
-			},
-			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
-				if currentPass, err := fs.GetString("current-password"); err != nil {
-					clilog.GetFlag(err)
-				} else if currentPass == "" {
-					return "--current-password must be non-empty", nil
-				}
-				if newPass, err := fs.GetString("new-password"); err != nil {
-					clilog.GetFlag(err)
-				} else if newPass == "" {
-					return "--new-password must be non-empty", nil
-				}
-				return "", nil
-			},
-		})
+// handleSearchGroupSet handles the non-interactive --set path for searchGroup.
+func handleSearchGroupSet(c *cobra.Command, uid int32, setVal string) error {
+	setVal = strings.TrimSpace(setVal)
+	if setVal == "" || setVal == "none" {
+		if err := connection.Client.DeleteDefaultSearchGroups(uid); err != nil {
+			return err
+		}
+		fmt.Fprintln(c.OutOrStdout(), "search groups cleared")
+		return nil
+	}
+	var gids []int32
+	for _, s := range strings.Split(setVal, ",") {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		gid, err := strconv.ParseInt(s, 10, 32)
+		if err != nil {
+			return fmt.Errorf("%s is not a valid group ID", s)
+		}
+		gids = append(gids, int32(gid))
+	}
+	if err := connection.Client.SetDefaultSearchGroups(uid, gids); err != nil {
+		return err
+	}
+	fmt.Fprintln(c.OutOrStdout(), "search groups updated")
+	return nil
 }
 
-func searchGroup() action.Pair {
-	return scaffold.NewBasicAction("search-group", "get or set default search groups",
-		"Display or update the default search groups for your account.\nUse --set to provide a comma-separated list of group IDs, or --set=none to clear all default groups.",
-		func(fs *pflag.FlagSet) (string, tea.Cmd) {
-			uid := connection.CurrentUser().ID
-			if fs.Changed("set") {
-				setVal, err := fs.GetString("set")
-				if err != nil {
-					clilog.GetFlag(err)
-					return "failed to get set flag", nil
-				}
-				setVal = strings.TrimSpace(setVal)
-				if setVal == "" || setVal == "none" {
-					if err := connection.Client.DeleteDefaultSearchGroups(uid); err != nil {
-						return err.Error(), nil
-					}
-					return "search groups cleared", nil
-				}
-				var gids []int32
-				for _, s := range strings.Split(setVal, ",") {
-					s = strings.TrimSpace(s)
-					if s == "" {
-						continue
-					}
-					gid, err := strconv.ParseInt(s, 10, 32)
-					if err != nil {
-						return s + " is not a valid group ID", nil
-					}
-					gids = append(gids, int32(gid))
-				}
-				if err := connection.Client.SetDefaultSearchGroups(uid, gids); err != nil {
-					return err.Error(), nil
-				}
-				return "search groups updated", nil
-			}
-			gids, err := connection.Client.GetDefaultSearchGroups(uid)
-			if err != nil {
-				return err.Error(), nil
-			}
-			return fmt.Sprintf("default search groups: %v", gids), nil
-		},
-		scaffold.BasicOptions{
-			CommonOptions: scaffold.CommonOptions{
-				AddtlFlags: func() *pflag.FlagSet {
-					fs := &pflag.FlagSet{}
-					fs.String("set", "", "comma-separated list of group IDs to set as default")
-					return fs
-				},
-			},
-		})
-}
-
-func updateUser() action.Pair {
-	return scaffold.NewBasicAction("update", "update your user information",
-		"Update your user account information such as name and email address.",
-		func(fs *pflag.FlagSet) (string, tea.Cmd) {
-			user := connection.CurrentUser()
-			changed := false
-			if fs.Changed("name") {
-				name, err := fs.GetString("name")
-				if err != nil {
-					return err.Error(), nil
-				}
-				user.Name = name
-				changed = true
-			}
-			if fs.Changed("email") {
-				email, err := fs.GetString("email")
-				if err != nil {
-					return err.Error(), nil
-				}
-				user.Email = email
-				changed = true
-			}
-			if !changed {
-				return "no changes specified; use --name or --email to update fields", nil
-			}
-			if err := connection.Client.UpdateUser(user); err != nil {
-				return err.Error(), nil
-			}
-			return fmt.Sprintf("successfully updated user '%s'", user.Username), nil
-		},
-		scaffold.BasicOptions{
-			CommonOptions: scaffold.CommonOptions{
-				AddtlFlags: func() *pflag.FlagSet {
-					fs := &pflag.FlagSet{}
-					fs.String("name", "", "new display name")
-					fs.String("email", "", "new email address")
-					return fs
-				},
-			},
-		})
-}
+// changePassword, searchGroup, and updateUser are defined in interactive.go
