@@ -1,3 +1,11 @@
+/*************************************************************************
+ * Copyright 2026 Gravwell, Inc. All rights reserved.
+ * Contact: <legal@gravwell.io>
+ *
+ * This software may be modified and distributed under the terms of the
+ * BSD 2-clause license. See the LICENSE file for details.
+ **************************************************************************/
+
 // Package listitem defines common list types so we don't have a bunch of duplicate structs floating around any time list.Model or
 // multiselectlist.Model are used.
 package listitem
@@ -7,54 +15,117 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/multiselectlist"
 )
 
+//#region User
+
 type User struct {
 	Selected_ bool
-	ID_       int32
 
-	Username string
-	Name     string
-	Email    string
-	Admin    bool
+	u types.User
+
+	DescriptionOverride string // if set, will be used in place of the default description.
+}
+
+// NewUserItem returns a representation of the given user prepared for use in a list.Model or a multiselectlist.Model.
+func NewUserItem(u types.User, selected bool) *User {
+	return &User{
+		Selected_: selected,
+		u:         u,
+	}
 }
 
 var _ multiselectlist.SelectableItem[int32] = &User{}
 var _ list.Item = &User{}
 
 // FilterValue filters on the concat of ttl and desc.
-func (i User) FilterValue() string {
+func (li User) FilterValue() string {
 	var adm string
-	if i.Admin {
+	if li.u.Admin {
 		adm = "admin"
 	}
-	return adm + fmt.Sprintf("%d %v %v", i.ID_, i.Username, i.Name)
+	return adm + fmt.Sprintf("%d %v %v", li.u.ID, li.u.Username, li.u.Name)
 }
 
-func (i User) Title() string {
-	return i.Username
+func (li User) Title() string {
+	return fmt.Sprintf("(%d) %s", li.u.ID, li.u.Username)
 }
 
-func (i User) ID() int32 {
-	return i.ID_
+func (li User) ID() int32 {
+	return li.u.ID
 }
 
-func (i User) Description() string {
+func (li User) Description() string {
+	if li.DescriptionOverride != "" {
+		return li.DescriptionOverride
+	}
+
 	var sb strings.Builder
 
-	if i.Admin {
+	if li.u.Admin {
 		sb.WriteString("(admin) ")
 	}
-	fmt.Fprintf(&sb, "(ID: %d) %s (%s)", i.ID_, i.Name, i.Email)
+	fmt.Fprintf(&sb, "%s (%s)", li.u.Name, li.u.Email)
 
 	return sb.String()
 }
 
-func (i *User) SetSelected(selected bool) {
-	i.Selected_ = selected
+func (li *User) SetSelected(selected bool) {
+	li.Selected_ = selected
 }
 
-func (i User) Selected() bool {
-	return i.Selected_
+func (li User) Selected() bool {
+	return li.Selected_
+}
+
+//#region Group
+
+type Group struct {
+	Selected_ bool
+
+	g types.Group
+
+	DescriptionOverride string // if set, will be used in place of the default description.
+}
+
+// NewUserItem returns a representation of the given user prepared for use in a list.Model or a multiselectlist.Model.
+func NewGroupItem(g types.Group, selected bool) *Group {
+	return &Group{
+		Selected_: selected,
+		g:         g,
+	}
+}
+
+var _ multiselectlist.SelectableItem[int32] = &Group{}
+var _ list.Item = &Group{}
+
+// FilterValue filters on the concat of ttl and desc.
+func (li Group) FilterValue() string {
+	return fmt.Sprintf("%d %s %s", li.g.ID, li.g.Name, li.g.Description)
+}
+
+func (li Group) Title() string {
+	return fmt.Sprintf("(%d) %s", li.g.ID, li.g.Name)
+}
+
+func (li Group) ID() int32 {
+	return li.g.ID
+}
+
+func (li Group) Description() string {
+	if li.DescriptionOverride != "" {
+		return li.DescriptionOverride
+	}
+
+	return fmt.Sprintf("%s", li.g.Description)
+}
+
+func (li *Group) SetSelected(selected bool) {
+	li.Selected_ = selected
+}
+
+func (li Group) Selected() bool {
+	return li.Selected_
 }
