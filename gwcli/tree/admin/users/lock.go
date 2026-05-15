@@ -149,13 +149,7 @@ func (c *lockModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int
 		if !self && user.ID == connection.CurrentUser().ID {
 			continue
 		}
-		itms = append(itms, &listitem.User{
-			ID_:      user.ID,
-			Username: user.Username,
-			Name:     user.Name,
-			Email:    user.Email,
-			Admin:    user.Admin,
-		})
+		itms = append(itms, listitem.NewUserItem(user, false))
 	}
 	itms = slices.Clip(itms)
 	if len(itms) == 0 {

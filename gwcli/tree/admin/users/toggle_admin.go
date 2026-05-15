@@ -146,13 +146,7 @@ func (c *toggleAdminModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, hei
 	}
 	var itms = make([]multiselectlist.SelectableItem[int32], 0, len(users.Results))
 	for _, user := range users.Results {
-		itms = append(itms, &listitem.User{
-			ID_:      user.ID,
-			Username: user.Username,
-			Name:     user.Name,
-			Email:    user.Email,
-			Admin:    user.Admin,
-		})
+		itms = append(itms, listitem.NewUserItem(user, false))
 	}
 	itms = slices.Clip(itms)
 	if len(itms) == 0 {

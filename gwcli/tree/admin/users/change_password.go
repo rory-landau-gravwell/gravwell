@@ -6,8 +6,10 @@ import (
 	"os"
 	"slices"
 
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
@@ -16,7 +18,6 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/hotkeys"
-	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/ingest/log"
 	"github.com/spf13/cobra"
@@ -121,83 +122,14 @@ func getPasswordFromFlags(fs *pflag.FlagSet) (password string, err error) {
 //#region interactive
 
 type changePasswordModel struct {
-	users multiselectlist.Model[int32]
-	ti    textinput.Model
-	stage cpStage
+	users      list.Model
+	passwordTI textinput.Model
+	stage      cpStage
 
-	selectedUID      int32
-	selectedUsername string
-}
-
-func (m *changePasswordModel) Update(msg tea.Msg) (cmd tea.Cmd) {
-	switch m.stage {
-	case cpStgSelectUser:
-		m.users, cmd = m.users.Update(msg)
-		if m.users.Done() {
-			selected := m.users.GetSelectedItems()
-			if len(selected) != 1 {
-				m.users.Undone()
-				return m.users.NewStatusMessage("select exactly 1 user")
-			}
-			m.selectedUID = selected[0].ID()
-			m.selectedUsername = selected[0].Title()
-			m.stage = cpStgPassword
-			m.ti.Focus()
-			return textinput.Blink
-		}
-	case cpStgPassword:
-		// handle enter to submit
-		if hotkeys.Match(msg, hotkeys.Invoke) {
-			password := m.ti.Value()
-			if password == "" {
-				return nil // ignore empty submissions
-			}
-			if err := connection.Client.AdminChangePass(m.selectedUID, password); err != nil {
-				clilog.Writer.Error("failed to change password", log.KV("uid", m.selectedUID), log.KVErr(err))
-				m.stage = cpStgDone
-				return tea.Printf("failed to change password for user '%s': %v", m.selectedUsername, err)
-			}
-			m.stage = cpStgDone
-			return tea.Printf("successfully changed password for user '%s' (ID: %d)", m.selectedUsername, m.selectedUID)
-		}
-		// handle esc to cancel
-		if hotkeys.Match(msg, hotkeys.SoftQuit) {
-			m.stage = cpStgDone
-			return tea.Println("cancelled")
-		}
-		m.ti, cmd = m.ti.Update(msg)
-	}
-	return cmd
-}
-
-func (m *changePasswordModel) View() string {
-	switch m.stage {
-	case cpStgSelectUser:
-		return m.users.View()
-	case cpStgPassword:
-		return fmt.Sprintf("New password for '%s':\n%s\n\n  %s",
-			m.selectedUsername,
-			m.ti.View(),
-			stylesheet.Cur.DisabledText.Render("↲ submit • esc cancel"))
-	}
-	return ""
-}
-
-func (m *changePasswordModel) Done() bool {
-	return m.stage == cpStgDone
-}
-
-func (m *changePasswordModel) Reset() error {
-	m.users = multiselectlist.Model[int32]{}
-	m.ti = textinput.Model{}
-	m.stage = cpStgSelectUser
-	m.selectedUID = 0
-	m.selectedUsername = ""
-	return nil
+	selectedUser types.User
 }
 
 func (m *changePasswordModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (invalid string, onStart tea.Cmd, err error) {
-
 	// attach and check flags
 	fs := cpFlags()
 	if err := fs.Parse(tokens); err != nil {
@@ -214,7 +146,7 @@ func (m *changePasswordModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, 
 		return err.Error(), nil, nil
 	}
 	if uid != 0 && pass != "" {
-		if err := connection.Client.AdminChangePass(m.selectedUID, pass); err != nil {
+		if err := connection.Client.AdminChangePass(m.selectedUser.ID, pass); err != nil {
 			return "", nil, err
 		}
 		m.stage = cpStgDone
@@ -222,7 +154,7 @@ func (m *changePasswordModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, 
 		return "", tea.Printf("successfully changed password for user ID: %d", uid), nil
 	}
 
-	m.ti.SetValue(pass)
+	m.passwordTI.SetValue(pass)
 
 	// fetch all users
 	users, err := connection.Client.ListUsers(nil)
@@ -230,33 +162,103 @@ func (m *changePasswordModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, 
 		clilog.Writer.Error("failed to get the list of users", log.KV("error", err))
 		return "", nil, fmt.Errorf("failed to get the list of users")
 	}
-	var itms = make([]multiselectlist.SelectableItem[int32], 0, len(users.Results))
+	var itms = make([]list.Item, 0, len(users.Results))
 	for _, user := range users.Results {
-		itms = append(itms, &listitem.User{
-			ID_:      user.ID,
-			Username: user.Username,
-			Name:     user.Name,
-			Email:    user.Email,
-			Admin:    user.Admin,
-		})
+		itms = append(itms, listitem.NewUserItem(user, false))
 	}
 	itms = slices.Clip(itms)
 	if len(itms) == 0 {
 		return "there are no users", nil, nil
 	}
-	m.users = multiselectlist.New(itms, width, height, multiselectlist.Options{})
-	m.users.StatusMessageLifetime = stylesheet.StatusMessageLifetime
-	m.users.StatusMessageOnSelect = true
-	m.users.Title = "Select a user"
+
+	m.users = stylesheet.NewList(itms, width, height, "user", "users")
 
 	// set up password text input
-	m.ti = stylesheet.NewTI("", false)
-	m.ti.EchoMode = textinput.EchoPassword
-	m.ti.Placeholder = "enter new password"
-	m.ti.Width = 40
-	m.ti.Blur()
+	m.passwordTI = stylesheet.NewTI("", false)
+	m.passwordTI.EchoMode = textinput.EchoPassword
+	m.passwordTI.Placeholder = "enter new password"
+	m.passwordTI.Width = 40
+	m.passwordTI.Blur()
 
 	return "", nil, nil
+}
+
+func (m *changePasswordModel) Update(msg tea.Msg) (cmd tea.Cmd) {
+	switch m.stage {
+	case cpStgSelectUser:
+		// check for an invoke, otherwise, just pass to update
+		if hotkeys.Match(msg, hotkeys.Invoke) {
+			i := m.users.SelectedItem()
+			if i == nil {
+				clilog.Writer.Error("selected item is nil!",
+					log.KV("global index", m.users.GlobalIndex()),
+					log.KV("index", m.users.Index()),
+					log.KV("items", m.users.Items()),
+				)
+				return tea.Println(clilog.ErrInternal{}.Error())
+			}
+			liu, ok := i.(*listitem.User)
+			if !ok {
+				m.stage = cpStgDone
+				return tea.Println(clilog.TypeAssert(i, &listitem.User{}))
+			}
+			m.selectedUser = liu.U
+			m.stage = cpStgPassword
+			m.passwordTI.Focus()
+			return textinput.Blink
+		}
+
+		m.users, cmd = m.users.Update(msg)
+		return cmd
+	case cpStgPassword:
+		// handle enter to submit
+		if hotkeys.Match(msg, hotkeys.Invoke) {
+			password := m.passwordTI.Value()
+			if password == "" {
+				// TODO update the submit button with the error
+				return nil // ignore empty submissions
+			}
+			if err := connection.Client.AdminChangePass(m.selectedUser.ID, password); err != nil {
+				clilog.Writer.Error("failed to change password", log.KV("uid", m.selectedUser.ID), log.KVErr(err))
+				m.stage = cpStgDone
+				return tea.Printf("failed to change password for user '%d': %v", m.selectedUser.ID, err)
+			}
+			m.stage = cpStgDone
+			return tea.Printf("successfully changed password for user '%s' (ID: %d)", m.selectedUser.Username, m.selectedUser.ID)
+		}
+		// handle esc to cancel
+		if hotkeys.Match(msg, hotkeys.SoftQuit) {
+			m.stage = cpStgDone
+			return tea.Println("cancelled")
+		}
+		m.passwordTI, cmd = m.passwordTI.Update(msg)
+	}
+	return cmd
+}
+
+func (m *changePasswordModel) View() string {
+	switch m.stage {
+	case cpStgSelectUser:
+		return m.users.View()
+	case cpStgPassword:
+		return fmt.Sprintf("New password for '%s':\n%s\n\n  %s",
+			m.selectedUser.Username,
+			m.passwordTI.View(),
+			stylesheet.Cur.DisabledText.Render("↲ submit • esc cancel"))
+	}
+	return ""
+}
+
+func (m *changePasswordModel) Done() bool {
+	return m.stage == cpStgDone
+}
+
+func (m *changePasswordModel) Reset() error {
+	m.users = list.Model{}
+	m.passwordTI = textinput.Model{}
+	m.stage = cpStgSelectUser
+	m.selectedUser = types.User{}
+	return nil
 }
 
 //#endregion interactive

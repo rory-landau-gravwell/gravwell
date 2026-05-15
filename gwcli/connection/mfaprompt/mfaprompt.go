@@ -54,8 +54,7 @@ func collect(prog *tea.Program) (code string, at types.AuthType, err error) {
 	// pull input results
 	final, ok := m.(mfaModel)
 	if !ok {
-		clilog.Writer.Criticalf("failed to cast credentials model")
-		return "", types.AUTH_TYPE_NONE, clilog.ErrInternal{}
+		return "", types.AUTH_TYPE_NONE, clilog.TypeAssert(m, mfaModel{})
 	} else if final.killed {
 		return "", types.AUTH_TYPE_NONE, errors.New("you must authenticate to use gwcli")
 	}

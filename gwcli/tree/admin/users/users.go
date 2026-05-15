@@ -118,7 +118,7 @@ func create() action.Pair {
 			// verify the user can be found
 			u, err := connection.Client.LookupUser(fields["username"].Provider.Get())
 			if err != nil {
-				return 0, "", fmt.Errorf("failed to find user after creation: %w\nThe user may or may not exist.", err)
+				return 0, "", fmt.Errorf("failed to find user after creation: %w\nThe user may or may not exist", err)
 			}
 			return u.ID, "", nil
 		},
