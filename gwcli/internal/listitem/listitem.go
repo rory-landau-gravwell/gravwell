@@ -90,7 +90,7 @@ type Group struct {
 	DescriptionOverride string // if set, will be used in place of the default description.
 }
 
-// NewUserItem returns a representation of the given user prepared for use in a list.Model or a multiselectlist.Model.
+// NewGroupItem returns a representation of the given group prepared for use in a list.Model or a multiselectlist.Model.
 func NewGroupItem(g types.Group, selected bool) *Group {
 	return &Group{
 		Selected_: selected,
