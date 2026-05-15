@@ -24,7 +24,7 @@ import (
 type User struct {
 	Selected_ bool
 
-	u types.User
+	U types.User
 
 	DescriptionOverride string // if set, will be used in place of the default description.
 }
@@ -33,7 +33,7 @@ type User struct {
 func NewUserItem(u types.User, selected bool) *User {
 	return &User{
 		Selected_: selected,
-		u:         u,
+		U:         u,
 	}
 }
 
@@ -43,18 +43,18 @@ var _ list.Item = &User{}
 // FilterValue filters on the concat of ttl and desc.
 func (li User) FilterValue() string {
 	var adm string
-	if li.u.Admin {
+	if li.U.Admin {
 		adm = "admin"
 	}
-	return adm + fmt.Sprintf("%d %v %v", li.u.ID, li.u.Username, li.u.Name)
+	return adm + fmt.Sprintf("%d %v %v", li.U.ID, li.U.Username, li.U.Name)
 }
 
 func (li User) Title() string {
-	return fmt.Sprintf("(%d) %s", li.u.ID, li.u.Username)
+	return fmt.Sprintf("(%d) %s", li.U.ID, li.U.Username)
 }
 
 func (li User) ID() int32 {
-	return li.u.ID
+	return li.U.ID
 }
 
 func (li User) Description() string {
@@ -64,10 +64,10 @@ func (li User) Description() string {
 
 	var sb strings.Builder
 
-	if li.u.Admin {
+	if li.U.Admin {
 		sb.WriteString("(admin) ")
 	}
-	fmt.Fprintf(&sb, "%s (%s)", li.u.Name, li.u.Email)
+	fmt.Fprintf(&sb, "%s (%s)", li.U.Name, li.U.Email)
 
 	return sb.String()
 }
@@ -85,7 +85,7 @@ func (li User) Selected() bool {
 type Group struct {
 	Selected_ bool
 
-	g types.Group
+	G types.Group
 
 	DescriptionOverride string // if set, will be used in place of the default description.
 }
@@ -94,7 +94,7 @@ type Group struct {
 func NewGroupItem(g types.Group, selected bool) *Group {
 	return &Group{
 		Selected_: selected,
-		g:         g,
+		G:         g,
 	}
 }
 
@@ -103,15 +103,15 @@ var _ list.Item = &Group{}
 
 // FilterValue filters on the concat of ttl and desc.
 func (li Group) FilterValue() string {
-	return fmt.Sprintf("%d %s %s", li.g.ID, li.g.Name, li.g.Description)
+	return fmt.Sprintf("%d %s %s", li.G.ID, li.G.Name, li.G.Description)
 }
 
 func (li Group) Title() string {
-	return fmt.Sprintf("(%d) %s", li.g.ID, li.g.Name)
+	return fmt.Sprintf("(%d) %s", li.G.ID, li.G.Name)
 }
 
 func (li Group) ID() int32 {
-	return li.g.ID
+	return li.G.ID
 }
 
 func (li Group) Description() string {
@@ -119,7 +119,7 @@ func (li Group) Description() string {
 		return li.DescriptionOverride
 	}
 
-	return fmt.Sprintf("%s", li.g.Description)
+	return fmt.Sprintf("%s", li.G.Description)
 }
 
 func (li *Group) SetSelected(selected bool) {
