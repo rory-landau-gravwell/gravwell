@@ -19,6 +19,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	"github.com/gravwell/gravwell/v4/gwcli/mother"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/confirmation"
@@ -119,7 +120,7 @@ func modGroupUsers(use, short, long string, aliases []string, add bool) action.P
 			}
 
 			if successes == 0 {
-				return errors.New("All requested group changes failed")
+				return errors.New("all requested group changes failed")
 			}
 			return nil
 		}), newMembershipChangesInteractive(add))
@@ -161,7 +162,7 @@ func (m *membershipChanges) SetArgs(parentFS *pflag.FlagSet, tokens []string, wi
 	if err != nil {
 		return "", nil, err
 	} else if len(glr.Results) < 1 {
-		return "", nil, errors.New("No groups available. Please create one before attempting to change its users.")
+		return "", nil, errors.New("no groups available. Please create one before attempting to change its users")
 	}
 	ulr, err := connection.Client.ListUsers(nil)
 	if err != nil {
@@ -187,12 +188,10 @@ func (m *membershipChanges) SetArgs(parentFS *pflag.FlagSet, tokens []string, wi
 				desc = fmt.Sprintf("Groups: %v", gids)
 			}
 
-			userItems[i] = &multiselectlist.DefaultSelectableItem[int32]{
-				Title_:       fmt.Sprintf("(%d) %s", user.ID, user.Username),
-				Description_: desc,
-				Selected_:    false,
-				ID_:          user.ID,
-			}
+			ui := listitem.NewUserItem(user, false) // TODO selected
+			ui.DescriptionOverride = desc
+
+			userItems[i] = ui
 		}
 	}
 	m.users = multiselectlist.New(userItems, width, max(0, height-heightBuffer), multiselectlist.Options{})
@@ -210,11 +209,10 @@ func (m *membershipChanges) SetArgs(parentFS *pflag.FlagSet, tokens []string, wi
 				desc = fmt.Sprintf("(Member UIDs: %v)", uids)
 			}
 
-			groupItems[i] = &multiselectlist.DefaultSelectableItem[int32]{
-				Title_:       grp.Name,
-				Description_: desc + " " + grp.Description,
-				ID_:          grp.ID,
-			}
+			gi := listitem.NewGroupItem(grp, false) // TODO selected
+			gi.DescriptionOverride = desc
+
+			groupItems[i] = gi
 		}
 	}
 	m.groups = multiselectlist.New(groupItems, width, max(0, height-heightBuffer), multiselectlist.Options{})

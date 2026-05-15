@@ -119,7 +119,7 @@ func (li Group) Description() string {
 		return li.DescriptionOverride
 	}
 
-	return fmt.Sprintf("%s", li.G.Description)
+	return li.G.Description
 }
 
 func (li *Group) SetSelected(selected bool) {
