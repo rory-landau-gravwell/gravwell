@@ -183,7 +183,7 @@ func (m *membershipChanges) SetArgs(parentFS *pflag.FlagSet, tokens []string, wi
 				GIDToUIDs[grp.ID] = append(GIDToUIDs[grp.ID], user.ID)
 			}
 
-			var desc string = "(no groups)"
+			var desc = "(no groups)"
 			if gids := strings.TrimSpace(grpIDssb.String()); gids != "" {
 				desc = fmt.Sprintf("Groups: %v", gids)
 			}

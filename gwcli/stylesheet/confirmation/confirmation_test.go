@@ -135,6 +135,8 @@ func TestXxx(t *testing.T) {
 	t.Run("choice selection remains after navigating to submit button and returning", func(t *testing.T) {
 		// navigate down to b
 		m, _, _, submitSelected, curChoice := m.Update(testsupport.SendHotkey(hotkeys.CursorRight))
+		assert.Equal(t, false, submitSelected, "submit should not yet be selected")
+		assert.EqualValues(t, 0, curChoice)
 		m, _, _, submitSelected, curChoice = m.Update(testsupport.SendHotkey(hotkeys.CursorDown))
 		assert.Equal(t, false, submitSelected, "submit should not yet be selected")
 		assert.EqualValues(t, 1, curChoice)
