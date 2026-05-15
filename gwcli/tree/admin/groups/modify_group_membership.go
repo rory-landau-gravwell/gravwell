@@ -153,6 +153,9 @@ func membershipFlagset(add bool) *pflag.FlagSet {
 
 func (m *membershipChanges) SetArgs(parentFS *pflag.FlagSet, tokens []string, width, height int) (
 	invalid string, onStart tea.Cmd, err error) {
+
+	// TODO we need to check for flags for preselections!
+
 	// build each list from the set of users and groups
 	glr, err := connection.Client.ListGroups(nil)
 	if err != nil {

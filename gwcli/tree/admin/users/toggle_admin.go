@@ -1,4 +1,4 @@
-package admin_users
+package users
 
 import (
 	"errors"
@@ -9,6 +9,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	"github.com/gravwell/gravwell/v4/gwcli/mother"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
@@ -145,12 +146,12 @@ func (c *toggleAdminModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, hei
 	}
 	var itms = make([]multiselectlist.SelectableItem[int32], 0, len(users.Results))
 	for _, user := range users.Results {
-		itms = append(itms, &userItem{
+		itms = append(itms, &listitem.User{
 			ID_:      user.ID,
-			username: user.Username,
-			name:     user.Name,
-			email:    user.Email,
-			admin:    user.Admin,
+			Username: user.Username,
+			Name:     user.Name,
+			Email:    user.Email,
+			Admin:    user.Admin,
 		})
 	}
 	itms = slices.Clip(itms)

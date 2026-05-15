@@ -1,5 +1,5 @@
-// Package admin_users provides actions related to users/accounts that require elevated permissions.
-package admin_users
+// Package users provides actions related to users/accounts that require elevated permissions.
+package users
 
 import (
 	"errors"
@@ -371,5 +371,3 @@ func sessionsAction() action.Pair {
 }
 
 //#endregion sessions
-
-

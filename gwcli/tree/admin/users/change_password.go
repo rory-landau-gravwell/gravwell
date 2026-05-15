@@ -1,8 +1,9 @@
-package admin_users
+package users
 
 import (
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -10,6 +11,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	"github.com/gravwell/gravwell/v4/gwcli/mother"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
@@ -33,7 +35,9 @@ const (
 
 func changePassword() action.Pair {
 	cmd := treeutils.GenerateAction("change-password", "change a user's password",
-		"Change a user's password without requiring their current password.",
+		"Change a user's password without requiring their current password. "+
+			"Non-interactive mode can take the password in clear as --new-password. "+
+			"If you prefer to keep the password out of your history, consider using --new-passfile",
 		nil,
 		func(c *cobra.Command, args []string) error {
 			uid, err := c.Flags().GetInt32("uid")
@@ -69,10 +73,49 @@ func changePassword() action.Pair {
 			return errors.New("--password must be non-empty")
 		},
 	)
-	cmd.Flags().Int32("uid", 0, "ID of the user")
-	cmd.Flags().String("password", "", "new password")
+
+	cmd.Flags().AddFlagSet(cpFlags())
 
 	return action.NewPair(cmd, &changePasswordModel{})
+}
+
+func cpFlags() *pflag.FlagSet {
+	fs := &pflag.FlagSet{}
+	ft.UID.Register(fs)
+	fs.String("new-password", "", "the new password to assign the user. Mutually exclusive with --new-passfile.")
+	fs.String("new-passfile", "", "reads the users new password from the given path. Mutually exclusive with --new-password.")
+	return fs
+}
+
+// getPasswordFromFlags attempts to fetch the new password from --new-password and --new-passfile.
+// Returns an error if both are set are passfile was set and failed to read from.
+// Return "", nil if neither is set.
+func getPasswordFromFlags(fs *pflag.FlagSet) (password string, err error) {
+	pass, err := fs.GetString("new-password")
+	if err != nil {
+		clilog.GetFlag(err)
+	}
+	pf, err := fs.GetString("new-passfile")
+	if err != nil {
+		clilog.GetFlag(err)
+	}
+	// we don't set defaults here, so any value in either means changed
+	if pass != "" && pf != "" {
+		return "", errors.New("--new-password and --new-passfile are mutually exclusive")
+	}
+	if pass != "" {
+		return pass, nil
+	}
+
+	if pf != "" {
+		b, err := os.ReadFile(pf)
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	}
+
+	return "", nil
 }
 
 //#region interactive
@@ -84,10 +127,6 @@ type changePasswordModel struct {
 
 	selectedUID      int32
 	selectedUsername string
-}
-
-func (m *changePasswordModel) Init() tea.Cmd {
-	return nil
 }
 
 func (m *changePasswordModel) Update(msg tea.Msg) (cmd tea.Cmd) {
@@ -158,6 +197,33 @@ func (m *changePasswordModel) Reset() error {
 }
 
 func (m *changePasswordModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (invalid string, onStart tea.Cmd, err error) {
+
+	// attach and check flags
+	fs := cpFlags()
+	if err := fs.Parse(tokens); err != nil {
+		return "", nil, err
+	}
+
+	// if a password and UID were provided, we can operate without interactive mode.
+	uid, err := fs.GetInt32(ft.UID.Name())
+	if err != nil {
+		clilog.GetFlag(err)
+	}
+	pass, err := getPasswordFromFlags(fs)
+	if err != nil {
+		return err.Error(), nil, nil
+	}
+	if uid != 0 && pass != "" {
+		if err := connection.Client.AdminChangePass(m.selectedUID, pass); err != nil {
+			return "", nil, err
+		}
+		m.stage = cpStgDone
+
+		return "", tea.Printf("successfully changed password for user ID: %d", uid), nil
+	}
+
+	m.ti.SetValue(pass)
+
 	// fetch all users
 	users, err := connection.Client.ListUsers(nil)
 	if err != nil {
@@ -166,12 +232,12 @@ func (m *changePasswordModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, 
 	}
 	var itms = make([]multiselectlist.SelectableItem[int32], 0, len(users.Results))
 	for _, user := range users.Results {
-		itms = append(itms, &userItem{
+		itms = append(itms, &listitem.User{
 			ID_:      user.ID,
-			username: user.Username,
-			name:     user.Name,
-			email:    user.Email,
-			admin:    user.Admin,
+			Username: user.Username,
+			Name:     user.Name,
+			Email:    user.Email,
+			Admin:    user.Admin,
 		})
 	}
 	itms = slices.Clip(itms)
