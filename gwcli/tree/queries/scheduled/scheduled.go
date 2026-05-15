@@ -30,7 +30,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldedit"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
-	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/validate"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -143,7 +143,7 @@ func create() action.Pair {
 				CustomInit: func() textinput.Model {
 					ti := stylesheet.NewTI("", false)
 					ti.Placeholder = "* * * * *"
-					ti.Validate = uniques.CronRuneValidator
+					ti.Validate = validate.CronRuneValidator
 					return ti
 				},
 			},
@@ -255,7 +255,7 @@ func edit() action.Pair {
 			CustomTIFuncInit: func() textinput.Model {
 				ti := stylesheet.NewTI("", false)
 				ti.Placeholder = "* * * * *"
-				ti.Validate = uniques.CronRuneValidator
+				ti.Validate = validate.CronRuneValidator
 				return ti
 			},
 		},

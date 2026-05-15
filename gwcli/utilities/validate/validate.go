@@ -6,10 +6,11 @@
  * BSD 2-clause license. See the LICENSE file for details.
  **************************************************************************/
 
-// Package Validate provides functions for uniformly validating input.
+// Package validate provides functions for uniformly validating input.
 package validate
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -41,4 +42,36 @@ func PortNumber(s string) (port uint16, err error) {
 		return 0, fmt.Errorf("%s is not a valid number between [1,%d]", s, math.MaxUint16)
 	}
 	return uint16(p64), nil
+}
+
+// CronRuneValidator provides a validator function for a TI intended to consume cron-like input.
+// For efficiencies sake, it only evaluates the end rune.
+// Checking the values of each complete word is delayed until connection.CreateScheduledSearch to
+// save on cycles.
+func CronRuneValidator(s string) error {
+	// check for an empty TI
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	runes := []rune(s)
+
+	// check that the latest input is a digit or space
+	if char := runes[len(runes)-1]; !unicode.IsSpace(char) &&
+		!unicode.IsDigit(rune(char)) && char != '*' {
+		return errors.New("frequency can contain only digits or '*'")
+	}
+
+	// check that we do not have too many values
+	exploded := strings.Split(s, " ")
+	if len(exploded) > 5 {
+		return errors.New("must be exactly 5 values")
+	}
+
+	// check that the newest word is <= 2 characters
+	lastWord := []rune(exploded[len(exploded)-1])
+	if len(lastWord) > 2 {
+		return errors.New("each word is <= 2 digits")
+	}
+
+	return nil
 }

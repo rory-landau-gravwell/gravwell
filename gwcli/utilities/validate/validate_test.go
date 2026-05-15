@@ -1,20 +1,17 @@
-//go:build ci
-
 /*************************************************************************
- * Copyright 2024 Gravwell, Inc. All rights reserved.
+ * Copyright 2026 Gravwell, Inc. All rights reserved.
  * Contact: <legal@gravwell.io>
  *
  * This software may be modified and distributed under the terms of the
  * BSD 2-clause license. See the LICENSE file for details.
  **************************************************************************/
 
-package uniques_test
+package validate
 
 import (
 	"testing"
 
 	"github.com/Pallinder/go-randomdata"
-	. "github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
 )
 
 // NOTE(rlandau): these tests are limited as the validator generally only checks the last rune/word.
