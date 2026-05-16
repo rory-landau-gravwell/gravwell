@@ -103,20 +103,6 @@ const (
 	jwtPermissions os.FileMode = 0600
 )
 
-type ErrBadPermissions struct {
-	Expected os.FileMode
-	Actual   os.FileMode
-}
-
-func (e ErrBadPermissions) Error() string {
-	return fmt.Sprintf("incorrect permissions. Should be %[1]s(%[1]o), got %[2]s(%[2]o)", e.Expected, e.Actual)
-}
-
-func (e ErrBadPermissions) Is(err error) bool {
-	_, ok := err.(ErrBadPermissions)
-	return ok
-}
-
 // Client is the primary connection point from GWCLI to the gravwell backend.
 var (
 	clientMu sync.Mutex // should be held when making changes to the local Client instance

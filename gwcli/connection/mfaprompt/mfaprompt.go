@@ -24,7 +24,6 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/hotkeys"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/sigils"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/killer"
-	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/validate"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -54,10 +53,9 @@ func collect(prog *tea.Program) (code string, at types.AuthType, err error) {
 	// pull input results
 	final, ok := m.(mfaModel)
 	if !ok {
-		clilog.Writer.Criticalf("failed to cast credentials model")
-		return "", types.AUTH_TYPE_NONE, clilog.ErrInternal{}
+		return "", types.AUTH_TYPE_NONE, clilog.TypeAssert(m, mfaModel{})
 	} else if final.killed {
-		return "", types.AUTH_TYPE_NONE, uniques.ErrMustAuth
+		return "", types.AUTH_TYPE_NONE, errors.New("you must authenticate to use gwcli")
 	}
 
 	err = nil

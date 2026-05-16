@@ -1,4 +1,4 @@
-package admin_users
+package users
 
 import (
 	"errors"
@@ -10,6 +10,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	"github.com/gravwell/gravwell/v4/gwcli/mother"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
@@ -148,13 +149,7 @@ func (c *lockModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int
 		if !self && user.ID == connection.CurrentUser().ID {
 			continue
 		}
-		itms = append(itms, &userItem{
-			ID_:      user.ID,
-			username: user.Username,
-			name:     user.Name,
-			email:    user.Email,
-			admin:    user.Admin,
-		})
+		itms = append(itms, listitem.NewUserItem(user, false))
 	}
 	itms = slices.Clip(itms)
 	if len(itms) == 0 {

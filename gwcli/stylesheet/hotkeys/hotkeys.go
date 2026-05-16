@@ -190,7 +190,7 @@ func Match(msg tea.Msg, b ...key.Binding) bool {
 	return key.Matches(keyMsg, b...)
 }
 
-// Returns true iff the message was a select or invoke hotkey (either works for pressing buttons).
+// ButtonPressed returns true iff the message was a select or invoke hotkey (either works for pressing buttons).
 func ButtonPressed(msg tea.Msg) bool {
 	return Match(msg, Invoke, Select)
 }

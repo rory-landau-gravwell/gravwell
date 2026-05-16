@@ -16,7 +16,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
-	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/validate"
 
 	"github.com/spf13/pflag"
 )
@@ -221,7 +221,24 @@ func FieldFrequency() Field {
 			CustomInit: func() textinput.Model {
 				ti := stylesheet.NewTI("", false)
 				ti.Placeholder = "* * * * *"
-				ti.Validate = uniques.CronRuneValidator
+				ti.Validate = validate.CronRuneValidator
+				return ti
+			},
+		},
+	}
+}
+
+// FieldPassword returns a struct suitable for taking in a password (using the appropriate echo mode).
+func FieldPassword(required bool, fc FlagConfig, order int) Field {
+	return Field{
+		Title:    "Password",
+		Required: required,
+		Flag:     fc,
+		Order:    order,
+		Provider: &TextProvider{
+			CustomInit: func() textinput.Model {
+				ti := stylesheet.NewTI("", !required)
+				ti.EchoMode = textinput.EchoPassword
 				return ti
 			},
 		},

@@ -30,7 +30,7 @@ type Model struct {
 	HeaderLines []string
 }
 
-// New generates a new confirmation Model with the given options.
+// Init populates and initializes the Model.
 // Passing nil choices is allowed, but somewhat nonsensical.
 //
 // The View will place two buttons, submit and cancel, in a left column and all given choice in a right columns.
@@ -127,7 +127,7 @@ func (m *Model) next() {
 
 func (m Model) View() string {
 	// generate each button
-	var submitBtnPip string = " "
+	var submitBtnPip = " "
 	if m.submitSelected {
 		submitBtnPip = stylesheet.Cur.Pip()
 	}
@@ -137,7 +137,7 @@ func (m Model) View() string {
 	)
 
 	for i, choice := range m.choices {
-		var pip string = " "
+		var pip = " "
 		if !m.submitSelected && m.choicesCursor == uint(i) {
 			pip = stylesheet.Cur.Pip()
 		}
