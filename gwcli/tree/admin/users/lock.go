@@ -8,13 +8,13 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
+	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
 	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	"github.com/gravwell/gravwell/v4/gwcli/mother"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
-	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/ingest/log"
@@ -90,13 +90,45 @@ func createFlagSet() *pflag.FlagSet {
 
 // lockModel is basically just a multiselect that calls LockUserAccount on each item selected.
 type lockModel struct {
-	m    multiselectlist.Model[int32]
-	self bool
+	m multiselectlist.Model[int32]
 }
 
 // Init is unused. It just exists so we can feed lockModel into teatest.
 func (c *lockModel) Init() tea.Cmd {
 	return nil
+}
+
+func (c *lockModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (invalid string, onStart tea.Cmd, err error) {
+	fs := createFlagSet()
+	if err := fs.Parse(tokens); err != nil {
+		return "", nil, err
+	}
+	self, err := fs.GetBool("include-self")
+	if err != nil {
+		clilog.GetFlag(err)
+	}
+
+	// stuff all users into the list, except the caller. Probably don't want the caller to be able to lock themselves easily.
+	users, err := connection.Client.ListUsers(nil)
+	if err != nil {
+		clilog.Writer.Error("failed to get the list of users", log.KV("error", err))
+		return "", nil, fmt.Errorf("failed to get the list of users")
+	}
+	var itms = make([]multiselectlist.SelectableItem[int32], 0, len(users.Results))
+	for _, user := range users.Results {
+		if !self && user.ID == connection.CurrentUser().ID { // can't/don't want to lock self
+			continue
+		}
+		itms = append(itms, listitem.NewUserItem(user, false))
+	}
+	itms = slices.Clip(itms)
+	if len(itms) == 0 {
+		return "There are no other users to lock", nil, nil
+	}
+	c.m = multiselectlist.New(itms, width, height, multiselectlist.Options{})
+	c.m.StatusMessageLifetime = stylesheet.StatusMessageLifetime
+	c.m.StatusMessageOnSelect = true
+	return "", nil, nil
 }
 
 func (c *lockModel) Update(msg tea.Msg) (cmd tea.Cmd) {
@@ -127,38 +159,3 @@ func (c *lockModel) Reset() error {
 	c.m = multiselectlist.Model[int32]{}
 	return nil
 }
-
-func (c *lockModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (invalid string, onStart tea.Cmd, err error) {
-	fs := createFlagSet()
-	if err := fs.Parse(tokens); err != nil {
-		return "", nil, err
-	}
-	self, err := fs.GetBool("include-self")
-	if err != nil {
-		clilog.GetFlag(err)
-	}
-
-	// stuff all users into the list, except the caller. Probably don't want the caller to be able to lock themselves easily.
-	users, err := connection.Client.ListUsers(nil)
-	if err != nil {
-		clilog.Writer.Error("failed to get the list of users", log.KV("error", err))
-		return "", nil, fmt.Errorf("failed to get the list of users")
-	}
-	var itms = make([]multiselectlist.SelectableItem[int32], 0, len(users.Results))
-	for _, user := range users.Results {
-		if !self && user.ID == connection.CurrentUser().ID {
-			continue
-		}
-		itms = append(itms, listitem.NewUserItem(user, false))
-	}
-	itms = slices.Clip(itms)
-	if len(itms) == 0 {
-		return "There are no other users to lock", nil, nil
-	}
-	c.m = multiselectlist.New(itms, width, height, multiselectlist.Options{})
-	c.m.StatusMessageLifetime = stylesheet.StatusMessageLifetime
-	c.m.StatusMessageOnSelect = true
-	return "", nil, nil
-}
-
-//#endregion interactive

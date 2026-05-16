@@ -128,8 +128,6 @@ func validateListID(flagName string, fs *pflag.FlagSet) (id string, invalid stri
 	return s, ""
 }
 
-// toggle is defined in toggle.go
-
 func delete() action.Pair {
 	return scaffolddelete.NewDeleteAction("alert", "alerts",
 		func(dryrun bool, id string) error {

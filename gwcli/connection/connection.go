@@ -119,7 +119,7 @@ var refresherDone chan bool                         // true is sent when the con
 // restLogPath should be left empty outside of test packages.
 //
 // You probably want to call Login after a successful Initialize call.
-func Initialize(conn string, UseHttps, InsecureNoEnforceCerts bool, restLogPath string) (err error) {
+func Initialize(conn string, UseHTTPS, InsecureNoEnforceCerts bool, restLogPath string) (err error) {
 	clientMu.Lock()
 	defer clientMu.Unlock()
 	if Client != nil {
@@ -144,7 +144,7 @@ func Initialize(conn string, UseHttps, InsecureNoEnforceCerts bool, restLogPath 
 	if Client, err = grav.NewOpts(
 		grav.Opts{
 			Server:                 conn,
-			UseHttps:               UseHttps,
+			UseHttps:               UseHTTPS,
 			InsecureNoEnforceCerts: InsecureNoEnforceCerts,
 			ObjLogger:              l,
 		}); err != nil {

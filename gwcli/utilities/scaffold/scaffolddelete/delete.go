@@ -267,7 +267,7 @@ func (d *deleteModel[I]) Update(msg tea.Msg) tea.Cmd {
 			if strings.TrimSpace(strings.ToLower(d.confTI.Value())) == confirmPhrase {
 				d.mode = quitting
 				if err := d.df(d.dryrun, d.selectedItem.id); err != nil {
-					return tea.Printf(errAbstainDelete+"\n", err)
+					return tea.Println(err, "\n", errAbstainDelete)
 				}
 				return tea.Printf(deleteSuccessText,
 					d.itemSingular, d.selectedItem.id)
@@ -356,7 +356,6 @@ func (d *deleteModel[I]) SetArgs(fs *pflag.FlagSet, tokens []string, width, heig
 	// while Item[I] satisfies the list.Item interface, Go will not implicitly
 	// convert []Item[I] -> []list.Item
 	// remember to assert these items as Item[I] on use
-	// TODO do we hide this in here, at the cost of an extra n? Or move it out to ff?
 	simpleitems := make([]list.Item, len(itms))
 	for i := range itms {
 		simpleitems[i] = itms[i]
