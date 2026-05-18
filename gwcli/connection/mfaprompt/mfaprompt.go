@@ -15,6 +15,7 @@ package mfaprompt
 // typically follows a cred prompt
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
