@@ -13,7 +13,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/hotkeys"
-	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/multiselectlist"
+	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/ingest/log"
 	"github.com/spf13/cobra"
@@ -80,8 +80,6 @@ type selfChangePassModel struct {
 	newTI     textinput.Model
 	stage     selfCPStage
 }
-
-func (m *selfChangePassModel) Init() tea.Cmd { return nil }
 
 func (m *selfChangePassModel) Update(msg tea.Msg) (cmd tea.Cmd) {
 	if hotkeys.Match(msg, hotkeys.SoftQuit) {
@@ -208,8 +206,6 @@ func searchGroup() action.Pair {
 type searchGroupModel struct {
 	m multiselectlist.Model[int32]
 }
-
-func (c *searchGroupModel) Init() tea.Cmd { return nil }
 
 func (c *searchGroupModel) Update(msg tea.Msg) (cmd tea.Cmd) {
 	c.m, cmd = c.m.Update(msg)
@@ -344,8 +340,6 @@ type updateUserModel struct {
 	emailTI textinput.Model
 	stage   updateStage
 }
-
-func (m *updateUserModel) Init() tea.Cmd { return nil }
 
 func (m *updateUserModel) Update(msg tea.Msg) (cmd tea.Cmd) {
 	if hotkeys.Match(msg, hotkeys.SoftQuit) {

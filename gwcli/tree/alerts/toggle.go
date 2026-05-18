@@ -6,15 +6,17 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
-	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
+	"github.com/gravwell/gravwell/v4/gwcli/bubbles/confirmation"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
 	"github.com/gravwell/gravwell/v4/gwcli/mother"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
+	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/hotkeys"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/ingest/log"
@@ -46,58 +48,66 @@ func toggle() action.Pair {
 			if err != nil {
 				return err
 			}
-			alert.Disabled = !alert.Disabled
 
-			if enable, err := c.Flags().GetBool("enable"); err != nil {
+			enable, err := c.Flags().GetBool("enable")
+			if err != nil {
 				clilog.GetFlag(err)
-			} else if enable {
-				alert.Disabled = false
 			}
-			if disable, err := c.Flags().GetBool("disable"); err != nil {
+			disable, err := c.Flags().GetBool("disable")
+			if err != nil {
 				clilog.GetFlag(err)
-			} else if disable {
-				alert.Disabled = true
 			}
-			_, err = connection.Client.UpdateAlert(alert)
+
+			success, err := setAlertState(alert, enable, disable)
 			if err != nil {
 				return err
 			}
-			state := "enabled"
-			if alert.Disabled {
-				state = "disabled"
-			}
-			fmt.Fprintf(c.OutOrStdout(), "alert '%s' (ID: %s) %s\n", alert.Name, id, state)
+			fmt.Fprint(c.OutOrStdout(), success)
 			return nil
 		},
 	)
 	cmd.Flags().Bool("enable", false, "enable the alert. Does nothing if the alert is already enabled. Mutually exclusive with --disable")
 	cmd.Flags().Bool("disable", false, "disable the alert. Does nothing if the alert is already disabled. Mutually exclusive with --enable")
 
-	return action.NewPair(cmd, &toggleModel{})
+	m := &toggleModel{}
+	m.Reset()
+
+	return action.NewPair(cmd, m)
+}
+
+// Set the state of the given alert according to enable and disable.
+func setAlertState(alert types.Alert, enable, disable bool) (success string, _ error) {
+	alert.Disabled = !alert.Disabled
+	if enable && disable {
+		clilog.Writer.Warn("both enable and disable were set, failing out...")
+		return "", clilog.ErrInternal{}
+	}
+	if enable {
+		alert.Disabled = false
+	} else if disable {
+		alert.Disabled = true
+	}
+	if _, err := connection.Client.UpdateAlert(alert); err != nil {
+		return "", err
+	}
+	state := "enabled"
+	if alert.Disabled {
+		state = "disabled"
+	}
+	return fmt.Sprintf("alert '%s' (ID: %s) %s\n", alert.Name, alert.ID, state), nil
 }
 
 //#region interactive
 
 type alertItem struct {
-	Selected_ bool
-	ID_       string
-	name      string
-	desc      string
-	disabled  bool
+	id       string
+	name     string
+	desc     string
+	disabled bool
 }
 
-func (i alertItem) FilterValue() string {
-	return i.name + i.desc
-}
-
-func (i alertItem) Title() string {
-	return i.name
-}
-
-func (i alertItem) ID() string {
-	return i.ID_
-}
-
+func (i alertItem) FilterValue() string { return i.name + i.desc }
+func (i alertItem) Title() string       { return i.name }
 func (i alertItem) Description() string {
 	state := "enabled"
 	if i.disabled {
@@ -106,64 +116,82 @@ func (i alertItem) Description() string {
 	return fmt.Sprintf("(%s) %s", state, i.desc)
 }
 
-func (i *alertItem) SetSelected(selected bool) {
-	i.Selected_ = selected
-}
-
-func (i alertItem) Selected() bool {
-	return i.Selected_
-}
-
-// toggleModel presents a multi-select list of alerts and toggles each selected one.
+// toggleModel presents a list of alerts and toggles the selected one after confirmation.
 type toggleModel struct {
-	m multiselectlist.Model[string]
-}
+	selecting bool
 
-func (c *toggleModel) Init() tea.Cmd {
-	return nil
+	aList   list.Model
+	confirm confirmation.Model
+
+	done bool
 }
 
 func (c *toggleModel) Update(msg tea.Msg) (cmd tea.Cmd) {
-	c.m, cmd = c.m.Update(msg)
-	if c.m.Done() {
-		selected := c.m.GetSelectedItems()
-		if len(selected) == 0 {
-			c.m.Undone()
-			return c.m.NewStatusMessage("select at least 1 alert")
-		}
-		var cmds []tea.Cmd
-		for _, li := range selected {
-			alert, err := connection.Client.GetAlert(li.ID())
-			if err != nil {
-				cmds = append(cmds, tea.Printf("failed to get alert '%s': %v", li.Title(), err))
-				continue
-			}
-			alert.Disabled = !alert.Disabled
-			if _, err := connection.Client.UpdateAlert(alert); err != nil {
-				cmds = append(cmds, tea.Printf("failed to toggle alert '%s': %v", li.Title(), err))
-				continue
-			}
-			state := "enabled"
-			if alert.Disabled {
-				state = "disabled"
-			}
-			cmds = append(cmds, tea.Printf("alert '%s' (ID: %s) %s", li.Title(), li.ID(), state))
-		}
-		cmd = tea.Sequence(cmds...)
+	if c.done {
+		return nil
 	}
-	return cmd
+
+	if c.selecting {
+		if hotkeys.Match(msg, hotkeys.Invoke, hotkeys.Select) {
+			c.selecting = false
+		} else {
+			c.aList, cmd = c.aList.Update(msg)
+		}
+		return cmd
+	}
+
+	// confirmation mode
+	var (
+		selectionMade, confirmed bool
+		ret                      uint
+	)
+	c.confirm, cmd, selectionMade, confirmed, ret = c.confirm.Update(msg)
+	if !selectionMade {
+		return cmd
+	}
+
+	if !confirmed {
+		if ret != 0 {
+			clilog.Writer.Error("user selected non-0 choice", log.KV("choice", ret), log.KV("confirmation view", c.confirm.View()))
+		}
+		c.selecting = true
+		return nil
+	}
+
+	// submit
+	item, ok := c.aList.SelectedItem().(*alertItem)
+	if !ok {
+		return tea.Println(clilog.TypeAssert(c.aList.SelectedItem(), &alertItem{}))
+	}
+	alert, err := connection.Client.GetAlert(item.id)
+	if err != nil {
+		c.done = true
+		return tea.Printf("failed to get alert '%s': %v", item.name, err)
+	}
+	success, err := setAlertState(alert, false, false)
+	c.done = true
+	if err != nil {
+		return tea.Println(err)
+	}
+	return tea.Println(success)
 }
 
 func (c *toggleModel) View() string {
-	return c.m.View()
+	if c.selecting {
+		return c.aList.View()
+	}
+	return c.confirm.View()
 }
 
 func (c *toggleModel) Done() bool {
-	return c.m.Done()
+	return c.done
 }
 
 func (c *toggleModel) Reset() error {
-	c.m = multiselectlist.Model[string]{}
+	c.selecting = true
+	c.aList = list.Model{}
+	c.confirm = confirmation.Model{}
+	c.done = false
 	return nil
 }
 
@@ -176,10 +204,10 @@ func (c *toggleModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height i
 	slices.SortStableFunc(alerts.Results, func(a, b types.Alert) int {
 		return strings.Compare(a.Name, b.Name)
 	})
-	var itms = make([]multiselectlist.SelectableItem[string], 0, len(alerts.Results))
+	itms := make([]list.Item, 0, len(alerts.Results))
 	for _, a := range alerts.Results {
 		itms = append(itms, &alertItem{
-			ID_:      a.ID,
+			id:       a.ID,
 			name:     a.Name,
 			desc:     a.Description,
 			disabled: a.Disabled,
@@ -189,10 +217,8 @@ func (c *toggleModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height i
 	if len(itms) == 0 {
 		return "there are no alerts", nil, nil
 	}
-	c.m = multiselectlist.New(itms, width, height, multiselectlist.Options{})
-	c.m.StatusMessageLifetime = stylesheet.StatusMessageLifetime
-	c.m.StatusMessageOnSelect = true
-	c.m.Title = "Select alerts to toggle"
+	c.aList = stylesheet.NewList(itms, width, height, "alert", "alerts")
+	c.confirm.Init([]string{"alert selection"}, uint(width), uint(height))
 	return "", nil, nil
 }
 

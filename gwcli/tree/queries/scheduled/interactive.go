@@ -6,16 +6,17 @@ import (
 	"slices"
 	"strconv"
 
+	blist "github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
+	"github.com/gravwell/gravwell/v4/gwcli/bubbles/confirmation"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
 	"github.com/gravwell/gravwell/v4/gwcli/mother"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/hotkeys"
-	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/ingest/log"
@@ -28,18 +29,16 @@ import (
 //#region shared scheduled search item
 
 type ssItem struct {
-	Selected_ bool
-	ID_       string
-	name      string
-	desc      string
-	query     string
-	schedule  string
-	disabled  bool
+	id       string
+	name     string
+	desc     string
+	query    string
+	schedule string
+	disabled bool
 }
 
 func (i ssItem) FilterValue() string { return i.name + i.query + i.desc }
 func (i ssItem) Title() string       { return i.name }
-func (i ssItem) ID() string          { return i.ID_ }
 func (i ssItem) Description() string {
 	state := "enabled"
 	if i.disabled {
@@ -47,18 +46,16 @@ func (i ssItem) Description() string {
 	}
 	return fmt.Sprintf("(%s) [%s] %s", state, i.schedule, i.query)
 }
-func (i *ssItem) SetSelected(selected bool) { i.Selected_ = selected }
-func (i ssItem) Selected() bool             { return i.Selected_ }
 
-func fetchScheduledItems() ([]multiselectlist.SelectableItem[string], error) {
-	list, err := connection.Client.ListScheduledSearches(nil)
+func fetchScheduledItems() ([]blist.Item, error) {
+	l, err := connection.Client.ListScheduledSearches(nil)
 	if err != nil {
 		return nil, err
 	}
-	var itms = make([]multiselectlist.SelectableItem[string], 0, len(list.Results))
-	for _, ss := range list.Results {
+	itms := make([]blist.Item, 0, len(l.Results))
+	for _, ss := range l.Results {
 		itms = append(itms, &ssItem{
-			ID_:      ss.ID,
+			id:       ss.ID,
 			name:     ss.Name,
 			desc:     ss.Description,
 			query:    ss.SearchString,
@@ -67,6 +64,15 @@ func fetchScheduledItems() ([]multiselectlist.SelectableItem[string], error) {
 		})
 	}
 	return slices.Clip(itms), nil
+}
+
+// getScheduledSearch asserts that the currently selected item in l is a *ssItem and returns it.
+func getScheduledSearch(l *blist.Model) (*ssItem, error) {
+	ss, ok := l.SelectedItem().(*ssItem)
+	if !ok {
+		return nil, clilog.TypeAssert(l.SelectedItem(), &ssItem{})
+	}
+	return ss, nil
 }
 
 //#endregion shared scheduled search item
@@ -97,39 +103,79 @@ func cancelAction() action.Pair {
 			return nil
 		},
 	)
-	return action.NewPair(cmd, &ssCancelModel{})
+
+	m := &ssCancelModel{}
+	m.Reset()
+
+	return action.NewPair(cmd, m)
 }
 
 type ssCancelModel struct {
-	m multiselectlist.Model[string]
-}
+	selecting bool
 
-func (c *ssCancelModel) Init() tea.Cmd { return nil }
+	ssList  blist.Model
+	confirm confirmation.Model
+
+	done bool
+}
 
 func (c *ssCancelModel) Update(msg tea.Msg) (cmd tea.Cmd) {
-	c.m, cmd = c.m.Update(msg)
-	if c.m.Done() {
-		selected := c.m.GetSelectedItems()
-		if len(selected) == 0 {
-			c.m.Undone()
-			return c.m.NewStatusMessage("select at least 1 scheduled search")
-		}
-		var cmds []tea.Cmd
-		for _, li := range selected {
-			if err := connection.Client.CancelScheduledSearch(li.ID()); err != nil {
-				cmds = append(cmds, tea.Printf("failed to cancel scheduled search '%s': %v", li.Title(), err))
-				continue
-			}
-			cmds = append(cmds, tea.Printf("successfully cancelled scheduled search '%s'", li.Title()))
-		}
-		cmd = tea.Sequence(cmds...)
+	if c.done {
+		return nil
 	}
-	return cmd
+
+	if c.selecting {
+		if hotkeys.Match(msg, hotkeys.Invoke, hotkeys.Select) {
+			c.selecting = false
+		} else {
+			c.ssList, cmd = c.ssList.Update(msg)
+		}
+		return cmd
+	}
+
+	var (
+		selectionMade, confirmed bool
+		ret                      uint
+	)
+	c.confirm, cmd, selectionMade, confirmed, ret = c.confirm.Update(msg)
+	if !selectionMade {
+		return cmd
+	}
+
+	if !confirmed {
+		if ret != 0 {
+			clilog.Writer.Error("user selected non-0 choice", log.KV("choice", ret), log.KV("confirmation view", c.confirm.View()))
+		}
+		c.selecting = true
+		return nil
+	}
+
+	ss, err := getScheduledSearch(&c.ssList)
+	if err != nil {
+		return tea.Println(err)
+	}
+	c.done = true
+	if err := connection.Client.CancelScheduledSearch(ss.id); err != nil {
+		return tea.Printf("failed to cancel scheduled search '%s': %v", ss.name, err)
+	}
+	return tea.Printf("successfully cancelled scheduled search '%s'", ss.name)
 }
 
-func (c *ssCancelModel) View() string { return c.m.View() }
-func (c *ssCancelModel) Done() bool   { return c.m.Done() }
-func (c *ssCancelModel) Reset() error { c.m = multiselectlist.Model[string]{}; return nil }
+func (c *ssCancelModel) View() string {
+	if c.selecting {
+		return c.ssList.View()
+	}
+	return c.confirm.View()
+}
+
+func (c *ssCancelModel) Done() bool { return c.done }
+func (c *ssCancelModel) Reset() error {
+	c.selecting = true
+	c.ssList = blist.Model{}
+	c.confirm = confirmation.Model{}
+	c.done = false
+	return nil
+}
 
 func (c *ssCancelModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (invalid string, onStart tea.Cmd, err error) {
 	itms, err := fetchScheduledItems()
@@ -140,10 +186,8 @@ func (c *ssCancelModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height
 	if len(itms) == 0 {
 		return "there are no scheduled searches", nil, nil
 	}
-	c.m = multiselectlist.New(itms, width, height, multiselectlist.Options{})
-	c.m.StatusMessageLifetime = stylesheet.StatusMessageLifetime
-	c.m.StatusMessageOnSelect = true
-	c.m.Title = "Select scheduled searches to cancel"
+	c.ssList = stylesheet.NewList(itms, width, height, "scheduled search", "scheduled searches")
+	c.confirm.Init([]string{"scheduled search selection"}, uint(width), uint(height))
 	return "", nil, nil
 }
 
@@ -174,13 +218,20 @@ func backfillToggle() action.Pair {
 			}
 			ss.BackfillEnabled = !ss.BackfillEnabled
 
-			if enable, err := c.Flags().GetBool("enable"); err != nil {
+			enable, err := c.Flags().GetBool("enable")
+			if err != nil {
 				clilog.GetFlag(err)
-			} else if enable {
-				ss.BackfillEnabled = true
 			}
-			if disable, err := c.Flags().GetBool("disable"); err != nil {
+			disable, err := c.Flags().GetBool("disable")
+			if err != nil {
 				clilog.GetFlag(err)
+			}
+			if enable && disable {
+				clilog.Writer.Warn("both enable and disable were set, failing out...")
+				return clilog.ErrInternal{}
+			}
+			if enable {
+				ss.BackfillEnabled = true
 			} else if disable {
 				ss.BackfillEnabled = false
 			}
@@ -199,49 +250,89 @@ func backfillToggle() action.Pair {
 	cmd.Flags().Bool("enable", false, "enable backfill")
 	cmd.Flags().Bool("disable", false, "disable backfill")
 
-	return action.NewPair(cmd, &ssBackfillModel{})
+	m := &ssBackfillModel{}
+	m.Reset()
+
+	return action.NewPair(cmd, m)
 }
 
 type ssBackfillModel struct {
-	m multiselectlist.Model[string]
-}
+	selecting bool
 
-func (c *ssBackfillModel) Init() tea.Cmd { return nil }
+	ssList  blist.Model
+	confirm confirmation.Model
+
+	done bool
+}
 
 func (c *ssBackfillModel) Update(msg tea.Msg) (cmd tea.Cmd) {
-	c.m, cmd = c.m.Update(msg)
-	if c.m.Done() {
-		selected := c.m.GetSelectedItems()
-		if len(selected) == 0 {
-			c.m.Undone()
-			return c.m.NewStatusMessage("select at least 1 scheduled search")
-		}
-		var cmds []tea.Cmd
-		for _, li := range selected {
-			ss, err := connection.Client.GetScheduledSearch(li.ID())
-			if err != nil {
-				cmds = append(cmds, tea.Printf("failed to get scheduled search '%s': %v", li.Title(), err))
-				continue
-			}
-			ss.BackfillEnabled = !ss.BackfillEnabled
-			if err := connection.Client.UpdateScheduledSearch(ss); err != nil {
-				cmds = append(cmds, tea.Printf("failed to toggle backfill for '%s': %v", li.Title(), err))
-				continue
-			}
-			state := "enabled"
-			if !ss.BackfillEnabled {
-				state = "disabled"
-			}
-			cmds = append(cmds, tea.Printf("scheduled search '%s' backfill %s", li.Title(), state))
-		}
-		cmd = tea.Sequence(cmds...)
+	if c.done {
+		return nil
 	}
-	return cmd
+
+	if c.selecting {
+		if hotkeys.Match(msg, hotkeys.Invoke, hotkeys.Select) {
+			c.selecting = false
+		} else {
+			c.ssList, cmd = c.ssList.Update(msg)
+		}
+		return cmd
+	}
+
+	var (
+		selectionMade, confirmed bool
+		ret                      uint
+	)
+	c.confirm, cmd, selectionMade, confirmed, ret = c.confirm.Update(msg)
+	if !selectionMade {
+		return cmd
+	}
+
+	if !confirmed {
+		if ret != 0 {
+			clilog.Writer.Error("user selected non-0 choice", log.KV("choice", ret), log.KV("confirmation view", c.confirm.View()))
+		}
+		c.selecting = true
+		return nil
+	}
+
+	item, err := getScheduledSearch(&c.ssList)
+	if err != nil {
+		return tea.Println(err)
+	}
+	ss, err := connection.Client.GetScheduledSearch(item.id)
+	if err != nil {
+		c.done = true
+		return tea.Printf("failed to get scheduled search '%s': %v", item.name, err)
+	}
+	ss.BackfillEnabled = !ss.BackfillEnabled
+	if err := connection.Client.UpdateScheduledSearch(ss); err != nil {
+		c.done = true
+		return tea.Printf("failed to toggle backfill for '%s': %v", item.name, err)
+	}
+	state := "enabled"
+	if !ss.BackfillEnabled {
+		state = "disabled"
+	}
+	c.done = true
+	return tea.Printf("scheduled search '%s' backfill %s", item.name, state)
 }
 
-func (c *ssBackfillModel) View() string { return c.m.View() }
-func (c *ssBackfillModel) Done() bool   { return c.m.Done() }
-func (c *ssBackfillModel) Reset() error { c.m = multiselectlist.Model[string]{}; return nil }
+func (c *ssBackfillModel) View() string {
+	if c.selecting {
+		return c.ssList.View()
+	}
+	return c.confirm.View()
+}
+
+func (c *ssBackfillModel) Done() bool { return c.done }
+func (c *ssBackfillModel) Reset() error {
+	c.selecting = true
+	c.ssList = blist.Model{}
+	c.confirm = confirmation.Model{}
+	c.done = false
+	return nil
+}
 
 func (c *ssBackfillModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (invalid string, onStart tea.Cmd, err error) {
 	itms, err := fetchScheduledItems()
@@ -252,10 +343,8 @@ func (c *ssBackfillModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, heig
 	if len(itms) == 0 {
 		return "there are no scheduled searches", nil, nil
 	}
-	c.m = multiselectlist.New(itms, width, height, multiselectlist.Options{})
-	c.m.StatusMessageLifetime = stylesheet.StatusMessageLifetime
-	c.m.StatusMessageOnSelect = true
-	c.m.Title = "Select scheduled searches to toggle backfill"
+	c.ssList = stylesheet.NewList(itms, width, height, "scheduled search", "scheduled searches")
+	c.confirm.Init([]string{"scheduled search selection"}, uint(width), uint(height))
 	return "", nil, nil
 }
 
@@ -308,36 +397,38 @@ func setOffset() action.Pair {
 			return nil
 		},
 	)
-	return action.NewPair(cmd, &setOffsetModel{})
+
+	m := &setOffsetModel{}
+	m.Reset()
+
+	return action.NewPair(cmd, m)
 }
 
 type setOffsetModel struct {
-	m     multiselectlist.Model[string]
-	ti    textinput.Model
-	stage soStage
+	ssList blist.Model
+	ti     textinput.Model
+	stage  soStage
 
 	selectedID   string
 	selectedName string
 }
 
-func (c *setOffsetModel) Init() tea.Cmd { return nil }
-
 func (c *setOffsetModel) Update(msg tea.Msg) (cmd tea.Cmd) {
 	switch c.stage {
 	case soStgSelect:
-		c.m, cmd = c.m.Update(msg)
-		if c.m.Done() {
-			selected := c.m.GetSelectedItems()
-			if len(selected) != 1 {
-				c.m.Undone()
-				return c.m.NewStatusMessage("select exactly 1 scheduled search")
+		if hotkeys.Match(msg, hotkeys.Invoke, hotkeys.Select) {
+			ss, err := getScheduledSearch(&c.ssList)
+			if err != nil {
+				c.stage = soStgDone
+				return tea.Println(err)
 			}
-			c.selectedID = selected[0].ID()
-			c.selectedName = selected[0].Title()
+			c.selectedID = ss.id
+			c.selectedName = ss.name
 			c.stage = soStgInput
 			c.ti.Focus()
 			return textinput.Blink
 		}
+		c.ssList, cmd = c.ssList.Update(msg)
 	case soStgInput:
 		if hotkeys.Match(msg, hotkeys.Invoke) {
 			val := c.ti.Value()
@@ -376,7 +467,7 @@ func (c *setOffsetModel) Update(msg tea.Msg) (cmd tea.Cmd) {
 func (c *setOffsetModel) View() string {
 	switch c.stage {
 	case soStgSelect:
-		return c.m.View()
+		return c.ssList.View()
 	case soStgInput:
 		return fmt.Sprintf("Offset (seconds, <= 0) for '%s':\n%s\n\n  %s",
 			c.selectedName,
@@ -389,7 +480,7 @@ func (c *setOffsetModel) View() string {
 func (c *setOffsetModel) Done() bool { return c.stage == soStgDone }
 
 func (c *setOffsetModel) Reset() error {
-	c.m = multiselectlist.Model[string]{}
+	c.ssList = blist.Model{}
 	c.ti = textinput.Model{}
 	c.stage = soStgSelect
 	c.selectedID = ""
@@ -406,10 +497,7 @@ func (c *setOffsetModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, heigh
 	if len(itms) == 0 {
 		return "there are no scheduled searches", nil, nil
 	}
-	c.m = multiselectlist.New(itms, width, height, multiselectlist.Options{})
-	c.m.StatusMessageLifetime = stylesheet.StatusMessageLifetime
-	c.m.StatusMessageOnSelect = true
-	c.m.Title = "Select a scheduled search to set offset"
+	c.ssList = stylesheet.NewList(itms, width, height, "scheduled search", "scheduled searches")
 
 	c.ti = stylesheet.NewTI("", false)
 	c.ti.Placeholder = "-3600"
@@ -447,39 +535,79 @@ func clearResults() action.Pair {
 			return nil
 		},
 	)
-	return action.NewPair(cmd, &ssClearResultsModel{})
+
+	m := &ssClearResultsModel{}
+	m.Reset()
+
+	return action.NewPair(cmd, m)
 }
 
 type ssClearResultsModel struct {
-	m multiselectlist.Model[string]
-}
+	selecting bool
 
-func (c *ssClearResultsModel) Init() tea.Cmd { return nil }
+	ssList  blist.Model
+	confirm confirmation.Model
+
+	done bool
+}
 
 func (c *ssClearResultsModel) Update(msg tea.Msg) (cmd tea.Cmd) {
-	c.m, cmd = c.m.Update(msg)
-	if c.m.Done() {
-		selected := c.m.GetSelectedItems()
-		if len(selected) == 0 {
-			c.m.Undone()
-			return c.m.NewStatusMessage("select at least 1 scheduled search")
-		}
-		var cmds []tea.Cmd
-		for _, li := range selected {
-			if err := connection.Client.ClearScheduledSearchResults(li.ID()); err != nil {
-				cmds = append(cmds, tea.Printf("failed to clear results for '%s': %v", li.Title(), err))
-				continue
-			}
-			cmds = append(cmds, tea.Printf("successfully cleared results for scheduled search '%s'", li.Title()))
-		}
-		cmd = tea.Sequence(cmds...)
+	if c.done {
+		return nil
 	}
-	return cmd
+
+	if c.selecting {
+		if hotkeys.Match(msg, hotkeys.Invoke, hotkeys.Select) {
+			c.selecting = false
+		} else {
+			c.ssList, cmd = c.ssList.Update(msg)
+		}
+		return cmd
+	}
+
+	var (
+		selectionMade, confirmed bool
+		ret                      uint
+	)
+	c.confirm, cmd, selectionMade, confirmed, ret = c.confirm.Update(msg)
+	if !selectionMade {
+		return cmd
+	}
+
+	if !confirmed {
+		if ret != 0 {
+			clilog.Writer.Error("user selected non-0 choice", log.KV("choice", ret), log.KV("confirmation view", c.confirm.View()))
+		}
+		c.selecting = true
+		return nil
+	}
+
+	ss, err := getScheduledSearch(&c.ssList)
+	if err != nil {
+		return tea.Println(err)
+	}
+	c.done = true
+	if err := connection.Client.ClearScheduledSearchResults(ss.id); err != nil {
+		return tea.Printf("failed to clear results for '%s': %v", ss.name, err)
+	}
+	return tea.Printf("successfully cleared results for scheduled search '%s'", ss.name)
 }
 
-func (c *ssClearResultsModel) View() string { return c.m.View() }
-func (c *ssClearResultsModel) Done() bool   { return c.m.Done() }
-func (c *ssClearResultsModel) Reset() error { c.m = multiselectlist.Model[string]{}; return nil }
+func (c *ssClearResultsModel) View() string {
+	if c.selecting {
+		return c.ssList.View()
+	}
+	return c.confirm.View()
+}
+
+func (c *ssClearResultsModel) Done() bool { return c.done }
+func (c *ssClearResultsModel) Reset() error {
+	c.selecting = true
+	c.ssList = blist.Model{}
+	c.confirm = confirmation.Model{}
+	c.done = false
+	return nil
+}
 
 func (c *ssClearResultsModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (invalid string, onStart tea.Cmd, err error) {
 	itms, err := fetchScheduledItems()
@@ -490,10 +618,8 @@ func (c *ssClearResultsModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, 
 	if len(itms) == 0 {
 		return "there are no scheduled searches", nil, nil
 	}
-	c.m = multiselectlist.New(itms, width, height, multiselectlist.Options{})
-	c.m.StatusMessageLifetime = stylesheet.StatusMessageLifetime
-	c.m.StatusMessageOnSelect = true
-	c.m.Title = "Select scheduled searches to clear results"
+	c.ssList = stylesheet.NewList(itms, width, height, "scheduled search", "scheduled searches")
+	c.confirm.Init([]string{"scheduled search selection"}, uint(width), uint(height))
 	return "", nil, nil
 }
 
