@@ -24,6 +24,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
+	"github.com/gravwell/gravwell/v4/gwcli/tree/admin/email"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/admin/groups"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/admin/license"
 	admin_users "github.com/gravwell/gravwell/v4/gwcli/tree/admin/users"
