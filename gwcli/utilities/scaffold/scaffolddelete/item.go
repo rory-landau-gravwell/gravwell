@@ -1,5 +1,5 @@
 /*************************************************************************
- * Copyright 2024 Gravwell, Inc. All rights reserved.
+ * Copyright 2026 Gravwell, Inc. All rights reserved.
  * Contact: <legal@gravwell.io>
  *
  * This software may be modified and distributed under the terms of the
@@ -9,81 +9,55 @@
 package scaffolddelete
 
 import (
-	"io"
-
-	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
+	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
-
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 //#region Item implementation
 
-// Item is the base functions a delete action must provide on the type it wants deleted
+// Item satisfies multiselectlist.SelectableItem and represents a delete-able entity.
 type Item[I scaffold.Id_t] struct {
 	title       string
 	description string
-	id          I // value passed to the delete function
-
+	id          I    // value passed to the delete function
+	selected    bool // selection state for multiselectlist
 }
 
-var _ stylesheet.ListItem = Item[uint64]{}
+var _ multiselectlist.SelectableItem[uint64] = &Item[uint64]{}
 
 // NewItem returns a new item instance with the given basic information and unique identifier.
 func NewItem[I scaffold.Id_t](title, description string, ID I) Item[I] {
 	return Item[I]{title: title, description: description, id: ID}
 }
 
-// FilterValue returns the element of data that is compare against for filtration.
+// FilterValue returns the element of data that is compared against for filtration.
 func (i Item[I]) FilterValue() string {
-	return i.title
+	return i.title + i.description
 }
 
 // Title gets the one-line representation of the item.
 func (i Item[I]) Title() string {
 	return i.title
-
 }
 
-// Description fetches the extra text to be displayed beneath item # and title for additional details.
+// Description fetches the extra text to be displayed beneath item title for additional details.
 func (i Item[I]) Description() string {
 	return i.description
+}
 
+// ID returns the unique identifier for this item.
+func (i Item[I]) ID() I {
+	return i.id
+}
+
+// Selected returns whether this item is currently selected.
+func (i Item[I]) Selected() bool {
+	return i.selected
+}
+
+// SetSelected sets the selection state of this item.
+func (i *Item[I]) SetSelected(selected bool) {
+	i.selected = selected
 }
 
 // #endregion
-// the item delegate defines display format of an item in the list
-type defaultDelegate[I scaffold.Id_t] struct {
-	height     int
-	spacing    int
-	renderFunc func(w io.Writer, m list.Model, index int, listItem list.Item)
-}
-
-func (d defaultDelegate[I]) Height() int                           { return d.height }
-func (d defaultDelegate[I]) Spacing() int                          { return d.spacing }
-func (defaultDelegate[I]) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-func (dd defaultDelegate[I]) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	dd.renderFunc(w, m, index, listItem)
-}
-
-// A DelegateOption is a modifier on the item delegate, typically to change how it is displayed.
-type DelegateOption[I scaffold.Id_t] func(*defaultDelegate[I])
-
-// WithHeight alters the number of lines allocated to each item.
-// Height should be set equal to 1 + the lipgloss.Height of your Item.Details (1+ for Title) if
-// using the default render function.
-// Values above or below that can have... unpredictable... results.
-func WithHeight[I scaffold.Id_t](h int) DelegateOption[I] {
-	return func(dd *defaultDelegate[I]) { dd.height = h }
-}
-
-// WithSpacing alters the number of lines between each item.
-func WithSpacing[I scaffold.Id_t](s int) DelegateOption[I] {
-	return func(dd *defaultDelegate[I]) { dd.spacing = s }
-}
-
-// WithRender alters how each item is displayed in the list of delete-able items, using the given function into of the default item renderer.
-func WithRender[I scaffold.Id_t](f func(w io.Writer, m list.Model, index int, listItem list.Item)) DelegateOption[I] {
-	return func(dd *defaultDelegate[I]) { dd.renderFunc = f }
-}

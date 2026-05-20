@@ -295,7 +295,7 @@ func delete() action.Pair {
 			}
 
 			return items, nil
-		})
+		}, scaffolddelete.Options{})
 }
 
 func modules() action.Pair {

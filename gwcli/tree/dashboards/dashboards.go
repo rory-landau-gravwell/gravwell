@@ -88,7 +88,7 @@ func list(fs *pflag.FlagSet) ([]types.Dashboard, error) {
 
 func newDashboardDeleteAction() action.Pair {
 	return scaffolddelete.NewDeleteAction("dashboard", "dashboards",
-		del, fch)
+		del, fch, scaffolddelete.Options{})
 }
 
 func del(dryrun bool, id uint64) error {

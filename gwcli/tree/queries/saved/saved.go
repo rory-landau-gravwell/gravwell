@@ -209,7 +209,7 @@ func delete() action.Pair {
 					q.ID)
 			}
 			return items, nil
-		})
+		}, scaffolddelete.Options{})
 }
 
 //#endregion delete

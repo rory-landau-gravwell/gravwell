@@ -255,5 +255,5 @@ func delete() action.Pair {
 					m.ID)
 			}
 			return items, nil
-		})
+		}, scaffolddelete.Options{})
 }

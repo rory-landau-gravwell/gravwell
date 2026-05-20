@@ -145,7 +145,7 @@ func delete() action.Pair {
 				items[i] = scaffolddelete.NewItem(user.Name, descriptionLine(user.Admin, user.Email), user.ID)
 			}
 			return items, nil
-		})
+		}, scaffolddelete.Options{})
 }
 
 func edit() action.Pair {

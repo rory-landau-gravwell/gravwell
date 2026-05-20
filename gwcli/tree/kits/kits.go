@@ -111,7 +111,7 @@ func deleteKit() action.Pair {
 				items[i] = scaffolddelete.NewItem(k.KitState.Name, k.KitState.Description, k.UUID.String())
 			}
 			return items, nil
-		})
+		}, scaffolddelete.Options{})
 }
 
 func install() action.Pair {

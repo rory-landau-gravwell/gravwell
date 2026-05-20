@@ -66,5 +66,5 @@ func delete() action.Pair {
 				items[i] = scaffolddelete.NewItem(p.Name, p.Description, p.GUID.String())
 			}
 			return items, nil
-		})
+		}, scaffolddelete.Options{})
 }

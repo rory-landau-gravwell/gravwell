@@ -229,7 +229,7 @@ func deleteAction() action.Pair {
 				items[i] = scaffolddelete.NewItem(f.Name, f.Description, f.ID)
 			}
 			return items, nil
-		})
+		}, scaffolddelete.Options{})
 }
 
 // cancel, backfillToggle, and clearResults are defined in interactive.go

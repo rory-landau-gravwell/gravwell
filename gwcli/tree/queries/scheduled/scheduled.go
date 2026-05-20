@@ -204,7 +204,7 @@ func delete() action.Pair {
 					ssi.ID)
 			}
 			return items, nil
-		})
+		}, scaffolddelete.Options{})
 }
 
 // deletes a scheduled search

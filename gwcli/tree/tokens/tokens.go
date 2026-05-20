@@ -338,7 +338,7 @@ func delete() action.Pair {
 				items[i] = scaffolddelete.NewItem(t.Name, t.Description, t.ID)
 			}
 			return items, nil
-		})
+		}, scaffolddelete.Options{})
 }
 
 func regenerate() action.Pair {
