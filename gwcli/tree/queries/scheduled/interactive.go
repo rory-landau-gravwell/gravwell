@@ -53,7 +53,8 @@ func scheduledItems() ([]*listitem.Generic, error) {
 	return itms, nil
 }
 
-func scheduledSelectableItems(_ *pflag.FlagSet) ([]multiselectlist.SelectableItem[string], error) {
+func scheduledSelectableItems(fs *pflag.FlagSet) ([]multiselectlist.SelectableItem[string], error) {
+	_ = fs
 	base, err := scheduledItems()
 	if err != nil {
 		return nil, err
@@ -106,7 +107,8 @@ func cancelAction() action.Pair {
 		"Cancel one or several currently-executing scheduled searches by ID.",
 		"scheduled search", "scheduled searches",
 		scheduledSelectableItems,
-		func(id string, _ *pflag.FlagSet) (success string, _ error) {
+		func(id string, fs *pflag.FlagSet) (success string, err error) {
+			_ = fs
 			if err := connection.Client.CancelScheduledSearch(id); err != nil {
 				return "", err
 			}
@@ -148,7 +150,7 @@ func backfillToggle() action.Pair {
 			}
 			return itms, nil
 		},
-		func(id string, fs *pflag.FlagSet) (success string, _ error) {
+		func(id string, fs *pflag.FlagSet) (success string, err error) {
 			enable, disable, err := getScheduledBackfillFlags(fs)
 			if err != nil {
 				return "", err
@@ -353,7 +355,8 @@ func clearResults() action.Pair {
 		"Clear the execution results (including errors and state) for one or several scheduled searches.",
 		"scheduled search", "scheduled searches",
 		scheduledSelectableItems,
-		func(id string, _ *pflag.FlagSet) (success string, _ error) {
+		func(id string, fs *pflag.FlagSet) (success string, err error) {
+			_ = fs
 			if err := connection.Client.ClearScheduledSearchResults(id); err != nil {
 				return "", err
 			}
