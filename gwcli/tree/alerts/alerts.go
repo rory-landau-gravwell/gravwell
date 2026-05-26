@@ -1,5 +1,5 @@
 /*************************************************************************
- * Copyright 2025 Gravwell, Inc. All rights reserved.
+ * Copyright 2026 Gravwell, Inc. All rights reserved.
  * Contact: <legal@gravwell.io>
  *
  * This software may be modified and distributed under the terms of the
@@ -10,17 +10,22 @@
 package alerts
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
+	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
+	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	alertscreate "github.com/gravwell/gravwell/v4/gwcli/tree/alerts/create"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldselect"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -112,7 +117,7 @@ func alertsList() action.Pair {
 				}
 
 				if listConsumerID != "" && listDispatcherID != "" {
-					return "--consumer and --dispatcher are mutually exclusive", nil
+					return ft.ErrMutuallyExclusive("consumer", "dispatcher").Error(), nil
 				}
 				return "", nil
 			},
@@ -153,4 +158,99 @@ func delete() action.Pair {
 			}
 			return items, nil
 		}, scaffolddelete.Options{})
+}
+
+var toggleEnable, toggleDisable bool
+
+func toggle() action.Pair {
+	return scaffoldselect.NewSelectAction("enable or disable an alert",
+		"Toggle the enabled state of an alert. Optionally use --enable or --disable to set explicitly.",
+		"alert", "alerts",
+		func(addtlFlags *pflag.FlagSet) ([]multiselectlist.SelectableItem[string], error) {
+			lr, err := connection.Client.ListAlerts(nil)
+			if err != nil {
+				return nil, err
+			}
+
+			// if a flag was specified, hide alerts already in the state of the flag
+			var enable, disable bool
+			if enable, err = addtlFlags.GetBool("enable"); err != nil {
+				clilog.GetFlag(err)
+			}
+			if disable, err = addtlFlags.GetBool("disable"); err != nil {
+				clilog.GetFlag(err)
+			}
+
+			items := make([]multiselectlist.SelectableItem[string], 0, len(lr.Results))
+			for _, alert := range lr.Results {
+				if enable && !alert.Disabled {
+					continue
+				} else if disable && alert.Disabled {
+					continue
+				}
+				items = append(items, &listitem.Generic{
+					Selected_:    false,
+					ID_:          alert.ID,
+					Name:         alert.Name,
+					SecondLine:   alert.Description,
+					ShowDisabled: !enable && !disable, // only if it wasn't explicit
+					Enabled:      !alert.Disabled,
+				})
+			}
+			return items, nil
+		},
+		func(ID string, addtlFlags *pflag.FlagSet) (success string, _ error) {
+			alert, err := connection.Client.GetAlert(ID)
+			if err != nil {
+				return "", err
+			}
+			alert.Disabled = !alert.Disabled
+			if toggleEnable {
+				alert.Disabled = false
+			} else if toggleDisable {
+				alert.Disabled = true
+			}
+			if _, err := connection.Client.UpdateAlert(alert); err != nil {
+				return "", err
+			}
+			verb := "enabled"
+			if alert.Disabled {
+				verb = "disabled"
+			}
+			return fmt.Sprintf("Alert \"%s\" %s", alert.Name, verb), nil
+		},
+		scaffoldselect.Options{
+			CommonOptions: scaffold.CommonOptions{
+				Use: "toggle",
+				AddtlFlags: func() *pflag.FlagSet {
+					fs := &pflag.FlagSet{}
+					fs.Bool("enable", false, "explicitly enable selected alerts. No-op on alerts already enabled. Mutually exclusive with --disable")
+					fs.Bool("disable", false, "explicitly disable selected alerts. No-op on alerts already disabled. Mutually exclusive with --enable")
+					return fs
+				},
+			},
+			NoItemsError: func(fs *pflag.FlagSet) string {
+				if toggleEnable {
+					return "You have no alerts that can be enabled."
+				} else if toggleDisable {
+					return "You have no alerts that can be disabled."
+				}
+				return "You have no alerts that can be toggled."
+			},
+			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+				// ensure !(enable && disable)
+				toggleEnable, err := fs.GetBool("enable")
+				if err != nil {
+					clilog.GetFlag(err)
+				}
+				toggleDisable, err := fs.GetBool("disable")
+				if err != nil {
+					clilog.GetFlag(err)
+				}
+				if toggleEnable && toggleDisable {
+					return ft.ErrMutuallyExclusive("enable", "disable").Error(), nil
+				}
+				return "", nil
+			},
+		})
 }

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/gravwell/gravwell/v4/client"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/bubbles/confirmation"
@@ -52,6 +52,9 @@ func toggleAdmin() action.Pair {
 			// non-interactive path
 			uc, err := connection.Client.GetUser(uid)
 			if err != nil {
+				if strings.Contains(err.Error(), "no such user") {
+					return errors.New("Unknown user ID: " + strconv.FormatInt(int64(uid), 10))
+				}
 				return err
 			}
 
@@ -94,8 +97,8 @@ func setAdmin(u types.User, grant, revoke bool) (success string, _ error) {
 func toggleAdminFlagSet() *pflag.FlagSet {
 	fs := &pflag.FlagSet{}
 	ft.UID.Register(fs)
-	fs.Bool("grant", false, "explicitly grant admin status")
-	fs.Bool("revoke", false, "explicitly revoke admin status")
+	fs.Bool("grant", false, "explicitly grant admin status. No-op if the user is already an admin. Mutually exclusive with --revoke")
+	fs.Bool("revoke", false, "explicitly revoke admin status. No-op if the user is already a normal user. Mutually exclusive with --grant")
 	return fs
 }
 
@@ -105,6 +108,8 @@ func toggleAdminGetFlags(fs *pflag.FlagSet) (uid int32, grant, revoke bool, err 
 	if err != nil {
 		clilog.GetFlag(err)
 		return
+	} else if uid == connection.CurrentUser().ID {
+		return uid, false, false, errors.New("you cannot set your own admin status")
 	}
 	grant, err = fs.GetBool("grant")
 	if err != nil {
@@ -116,6 +121,11 @@ func toggleAdminGetFlags(fs *pflag.FlagSet) (uid int32, grant, revoke bool, err 
 		clilog.GetFlag(err)
 		return
 	}
+
+	if grant && revoke {
+		return uid, grant, revoke, ft.ErrMutuallyExclusive("grant", "revoke")
+	}
+
 	return
 }
 
@@ -127,7 +137,10 @@ type toggleAdminModel struct {
 
 	grant, revoke bool
 
-	uList   list.Model
+	uList list.Model
+
+	selectedUser types.User
+
 	confirm confirmation.Model
 
 	done bool
@@ -135,7 +148,9 @@ type toggleAdminModel struct {
 
 func (c *toggleAdminModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (invalid string, onStart tea.Cmd, err error) {
 	fs := toggleAdminFlagSet()
-
+	if err := fs.Parse(tokens); err != nil {
+		return "", nil, err
+	}
 	uid, grant, revoke, err := toggleAdminGetFlags(fs)
 	if err != nil {
 		return "", nil, err
@@ -144,7 +159,7 @@ func (c *toggleAdminModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, hei
 	if uid != 0 { // if UID was given, we can skip directly to setting
 		u, err := connection.Client.GetUser(uid)
 		if err != nil {
-			if errors.Is(err, client.ErrNotFound) { // TODO I don't think this works; we probably need an Is404Error()
+			if strings.Contains(err.Error(), "no such user") {
 				return "Unknown user ID: " + strconv.FormatInt(int64(uid), 10), nil, nil
 			}
 			return "", nil, err
@@ -164,6 +179,9 @@ func (c *toggleAdminModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, hei
 	}
 	var itms = make([]list.Item, 0, len(users.Results))
 	for _, user := range users.Results {
+		if user.ID == connection.CurrentUser().ID {
+			continue
+		}
 		itms = append(itms, listitem.NewUserItem(user, false))
 	}
 	itms = slices.Clip(itms)
@@ -184,10 +202,24 @@ func (c *toggleAdminModel) Update(msg tea.Msg) (cmd tea.Cmd) {
 		// check for a selection
 		if hotkeys.Match(msg, hotkeys.Invoke, hotkeys.Select) {
 			c.selecting = false // move to confirming
-		} else {
-			c.uList, cmd = c.uList.Update(msg)
-		}
+			var err error
+			if c.selectedUser, err = listitem.GetUser(&c.uList); err != nil {
+				c.done = true // bail out
+				return tea.Println(err)
+			}
+			a, b := "", ""
+			if c.grant || !c.selectedUser.Admin {
+				a = "Granting"
+				b = "to"
+			} else if c.revoke || c.selectedUser.Admin {
+				a = "Revoking"
+				b = "from"
+			}
+			c.confirm.HeaderLines = []string{a + " admin status", b + " " + c.selectedUser.Username}
 
+			return nil
+		}
+		c.uList, cmd = c.uList.Update(msg)
 		return cmd
 	}
 	// we are in confirmation mode
@@ -214,11 +246,7 @@ func (c *toggleAdminModel) Update(msg tea.Msg) (cmd tea.Cmd) {
 	}
 
 	// submit
-	u, err := listitem.GetUser(&c.uList)
-	if err != nil {
-		return tea.Println(err)
-	}
-	success, err := setAdmin(u, c.grant, c.revoke)
+	success, err := setAdmin(c.selectedUser, c.grant, c.revoke)
 	c.done = true
 	if err != nil {
 		return tea.Println(err)
@@ -239,10 +267,16 @@ func (c *toggleAdminModel) Done() bool {
 
 func (c *toggleAdminModel) Reset() error {
 	c.selecting = true
+
 	c.grant = false
 	c.revoke = false
+
 	c.uList = list.Model{}
+
+	c.selectedUser = types.User{}
+
 	c.confirm = confirmation.Model{}
+
 	c.done = false
 	return nil
 }

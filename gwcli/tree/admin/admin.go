@@ -24,7 +24,6 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
-	"github.com/gravwell/gravwell/v4/gwcli/tree/admin/email"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/admin/groups"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/admin/license"
 	admin_users "github.com/gravwell/gravwell/v4/gwcli/tree/admin/users"
@@ -47,7 +46,6 @@ func NewNav() *cobra.Command {
 			groups.NewNav(),
 			admin_users.NewNav(),
 			license.NewNav(),
-			email.NewNav(),
 		},
 		[]action.Pair{
 			cleanup(),
@@ -147,7 +145,7 @@ func cleanup() action.Pair {
 		scaffold.BasicOptions{
 			CommonOptions: scaffold.CommonOptions{
 				Aliases: []string{"clean", "tidy", "purge", "burninate"},
-				Usage:   fmt.Sprintf("cleanup %v %v ...", ft.Mandatory("TARGET1"), ft.Optional("TARGET2")),
+				Usage:   "cleanup " + ft.VariadicArgs("target", true),
 				Example: "cleanup macros secrets",
 			},
 			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
@@ -291,10 +289,11 @@ func backup() action.Pair {
 		},
 		scaffold.BasicOptions{
 			CommonOptions: scaffold.CommonOptions{
+				Usage: fmt.Sprintf("backup %s %s", ft.Optional("flags"), ft.Mandatory("path/to/backup/file")),
 				AddtlFlags: func() *pflag.FlagSet {
 					fs := &pflag.FlagSet{}
 					fs.Bool("include-scheduled-searches", false, "include scheduled searches in the backup")
-					fs.Bool("omit-sensitive", false, "include scheduled searches in the backup")
+					fs.Bool("omit-sensitive", false, "omit sensitive items")
 					fs.String("encrypt", "", "encrypt the backup with the given password. No encryption will be applied if unset.")
 					return fs
 				},
@@ -324,6 +323,9 @@ func restore() action.Pair {
 			return fmt.Sprintf("successfully restored from %s", path), nil
 		},
 		scaffold.BasicOptions{
+			CommonOptions: scaffold.CommonOptions{
+				Usage: fmt.Sprintf("restore %s %s", ft.Optional("flags"), ft.Mandatory("path/to/backup/file")),
+			},
 			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
 				if fs.NArg() != 1 {
 					return phrases.Exactly1ArgRequired("backup file path"), nil
