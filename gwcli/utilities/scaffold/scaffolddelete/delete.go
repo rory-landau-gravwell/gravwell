@@ -27,6 +27,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/mother"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
+	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 
@@ -37,7 +38,7 @@ import (
 )
 
 // DeleteFunc is the driver function for this action; it performs the (faux-, on dryrun) deletion once an item is picked.
-type DeleteFunc[I scaffold.Id_t] func(dryrun bool, id I) error
+type DeleteFunc[I scaffold.Id_t] func(dryrun bool, ID I) error
 
 // FetchFunc is the precursor function; it fetches and formats the list of delete-able items.
 type FetchFunc[I scaffold.Id_t] func() ([]Item[I], error)
@@ -55,14 +56,13 @@ const heightBuffer = 4
 //
 //	--dryrun (SELECT, as a mock deletion)
 //
-//	--id (immediately attempt deletion on the given id(s); may be specified multiple times)
-//
 // You must provide two functions to instantiate a generic delete:
 //
 // DeleteFunc is a function that performs the actual (mock) deletion.
-// It is given the dryrun boolean (so it can select instead) and the ID of th item to trash.
+// It is given the dryrun boolean (so it can select instead) and the IDs of the item to trash.
 //
 // FetchFunc is a function that fetches all delete-able records for the user to pick from.
+// It is primarily used in interactive mode, as this is bypassed if a user states IDs as args.
 func NewDeleteAction[I scaffold.Id_t](
 	singular, plural string,
 	del DeleteFunc[I],
@@ -75,34 +75,40 @@ func NewDeleteAction[I scaffold.Id_t](
 		[]string{},
 		func(c *cobra.Command, s []string) error {
 			// fetch values from flags
-			ids, dryrun, err := fetchFlagValues[I](c.Flags())
+			IDs, dryrun, err := getFlags[I](c.Flags())
 			if err != nil {
 				return err
 			}
 
-			if len(ids) == 0 {
+			if len(IDs) == 0 {
 				if noInteractive, err := c.Flags().GetBool(ft.NoInteractive.Name()); err != nil {
 					return err
 				} else if noInteractive {
-					return errors.New("--id is required in no-interactive mode")
+					return errors.New(phrases.AtLeast1ArgRequired(plural))
 				}
 				// spin up mother
 				return mother.Spawn(c.Root(), c, s)
 			}
 
 			// non-interactive: delete each given id
-			var errs []error
-			for _, id := range ids {
-				if err := del(dryrun, id); err != nil {
-					errs = append(errs, fmt.Errorf("failed to delete %v (ID %v): %w", singular, id, err))
-				} else if dryrun {
-					fmt.Fprintf(c.OutOrStdout(), dryrunSuccessTextF+"\n", singular, id)
+			var atLeastOneSuccess bool
+			for _, ID := range IDs {
+				if err := del(dryrun, ID); err != nil {
+					fmt.Fprintf(c.ErrOrStderr(), "failed to delete %v (ID %v): %v", singular, ID, err)
+					continue
+				}
+				atLeastOneSuccess = true
+				if dryrun {
+					fmt.Fprintf(c.OutOrStdout(), dryrunSuccessTextF+"\n", singular, ID)
 				} else {
-					fmt.Fprintf(c.OutOrStdout(), deleteSuccessTextF+"\n", singular, id)
+					fmt.Fprintf(c.OutOrStdout(), deleteSuccessTextF+"\n", singular, ID)
 				}
 			}
-			return errors.Join(errs...)
-		}, treeutils.GenerateActionOptions{Usage: "--id=" + ft.Mandatory(singular+" id")})
+			if !atLeastOneSuccess {
+				return errors.New("all operations failed")
+			}
+			return nil
+		}, treeutils.GenerateActionOptions{Usage: ft.Optional("flags") + ""}) // TODO this should use the new ft.VariadicArgs
 	fs := flags()
 	cmd.Flags().AddFlagSet(&fs)
 	opts.Apply(cmd)
@@ -110,24 +116,14 @@ func NewDeleteAction[I scaffold.Id_t](
 	return action.NewPair(cmd, d)
 }
 
-// base flagset
 func flags() pflag.FlagSet {
 	fs := pflag.FlagSet{}
 	ft.Dryrun.Register(&fs)
-	fs.StringSlice("id", nil, "ID(s) of item(s) to be deleted (may be specified multiple times)")
 	return fs
 }
 
-// helper function for getting and casting flag values
-func fetchFlagValues[I scaffold.Id_t](fs *pflag.FlagSet) (ids []I, dryrun bool, _ error) {
-	strIDs, err := fs.GetStringSlice("id")
-	if err != nil {
-		return nil, false, err
-	}
-	for _, s := range strIDs {
-		if s == "" {
-			continue
-		}
+func getFlags[I scaffold.Id_t](fs *pflag.FlagSet) (ids []I, dryrun bool, _ error) {
+	for _, s := range fs.Args() {
 		id, err := scaffold.FromString[I](s)
 		if err != nil {
 			return nil, false, err
@@ -324,7 +320,7 @@ func (d *deleteModel[I]) SetArgs(_ *pflag.FlagSet, tokens []string, width, heigh
 	if err := d.flagset.Parse(tokens); err != nil {
 		return err.Error(), nil, nil
 	}
-	ids, dryrun, err := fetchFlagValues[I](&d.flagset)
+	ids, dryrun, err := getFlags[I](&d.flagset)
 	if err != nil {
 		return "", nil, err
 	}
