@@ -15,8 +15,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/group"
+	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	"github.com/gravwell/gravwell/v4/gwcli/internal/testsupport"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
@@ -31,11 +33,23 @@ func TestMain(m *testing.M) {
 // #region test helpers
 
 // testItems returns a set of items suitable for test usage.
-func testItems() []listitem { // TODO generic
-	return []scaffolddelete.Item[uint64]{
-		scaffolddelete.NewItem("alpha", "first item", uint64(1)),
-		scaffolddelete.NewItem("beta", "second item", uint64(2)),
-		scaffolddelete.NewItem("gamma", "third item", uint64(3)),
+func testItems() []listitem.Generic { // TODO generic
+	return []listitem.Generic{
+		listitem.Generic{
+			ID_:        "alpha",
+			Name:       "alph",
+			SecondLine: "first item",
+		},
+		listitem.Generic{
+			ID_:        "beta",
+			Name:       "bet",
+			SecondLine: "second item",
+		},
+		listitem.Generic{
+			ID_:        "gamma",
+			Name:       "gam",
+			SecondLine: "third item",
+		},
 	}
 }
 
@@ -44,11 +58,11 @@ func noopDelete(_ bool, _ uint64) error { return nil }
 
 // trackingDelete records which IDs were deleted and with what dryrun state.
 type trackingDelete struct {
-	deleted []uint64
+	deleted []string
 	dryrun  []bool
 }
 
-func (td *trackingDelete) delete(dryrun bool, id uint64) error {
+func (td *trackingDelete) delete(dryrun bool, id string) error {
 	td.deleted = append(td.deleted, id)
 	td.dryrun = append(td.dryrun, dryrun)
 	return nil
@@ -65,7 +79,7 @@ func failingDelete(_ bool, _ uint64) error {
 }
 
 // newTestCommand creates a rooted delete action cobra command with persistent flags attached.
-func newTestCommand(del func(bool, uint64) error, fch func() ([]scaffolddelete.Item[uint64], error)) *cobra.Command {
+func newTestCommand(del func(bool, string) error, fch func() ([]multiselectlist.SelectableItem[string], error)) *cobra.Command {
 	pair := scaffolddelete.NewDeleteAction("widget", "widgets", del, fch, scaffolddelete.Options{})
 	// Wrap in a root to get persistent flags (like --no-interactive) and groups
 	root := &cobra.Command{Use: "root"}

@@ -301,14 +301,8 @@ func (d *deleteModel[I]) SetArgs(_ *pflag.FlagSet, tokens []string, width, heigh
 		return "", tea.Printf("You have no %v that can be deleted", d.itemPlural), nil
 	}
 
-	// convert items to SelectableItem for the multiselectlist
-	selItems := make([]multiselectlist.SelectableItem[I], len(itms))
-	for i := range itms {
-		selItems[i] = itms[i]
-	}
-
 	adjustedHeight := max(0, height-heightBuffer)
-	d.msl = multiselectlist.New(selItems, width, adjustedHeight, multiselectlist.Options{})
+	d.msl = multiselectlist.New(itms, width, adjustedHeight, multiselectlist.Options{})
 	d.msl.SetShowStatusBar(true)
 	d.msl.StatusMessageLifetime = stylesheet.StatusMessageLifetime
 	d.msl.Title = "Delete " + d.itemPlural
