@@ -53,8 +53,7 @@ func scheduledItems() ([]*listitem.Generic, error) {
 	return itms, nil
 }
 
-func scheduledSelectableItems(fs *pflag.FlagSet) ([]multiselectlist.SelectableItem[string], error) {
-	_ = fs
+func scheduledSelectableItems() ([]multiselectlist.SelectableItem[string], error) {
 	base, err := scheduledItems()
 	if err != nil {
 		return nil, err
@@ -106,9 +105,10 @@ func cancelAction() action.Pair {
 	return scaffoldselect.NewSelectAction("cancel running scheduled searches",
 		"Cancel one or several currently-executing scheduled searches by ID.",
 		"scheduled search", "scheduled searches",
-		scheduledSelectableItems,
-		func(id string, fs *pflag.FlagSet) (success string, err error) {
-			_ = fs
+		func(_ *pflag.FlagSet) ([]multiselectlist.SelectableItem[string], error) {
+			return scheduledSelectableItems()
+		},
+		func(id string, _ *pflag.FlagSet) (success string, err error) {
 			if err := connection.Client.CancelScheduledSearch(id); err != nil {
 				return "", err
 			}
@@ -354,9 +354,10 @@ func clearResults() action.Pair {
 	return scaffoldselect.NewSelectAction("clear results for scheduled searches",
 		"Clear the execution results (including errors and state) for one or several scheduled searches.",
 		"scheduled search", "scheduled searches",
-		scheduledSelectableItems,
-		func(id string, fs *pflag.FlagSet) (success string, err error) {
-			_ = fs
+		func(_ *pflag.FlagSet) ([]multiselectlist.SelectableItem[string], error) {
+			return scheduledSelectableItems()
+		},
+		func(id string, _ *pflag.FlagSet) (success string, err error) {
 			if err := connection.Client.ClearScheduledSearchResults(id); err != nil {
 				return "", err
 			}

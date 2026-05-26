@@ -16,8 +16,7 @@ import (
 
 // This file implements interactive versions of flow actions: cancel, toggle-backfill, and clear-results.
 
-func listFlowItems(fs *pflag.FlagSet) ([]multiselectlist.SelectableItem[string], error) {
-	_ = fs
+func listFlowItems() ([]multiselectlist.SelectableItem[string], error) {
 	baseList, err := connection.Client.ListFlows(nil)
 	if err != nil {
 		return nil, err
@@ -63,9 +62,10 @@ func cancel() action.Pair {
 	return scaffoldselect.NewSelectAction("cancel running flows",
 		"Cancel one or several currently-executing flows by ID or GUID.",
 		"flow", "flows",
-		listFlowItems,
-		func(id string, fs *pflag.FlagSet) (success string, err error) {
-			_ = fs
+		func(_ *pflag.FlagSet) ([]multiselectlist.SelectableItem[string], error) {
+			return listFlowItems()
+		},
+		func(id string, _ *pflag.FlagSet) (success string, err error) {
 			if err := connection.Client.CancelFlow(id); err != nil {
 				return "", err
 			}
@@ -150,9 +150,10 @@ func clearResults() action.Pair {
 	return scaffoldselect.NewSelectAction("clear results for flows",
 		"Clear the execution results (including errors and state) for one or several flows.",
 		"flow", "flows",
-		listFlowItems,
-		func(id string, fs *pflag.FlagSet) (success string, err error) {
-			_ = fs
+		func(_ *pflag.FlagSet) ([]multiselectlist.SelectableItem[string], error) {
+			return listFlowItems()
+		},
+		func(id string, _ *pflag.FlagSet) (success string, err error) {
 			if err := connection.Client.ClearFlowResults(id); err != nil {
 				return "", err
 			}
