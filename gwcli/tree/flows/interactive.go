@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"slices"
 
-	blist "github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/bubbles/confirmation"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	"github.com/gravwell/gravwell/v4/gwcli/mother"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
@@ -24,55 +25,24 @@ import (
 
 // This file implements interactive versions of flow actions: cancel, toggle-backfill, and clear-results.
 
-//#region shared flow item
-
-type flowItem struct {
-	id       string
-	name     string
-	desc     string
-	schedule string
-	disabled bool
-}
-
-func (i flowItem) FilterValue() string { return i.name + i.desc }
-func (i flowItem) Title() string       { return i.name }
-func (i flowItem) Description() string {
-	state := "enabled"
-	if i.disabled {
-		state = "disabled"
-	}
-	return fmt.Sprintf("(%s) [%s] %s", state, i.schedule, i.desc)
-}
-
-// fetchFlowItems returns flow items for use in a blist.Model.
-func fetchFlowItems() ([]blist.Item, error) {
+// listFlowItems returns flow items for use in a list.Model.
+func listFlowItems() ([]list.Item, error) {
 	baseList, err := connection.Client.ListFlows(nil)
 	if err != nil {
 		return nil, err
 	}
-	itms := make([]blist.Item, 0, len(baseList.Results))
+	itms := make([]list.Item, 0, len(baseList.Results))
 	for _, f := range baseList.Results {
-		itms = append(itms, &flowItem{
-			id:       f.ID,
-			name:     f.Name,
-			desc:     f.Description,
-			schedule: f.Schedule,
-			disabled: f.Disabled,
+		itms = append(itms, &listitem.Generic{
+			ID_:          f.ID,
+			Name:         f.Name,
+			SecondLine:   fmt.Sprintf("[%s] %s", f.Schedule, f.Description),
+			ShowDisabled: true,
+			Enabled:      !f.Disabled,
 		})
 	}
 	return slices.Clip(itms), nil
 }
-
-// getFlow asserts that the currently selected item in l is a *flowItem and returns it.
-func getFlow(l *blist.Model) (*flowItem, error) {
-	f, ok := l.SelectedItem().(*flowItem)
-	if !ok {
-		return nil, clilog.TypeAssert(l.SelectedItem(), &flowItem{})
-	}
-	return f, nil
-}
-
-//#endregion shared flow item
 
 //#region cancel
 
@@ -110,7 +80,7 @@ func cancel() action.Pair {
 type cancelModel struct {
 	selecting bool
 
-	fList   blist.Model
+	fList   list.Model
 	confirm confirmation.Model
 
 	done bool
@@ -147,15 +117,15 @@ func (c *cancelModel) Update(msg tea.Msg) (cmd tea.Cmd) {
 		return nil
 	}
 
-	f, err := getFlow(&c.fList)
+	itm, err := listitem.GetGeneric(&c.fList)
 	if err != nil {
 		return tea.Println(err)
 	}
 	c.done = true
-	if err := connection.Client.CancelFlow(f.id); err != nil {
-		return tea.Printf("failed to cancel flow '%s': %v", f.name, err)
+	if err := connection.Client.CancelFlow(itm.ID()); err != nil {
+		return tea.Printf("failed to cancel flow '%s': %v", itm.Name, err)
 	}
-	return tea.Printf("successfully cancelled flow '%s' (ID: %s)", f.name, f.id)
+	return tea.Printf("successfully cancelled flow '%s' (ID: %s)", itm.Name, itm.ID())
 }
 
 func (c *cancelModel) View() string {
@@ -165,17 +135,17 @@ func (c *cancelModel) View() string {
 	return c.confirm.View()
 }
 
-func (c *cancelModel) Done() bool  { return c.done }
+func (c *cancelModel) Done() bool { return c.done }
 func (c *cancelModel) Reset() error {
 	c.selecting = true
-	c.fList = blist.Model{}
+	c.fList = list.Model{}
 	c.confirm = confirmation.Model{}
 	c.done = false
 	return nil
 }
 
 func (c *cancelModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (invalid string, onStart tea.Cmd, err error) {
-	itms, err := fetchFlowItems()
+	itms, err := listFlowItems()
 	if err != nil {
 		clilog.Writer.Error("failed to list flows", log.KV("error", err))
 		return "", nil, fmt.Errorf("failed to list flows")
@@ -256,7 +226,7 @@ func backfillToggle() action.Pair {
 type backfillToggleModel struct {
 	selecting bool
 
-	fList   blist.Model
+	fList   list.Model
 	confirm confirmation.Model
 
 	done bool
@@ -293,26 +263,26 @@ func (c *backfillToggleModel) Update(msg tea.Msg) (cmd tea.Cmd) {
 		return nil
 	}
 
-	f, err := getFlow(&c.fList)
+	itm, err := listitem.GetGeneric(&c.fList)
 	if err != nil {
 		return tea.Println(err)
 	}
-	flow, err := connection.Client.GetFlow(f.id)
+	flow, err := connection.Client.GetFlow(itm.ID())
 	if err != nil {
 		c.done = true
-		return tea.Printf("failed to get flow '%s': %v", f.name, err)
+		return tea.Printf("failed to get flow '%s': %v", itm.Name, err)
 	}
 	flow.BackfillEnabled = !flow.BackfillEnabled
 	if err := connection.Client.UpdateFlow(flow); err != nil {
 		c.done = true
-		return tea.Printf("failed to toggle backfill for flow '%s': %v", f.name, err)
+		return tea.Printf("failed to toggle backfill for flow '%s': %v", itm.Name, err)
 	}
 	state := "enabled"
 	if !flow.BackfillEnabled {
 		state = "disabled"
 	}
 	c.done = true
-	return tea.Printf("flow '%s' backfill %s", f.name, state)
+	return tea.Printf("flow '%s' backfill %s", itm.Name, state)
 }
 
 func (c *backfillToggleModel) View() string {
@@ -325,14 +295,14 @@ func (c *backfillToggleModel) View() string {
 func (c *backfillToggleModel) Done() bool { return c.done }
 func (c *backfillToggleModel) Reset() error {
 	c.selecting = true
-	c.fList = blist.Model{}
+	c.fList = list.Model{}
 	c.confirm = confirmation.Model{}
 	c.done = false
 	return nil
 }
 
 func (c *backfillToggleModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (invalid string, onStart tea.Cmd, err error) {
-	itms, err := fetchFlowItems()
+	itms, err := listFlowItems()
 	if err != nil {
 		clilog.Writer.Error("failed to list flows", log.KV("error", err))
 		return "", nil, fmt.Errorf("failed to list flows")
@@ -383,7 +353,7 @@ func clearResults() action.Pair {
 type clearResultsModel struct {
 	selecting bool
 
-	fList   blist.Model
+	fList   list.Model
 	confirm confirmation.Model
 
 	done bool
@@ -420,15 +390,15 @@ func (c *clearResultsModel) Update(msg tea.Msg) (cmd tea.Cmd) {
 		return nil
 	}
 
-	f, err := getFlow(&c.fList)
+	itm, err := listitem.GetGeneric(&c.fList)
 	if err != nil {
 		return tea.Println(err)
 	}
 	c.done = true
-	if err := connection.Client.ClearFlowResults(f.id); err != nil {
-		return tea.Printf("failed to clear results for flow '%s': %v", f.name, err)
+	if err := connection.Client.ClearFlowResults(itm.ID()); err != nil {
+		return tea.Printf("failed to clear results for flow '%s': %v", itm.Name, err)
 	}
-	return tea.Printf("successfully cleared results for flow '%s' (ID: %s)", f.name, f.id)
+	return tea.Printf("successfully cleared results for flow '%s' (ID: %s)", itm.Name, itm.ID())
 }
 
 func (c *clearResultsModel) View() string {
@@ -441,14 +411,14 @@ func (c *clearResultsModel) View() string {
 func (c *clearResultsModel) Done() bool { return c.done }
 func (c *clearResultsModel) Reset() error {
 	c.selecting = true
-	c.fList = blist.Model{}
+	c.fList = list.Model{}
 	c.confirm = confirmation.Model{}
 	c.done = false
 	return nil
 }
 
 func (c *clearResultsModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (invalid string, onStart tea.Cmd, err error) {
-	itms, err := fetchFlowItems()
+	itms, err := listFlowItems()
 	if err != nil {
 		clilog.Writer.Error("failed to list flows", log.KV("error", err))
 		return "", nil, fmt.Errorf("failed to list flows")
