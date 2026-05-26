@@ -12,18 +12,23 @@ package email
 import (
 	"fmt"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
+	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
+	"github.com/gravwell/gravwell/v4/gwcli/tree/email/send"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldcreate"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/validate"
+	"github.com/gravwell/gravwell/v4/ingest/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -36,6 +41,7 @@ func NewNav() *cobra.Command {
 			show(),
 			configure(),
 			deleteConfig(),
+			send.NewPair(),
 		})
 }
 
@@ -57,10 +63,38 @@ func show() action.Pair {
 				if err != nil {
 					return "", err
 				}
+				if mc.Server == "" {
+					return "you do not have a mail server configured", nil
+				}
 				return fmt.Sprintf("Server: %s\nPort: %d\nUsername: %s\nUseTLS: %v\nInsecureSkipVerify: %v",
 					mc.Server, mc.Port, mc.Username, mc.UseTLS, mc.InsecureSkipVerify), nil
 			},
 		})
+}
+
+const cacheStale = 3 * time.Second
+
+// Used to hit the backend only once to cache fields.
+// Set by the first field called during SetArgs
+var (
+	curEmailCfg     types.UserMailConfig
+	curEmailCfgTime time.Time
+	curEmailMu      sync.Mutex
+)
+
+// fetches the current user's mail configuration from the backend iff it is stale.
+func getCurEmailCfg() types.UserMailConfig {
+	curEmailMu.Lock()
+	defer curEmailMu.Unlock()
+	if time.Since(curEmailCfgTime) > cacheStale { // re-cache
+		curEmailCfgTime = time.Now()
+		var err error
+		curEmailCfg, err = connection.Client.MailConfig()
+		if err != nil {
+			clilog.Writer.Warn("failed to cache mail config", log.KVErr(err))
+		}
+	}
+	return curEmailCfg
 }
 
 func configure() action.Pair {
@@ -71,10 +105,15 @@ func configure() action.Pair {
 				Required: true,
 				Flag: scaffoldcreate.FlagConfig{
 					Name:  "email-server",
-					Usage: "the host connection string to reach the mail server", // TODO
+					Usage: "the host connection string to reach the mail server",
 				},
-				Order:    200,
-				Provider: &scaffoldcreate.TextProvider{},
+				Order: 200,
+				Provider: &scaffoldcreate.TextProvider{
+					CustomSetArgs: func(m textinput.Model) textinput.Model {
+						m.SetValue(getCurEmailCfg().Server)
+						return m
+					},
+				},
 			},
 			"user": {
 				Title:    "Username",
@@ -83,8 +122,13 @@ func configure() action.Pair {
 					Name:  "email-username",
 					Usage: "the username to authenticate with the email server as",
 				},
-				Order:    180,
-				Provider: &scaffoldcreate.TextProvider{},
+				Order: 180,
+				Provider: &scaffoldcreate.TextProvider{
+					CustomSetArgs: func(m textinput.Model) textinput.Model {
+						m.SetValue(getCurEmailCfg().Username)
+						return m
+					},
+				},
 			},
 			"pass": scaffoldcreate.FieldPassword(
 				false,
@@ -114,6 +158,13 @@ func configure() action.Pair {
 						}
 						return ti
 					},
+					CustomSetArgs: func(m textinput.Model) textinput.Model {
+						cur := getCurEmailCfg()
+						if cur.Server != "" {
+							m.SetValue(strconv.FormatInt(int64(cur.Port), 10))
+						}
+						return m
+					},
 				},
 			},
 			"tls": {
@@ -122,8 +173,10 @@ func configure() action.Pair {
 					Name:  "tls",
 					Usage: "Enable TLS encryption for this connection?",
 				},
-				Order:    120,
-				Provider: &scaffoldcreate.BoolProvider{},
+				Order: 120,
+				Provider: &scaffoldcreate.BoolProvider{CustomSetArgs: func() bool {
+					return getCurEmailCfg().UseTLS
+				}},
 			},
 			"verifyCerts": {
 				Title: "Verify TLS Certs?",
@@ -131,8 +184,12 @@ func configure() action.Pair {
 					Name:  "verify-certificate",
 					Usage: "Verify TLS certificates for this connection?",
 				},
-				Order:    100,
-				Provider: &scaffoldcreate.BoolProvider{},
+				Order: 100,
+				Provider: &scaffoldcreate.BoolProvider{CustomSetArgs: func() bool {
+					cur := getCurEmailCfg()
+					// only bother to set if a configuration exists at all
+					return cur.Server != "" && !cur.InsecureSkipVerify
+				}},
 			},
 		},
 		func(fields map[string]scaffoldcreate.Field, fs *pflag.FlagSet) (id any, invalid string, err error) {
@@ -155,7 +212,20 @@ func configure() action.Pair {
 				verifyCerts = b
 			}
 
-			return 0, "", connection.Client.ConfigureMail(
+			// to prevent clobbering the password, do not make an update if everything is the same and password is empty
+			if cur, err := connection.Client.MailConfig(); err != nil {
+				return nil, "", fmt.Errorf("failed to check current mail configuration: %w", err)
+			} else if cur.Username == fields["user"].Provider.Get() &&
+				cur.Password == "" &&
+				cur.Server == fields["server"].Provider.Get() &&
+				cur.Port == int(port) &&
+				cur.UseTLS == tls && cur.InsecureSkipVerify == !verifyCerts {
+				clilog.Writer.Info("no changes made")
+				return nil, "", nil
+			}
+
+			clilog.Writer.Info("updating email configuration...")
+			return nil, "", connection.Client.ConfigureMail(
 				fields["user"].Provider.Get(),
 				fields["pass"].Provider.Get(),
 				fields["server"].Provider.Get(),
@@ -163,11 +233,10 @@ func configure() action.Pair {
 				tls,
 				!verifyCerts,
 			)
-			// TODO where/when does validation occur if we call this non-interactively?
 		},
-		// TODO prepop fields with default values
 		scaffoldcreate.Options{
 			CommonOptions: scaffold.CommonOptions{
+				Use:     "configure",
 				Aliases: []string{"add", "create", "update"},
 			},
 			Short: "configure email settings",

@@ -14,13 +14,13 @@ package groups
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
-	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
+	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldcreate"
@@ -28,19 +28,12 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldedit"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
-	"github.com/gravwell/gravwell/v4/gwcli/utilities/validate"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
 
 func NewNav() *cobra.Command {
-	const (
-		use   string = "groups"
-		short string = "manage groups"
-		long  string = "View and edit groups"
-	)
-
-	return treeutils.GenerateNav(use, short, long, []string{"group"},
+	return treeutils.GenerateNav("groups", "manage groups", "View and interact with groups and group membership.", []string{"group"},
 		nil,
 		[]action.Pair{
 			listGroups(),
@@ -61,14 +54,16 @@ func NewNav() *cobra.Command {
 
 // lists all groups the current user is able to see
 func listGroups() action.Pair {
-	return scaffoldlist.NewListAction("list groups", "Retrieves a list of groups available on the system",
+	return scaffoldlist.NewListAction("list groups", "Retrieves the list of groups available on the system",
 		types.Group{},
 		func(fs *pflag.FlagSet) ([]types.Group, error) {
 			resp, err := connection.Client.ListGroups(nil)
 			return resp.Results, err
 		},
 		nil,
-		scaffoldlist.Options{})
+		scaffoldlist.Options{
+			DefaultColumns: []string{"ID", "Name", "Description"},
+		})
 }
 
 func create() action.Pair {
@@ -83,7 +78,7 @@ func create() action.Pair {
 				Name:        fields["name"].Provider.Get(),
 				Description: fields["desc"].Provider.Get(),
 			})
-			return result.Name, "", err
+			return result.ID, "", err
 		}, scaffoldcreate.Options{})
 }
 
@@ -113,21 +108,6 @@ func edit() action.Pair {
 	cfg := scaffoldedit.Config{
 		"name":        scaffoldedit.FieldName("group"),
 		"description": scaffoldedit.FieldDescription("group"),
-		"search priority": &scaffoldedit.Field{
-			Title: "Search Priority",
-			Usage: "Set the search priority of the group",
-			Order: 80,
-			CustomTIFuncInit: func() textinput.Model {
-				ti := stylesheet.NewTI("0", true)
-				ti.Validate = func(s string) error {
-					if err := validate.Numeric(s); err != nil {
-						return fmt.Errorf("Search Priority: %w", err)
-					}
-					return nil
-				}
-				return ti
-			},
-		},
 	}
 	funcs := scaffoldedit.SubroutineSet[int32, types.Group]{
 		SelectSub: func(id int32) (types.Group, error) {
@@ -150,8 +130,6 @@ func edit() action.Pair {
 				return item.Name, nil
 			case "description":
 				return item.Description, nil
-			case "search priority":
-				return strconv.FormatInt(int64(item.SearchPriority), 10), nil
 			}
 			return "", fmt.Errorf("unknown field key: %v", fieldKey)
 		},
@@ -161,16 +139,6 @@ func edit() action.Pair {
 				item.Name = val
 			case "description":
 				item.Description = val
-			case "search priority":
-				if err := validate.Numeric(val); err != nil {
-					return "", err
-				}
-				sp, err := strconv.ParseInt(val, 10, 32)
-				if err != nil {
-					return "", err
-				}
-
-				item.SearchPriority = int(sp)
 			default:
 				return "", fmt.Errorf("unknown field key: %v", fieldKey)
 			}
@@ -196,7 +164,12 @@ func listUsers() action.Pair {
 		},
 		nil,
 		scaffoldlist.Options{
-			CommonOptions:  scaffold.CommonOptions{Use: "users"},
+			CommonOptions: scaffold.CommonOptions{
+				Use: "users",
+				Usage: "users " + ft.MutuallyExclusive([]string{"--csv", "--json", "--table"}) +
+					" " + ft.Optional("flags") + " " + ft.Mandatory("group ID"),
+				Example: "users 2",
+			},
 			DefaultColumns: []string{"ID", "Username", "Name", "Email", "Admin"},
 			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
 				listUsersGID = 0 // ensure it is wiped
@@ -208,7 +181,16 @@ func listUsers() action.Pair {
 					return fs.Arg(0) + " is not a valid group ID", nil
 				}
 				listUsersGID = int32(gid)
+				// test that the GID points to a valid group
+				if _, err := connection.Client.GetGroup(int32(gid)); err != nil {
+					// GetGroup's NotFound equivalent is "sql: no rows in result set"
+					if strings.Contains(err.Error(), "sql: no rows in result set") {
+						return fmt.Sprintf("%d is not a known group ID", gid), nil
+					}
+					return "", err
+				}
 				return "", nil
 			},
+			EmptyMessage: "this group has no users",
 		})
 }

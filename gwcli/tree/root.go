@@ -35,6 +35,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/tree/admin"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/alerts"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/dashboards"
+	"github.com/gravwell/gravwell/v4/gwcli/tree/email"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/extractors"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/files"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/flows"
@@ -352,6 +353,7 @@ func Execute(args []string, stdout, stderr io.Writer) int {
 	var cmdFn = []func() *cobra.Command{
 		admin.NewNav,
 		alerts.NewAlertsNav,
+		email.NewNav,
 		extractors.NewExtractorsNav,
 		files.NewNav,
 		flows.NewNav,
@@ -389,6 +391,7 @@ func Execute(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(c.OutOrStdout(), "gwcli %s %s", ft.Optional("flags"), ft.Optional("subcommand path"))
 		return nil
 	})
+	rootCmd.SilenceErrors = true // we will print errors ourself
 
 	err := rootCmd.Execute()
 	if err != nil {
