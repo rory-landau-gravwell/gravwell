@@ -13,7 +13,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
+	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
@@ -56,15 +58,21 @@ func delete() action.Pair {
 			}
 			return connection.Client.DeletePivot(uid)
 		},
-		func() ([]scaffolddelete.Item[string], error) {
+		func() ([]multiselectlist.SelectableItem[string], error) {
 			pivots, err := connection.Client.ListPivots()
 			if err != nil {
 				return nil, err
 			}
-			var items = make([]scaffolddelete.Item[string], len(pivots))
+			var items = make([]multiselectlist.SelectableItem[string], len(pivots))
 			for i, p := range pivots {
-				items[i] = scaffolddelete.NewItem(p.Name, p.Description, p.GUID.String())
+				items[i] = &listitem.Generic{
+					Selected_:  false,
+					ID_:        p.ThingUUID.String(), // TODO replace with p.ID when pivots/actionables are registry-ready
+					Name:       p.Name,
+					SecondLine: p.Description,
+				}
 			}
+
 			return items, nil
 		}, scaffolddelete.Options{})
 }

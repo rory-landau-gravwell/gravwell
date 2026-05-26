@@ -16,8 +16,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
+	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
@@ -101,15 +103,21 @@ func deleteKit() action.Pair {
 			}
 			return connection.Client.DeleteKit(id)
 		},
-		func() ([]scaffolddelete.Item[string], error) {
-			kits, err := connection.Client.ListKits()
+		func() ([]multiselectlist.SelectableItem[string], error) {
+			pkgs, err := connection.Client.ListKits()
 			if err != nil {
 				return nil, err
 			}
-			var items = make([]scaffolddelete.Item[string], len(kits))
-			for i, k := range kits {
-				items[i] = scaffolddelete.NewItem(k.KitState.Name, k.KitState.Description, k.UUID.String())
+			var items = make([]multiselectlist.SelectableItem[string], len(pkgs))
+			for i, kit := range pkgs {
+				items[i] = &listitem.Generic{
+					Selected_:  false,
+					ID_:        kit.ID,
+					Name:       kit.Name,
+					SecondLine: kit.Description,
+				}
 			}
+
 			return items, nil
 		}, scaffolddelete.Options{})
 }
