@@ -41,7 +41,7 @@ import (
 type DeleteFunc[I scaffold.Id_t] func(dryrun bool, ID I) error
 
 // FetchFunc is the precursor function; it fetches and formats the list of delete-able items.
-type FetchFunc[I scaffold.Id_t] func() ([]Item[I], error)
+type FetchFunc[I scaffold.Id_t] func() ([]multiselectlist.SelectableItem[I], error)
 
 const (
 	dryrunSuccessTextF = "DRYRUN: %v (ID %v) would have been deleted"
@@ -304,7 +304,7 @@ func (d *deleteModel[I]) SetArgs(_ *pflag.FlagSet, tokens []string, width, heigh
 	// convert items to SelectableItem for the multiselectlist
 	selItems := make([]multiselectlist.SelectableItem[I], len(itms))
 	for i := range itms {
-		selItems[i] = &itms[i]
+		selItems[i] = itms[i]
 	}
 
 	adjustedHeight := max(0, height-heightBuffer)

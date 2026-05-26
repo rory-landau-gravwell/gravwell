@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 // #region test helpers
 
 // testItems returns a set of items suitable for test usage.
-func testItems() []scaffolddelete.Item[uint64] {
+func testItems() []listitem { // TODO generic
 	return []scaffolddelete.Item[uint64]{
 		scaffolddelete.NewItem("alpha", "first item", uint64(1)),
 		scaffolddelete.NewItem("beta", "second item", uint64(2)),
