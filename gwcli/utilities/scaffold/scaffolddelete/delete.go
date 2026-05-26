@@ -256,7 +256,7 @@ func (d *deleteModel[I]) buildConfirmHeader() {
 	var lines []string
 	lines = append(lines, fmt.Sprintf("Deleting %d %v:", len(selected), d.itemPlural))
 	for _, itm := range selected {
-		lines = append(lines, fmt.Sprintf("  • %v (ID %v)", itm.Title(), itm.ID()))
+		lines = append(lines, fmt.Sprintf("  • %v", itm.Title()))
 	}
 	d.confirm.HeaderLines = lines
 }
