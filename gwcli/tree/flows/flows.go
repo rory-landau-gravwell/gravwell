@@ -37,7 +37,7 @@ func NewNav() *cobra.Command {
 		[]string{"flow"},
 		nil,
 		[]action.Pair{
-			list(),
+			listFlows(),
 			importCreate(),
 			download(),
 			deleteAction(),
@@ -50,7 +50,7 @@ func NewNav() *cobra.Command {
 
 //#region list
 
-func list() action.Pair {
+func listFlows() action.Pair {
 	return scaffoldlist.NewListAction("list flows", "Lists information about flows you can access.",
 		types.Flow{},
 		func(fs *pflag.FlagSet) ([]types.Flow, error) {
