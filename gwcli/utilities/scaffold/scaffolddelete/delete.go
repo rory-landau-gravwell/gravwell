@@ -10,9 +10,9 @@
 Package scaffolddelete provides a template for building actions that delete/destroy data.
 
 A delete action consumes a list of delete-able items, allowing the user to select one or more
-interactively (via a multiselectlist) or by passing one or more IDs via the --id flag.
+interactively (via a multiselectlist) or by passing one or more IDs as bare arguments.
 
-Delete actions have the --dryrun and --id default flags.
+Delete actions have the --dryrun default flag.
 */
 package scaffolddelete
 

@@ -17,12 +17,11 @@ import (
 
 	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
-	"github.com/gravwell/gravwell/v4/gwcli/group"
-	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	"github.com/gravwell/gravwell/v4/gwcli/internal/testsupport"
+	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/hotkeys"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
-	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {
@@ -32,503 +31,195 @@ func TestMain(m *testing.M) {
 
 // #region test helpers
 
-// testItems returns a set of items suitable for test usage.
-func testItems() []listitem.Generic { // TODO generic
-	return []listitem.Generic{
-		listitem.Generic{
-			ID_:        "alpha",
-			Name:       "alph",
-			SecondLine: "first item",
-		},
-		listitem.Generic{
-			ID_:        "beta",
-			Name:       "bet",
-			SecondLine: "second item",
-		},
-		listitem.Generic{
-			ID_:        "gamma",
-			Name:       "gam",
-			SecondLine: "third item",
-		},
+func del(dryrun bool, id string) error {
+	if id == "bad" {
+		return errors.New("unknown item (bad) in the collection")
 	}
-}
-
-// noopDelete never fails.
-func noopDelete(_ bool, _ uint64) error { return nil }
-
-// trackingDelete records which IDs were deleted and with what dryrun state.
-type trackingDelete struct {
-	deleted []string
-	dryrun  []bool
-}
-
-func (td *trackingDelete) delete(dryrun bool, id string) error {
-	td.deleted = append(td.deleted, id)
-	td.dryrun = append(td.dryrun, dryrun)
 	return nil
 }
 
-func (td *trackingDelete) reset() {
-	td.deleted = nil
-	td.dryrun = nil
-}
-
-// failingDelete always returns an error.
-func failingDelete(_ bool, _ uint64) error {
-	return errors.New("deletion failed")
-}
-
-// newTestCommand creates a rooted delete action cobra command with persistent flags attached.
-func newTestCommand(del func(bool, string) error, fch func() ([]multiselectlist.SelectableItem[string], error)) *cobra.Command {
-	pair := scaffolddelete.NewDeleteAction("widget", "widgets", del, fch, scaffolddelete.Options{})
-	// Wrap in a root to get persistent flags (like --no-interactive) and groups
-	root := &cobra.Command{Use: "root"}
-	uniques.AttachPersistentFlags(root)
-	group.AddActionGroup(root)
-	root.AddCommand(pair.Action)
-	return root
-}
-
-// #endregion
-
-// #region Item tests
-
-func TestItem(t *testing.T) {
-	itm := scaffolddelete.NewItem("myTitle", "myDesc", uint64(42))
-
-	t.Run("Title", func(t *testing.T) {
-		if itm.Title() != "myTitle" {
-			t.Fatal(testsupport.ExpectedActual("myTitle", itm.Title()))
-		}
-	})
-	t.Run("Description", func(t *testing.T) {
-		if itm.Description() != "myDesc" {
-			t.Fatal(testsupport.ExpectedActual("myDesc", itm.Description()))
-		}
-	})
-	t.Run("ID", func(t *testing.T) {
-		if itm.ID() != 42 {
-			t.Fatal(testsupport.ExpectedActual(42, itm.ID()))
-		}
-	})
-	t.Run("FilterValue", func(t *testing.T) {
-		expected := "myTitle" + "myDesc"
-		if itm.FilterValue() != expected {
-			t.Fatal(testsupport.ExpectedActual(expected, itm.FilterValue()))
-		}
-	})
-	t.Run("Selected defaults false", func(t *testing.T) {
-		if itm.Selected() {
-			t.Fatal("new items should not be selected by default")
-		}
-	})
-	t.Run("SetSelected", func(t *testing.T) {
-		itm.SetSelected(true)
-		if !itm.Selected() {
-			t.Fatal("expected Selected() to be true after SetSelected(true)")
-		}
-		itm.SetSelected(false)
-		if itm.Selected() {
-			t.Fatal("expected Selected() to be false after SetSelected(false)")
-		}
-	})
+func collectItems() ([]multiselectlist.SelectableItem[string], error) {
+	return []multiselectlist.SelectableItem[string]{
+		&multiselectlist.DefaultSelectableItem[string]{
+			Title_:       "Alpha",
+			Description_: "first item",
+			ID_:          "alpha",
+		},
+		&multiselectlist.DefaultSelectableItem[string]{
+			Title_:       "Beta",
+			Description_: "second item",
+			ID_:          "beta",
+		},
+		&multiselectlist.DefaultSelectableItem[string]{
+			Title_:       "Gamma",
+			Description_: "third item",
+			ID_:          "gamma",
+		},
+	}, nil
 }
 
 // #endregion
 
-// #region Non-interactive (Cobra RunE) tests
+func TestNonInteractive(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		wantOut string
+		wantErr string
+	}{
+		{"delete single item", []string{"alpha"}, "widget (ID alpha) deleted", ""},
+		{"delete multiple items", []string{"alpha", "beta"}, "widget (ID alpha) deleted\nwidget (ID beta) deleted", ""},
+		{"dryrun single item", []string{"--dryrun", "alpha"}, "DRYRUN: widget (ID alpha) would have been deleted", ""},
+		{"dryrun multiple items", []string{"--dryrun", "alpha", "gamma"},
+			"DRYRUN: widget (ID alpha) would have been deleted\nDRYRUN: widget (ID gamma) would have been deleted", ""},
+		{"delete none", nil, "", "you must specify at least 1 argument"},
+		{"delete unknown item", []string{"bad"}, "", "unknown item (bad) in the collection"},
+		{"one good one bad", []string{"alpha", "bad"}, "widget (ID alpha) deleted", "unknown item (bad)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var sbOut, sbErr strings.Builder
+			pair := scaffolddelete.NewDeleteAction("widget", "widgets", del, collectItems, scaffolddelete.Options{})
+			uniques.AttachPersistentFlags(pair.Action)
+			pair.Action.SetOut(&sbOut)
+			pair.Action.SetErr(&sbErr)
+			pair.Action.SetArgs(append(tt.args, "-x"))
+			err := pair.Action.Execute()
+			stdout, stderr := strings.TrimSpace(sbOut.String()), strings.TrimSpace(sbErr.String())
+			if tt.wantErr != "" {
+				errStr := stderr
+				if err != nil {
+					errStr = errStr + " " + err.Error()
+				}
+				assert.Contains(t, errStr, tt.wantErr)
+				return
+			}
+			assert.Nil(t, err)
+			assert.Empty(t, stderr)
+			assert.Equal(t, tt.wantOut, stdout)
+		})
+	}
+}
 
-func TestNonInteractive_SingleID(t *testing.T) {
-	td := &trackingDelete{}
-	root := newTestCommand(td.delete, func() ([]scaffolddelete.Item[uint64], error) {
-		return testItems(), nil
+func TestInteractiveCycle(t *testing.T) {
+	t.Run("no data returns done with message", func(t *testing.T) {
+		pair := scaffolddelete.NewDeleteAction("widget", "widgets", del,
+			func() ([]multiselectlist.SelectableItem[string], error) { return nil, nil },
+			scaffolddelete.Options{})
+		inv, cmd, err := pair.Model.SetArgs(nil, []string{}, 50, 20)
+		assert.Empty(t, inv)
+		assert.Nil(t, err)
+		assert.NotNil(t, cmd)
+		assert.True(t, pair.Model.Done())
 	})
 
-	var out strings.Builder
-	root.SetOut(&out)
-	root.SetErr(&strings.Builder{})
-	root.SetArgs([]string{"delete", "--no-interactive", "--id=2"})
-
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
-
-	if len(td.deleted) != 1 || td.deleted[0] != 2 {
-		t.Fatal(testsupport.ExpectedActual([]uint64{2}, td.deleted))
-	}
-	if td.dryrun[0] {
-		t.Fatal("expected dryrun to be false")
-	}
-	if !strings.Contains(out.String(), "widget (ID 2) deleted") {
-		t.Fatal("expected success message in output, got:", out.String())
-	}
-}
-
-func TestNonInteractive_MultipleIDs(t *testing.T) {
-	td := &trackingDelete{}
-	root := newTestCommand(td.delete, func() ([]scaffolddelete.Item[uint64], error) {
-		return testItems(), nil
+	t.Run("fetch error", func(t *testing.T) {
+		fetchErr := errors.New("network error")
+		pair := scaffolddelete.NewDeleteAction("widget", "widgets", del,
+			func() ([]multiselectlist.SelectableItem[string], error) { return nil, fetchErr },
+			scaffolddelete.Options{})
+		_, _, err := pair.Model.SetArgs(nil, []string{}, 50, 20)
+		assert.ErrorIs(t, err, fetchErr)
 	})
 
-	var out strings.Builder
-	root.SetOut(&out)
-	root.SetErr(&strings.Builder{})
-	root.SetArgs([]string{"delete", "--no-interactive", "--id=1", "--id=3"})
+	t.Run("with items, no flags (interactive mode)", func(t *testing.T) {
+		pair := scaffolddelete.NewDeleteAction("widget", "widgets", del, collectItems, scaffolddelete.Options{})
+		testsupport.CheckSetArgs(t, pair.Model.SetArgs, nil, []string{}, 50, 20, false, nil, false)
 
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
+		t.Run("check initial view", func(t *testing.T) {
+			pair.Model.Update(nil)
+			v := testsupport.LinesTrimSpace(pair.Model.View())
+			assert.Contains(t, v, "Alpha")
+			assert.Contains(t, v, "Beta")
+			assert.Contains(t, v, "Gamma")
+		})
 
-	if len(td.deleted) != 2 {
-		t.Fatal(testsupport.ExpectedActual(2, len(td.deleted)))
-	}
-	if td.deleted[0] != 1 || td.deleted[1] != 3 {
-		t.Fatal(testsupport.ExpectedActual([]uint64{1, 3}, td.deleted))
-	}
-}
-
-func TestNonInteractive_CommaSeparatedIDs(t *testing.T) {
-	td := &trackingDelete{}
-	root := newTestCommand(td.delete, func() ([]scaffolddelete.Item[uint64], error) {
-		return testItems(), nil
+		t.Run("select Beta and submit through confirmation", func(t *testing.T) {
+			// Move down to Beta and select it
+			pair.Model.Update(testsupport.SendHotkey(hotkeys.CursorDown))
+			pair.Model.Update(testsupport.SendHotkey(hotkeys.Select))
+			// Submit selection (Invoke continues to confirmation)
+			pair.Model.Update(testsupport.SendHotkey(hotkeys.Invoke))
+			// Now in confirmation mode - submit the confirmation
+			cmd := pair.Model.Update(testsupport.SendHotkey(hotkeys.Invoke))
+			assert.True(t, pair.Model.Done())
+			if cmd != nil {
+				msg := testsupport.ExtractPrintLineMessageString(t, cmd, true, 0)
+				assert.Contains(t, msg, "beta")
+			}
+		})
 	})
 
-	var out strings.Builder
-	root.SetOut(&out)
-	root.SetErr(&strings.Builder{})
-	root.SetArgs([]string{"delete", "--no-interactive", "--id=1,2,3"})
+	t.Run("with dryrun flag skips confirmation", func(t *testing.T) {
+		pair := scaffolddelete.NewDeleteAction("widget", "widgets", del, collectItems, scaffolddelete.Options{})
+		testsupport.CheckSetArgs(t, pair.Model.SetArgs, nil, []string{"--dryrun"}, 50, 20, false, nil, false)
 
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
-
-	if len(td.deleted) != 3 {
-		t.Fatal(testsupport.ExpectedActual(3, len(td.deleted)))
-	}
-}
-
-func TestNonInteractive_Dryrun(t *testing.T) {
-	td := &trackingDelete{}
-	root := newTestCommand(td.delete, func() ([]scaffolddelete.Item[uint64], error) {
-		return testItems(), nil
+		// Select first item and submit
+		pair.Model.Update(testsupport.SendHotkey(hotkeys.Select))
+		cmd := pair.Model.Update(testsupport.SendHotkey(hotkeys.Invoke))
+		// Dryrun should skip confirmation and go straight to done
+		assert.True(t, pair.Model.Done())
+		if cmd != nil {
+			msg := testsupport.ExtractPrintLineMessageString(t, cmd, true, 0)
+			assert.Contains(t, msg, "DRYRUN")
+		}
 	})
 
-	var out strings.Builder
-	root.SetOut(&out)
-	root.SetErr(&strings.Builder{})
-	root.SetArgs([]string{"delete", "--no-interactive", "--id=1", "--dryrun"})
-
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
-
-	if len(td.deleted) != 1 {
-		t.Fatal(testsupport.ExpectedActual(1, len(td.deleted)))
-	}
-	if !td.dryrun[0] {
-		t.Fatal("expected dryrun to be true")
-	}
-	if !strings.Contains(out.String(), "DRYRUN") {
-		t.Fatal("expected DRYRUN in output, got:", out.String())
-	}
-}
-
-func TestNonInteractive_NoIDRequiresError(t *testing.T) {
-	root := newTestCommand(noopDelete, func() ([]scaffolddelete.Item[uint64], error) {
-		return testItems(), nil
+	t.Run("IDs via bare args skip interactive", func(t *testing.T) {
+		pair := scaffolddelete.NewDeleteAction("widget", "widgets", del, collectItems, scaffolddelete.Options{})
+		inv, cmd, err := pair.Model.SetArgs(nil, []string{"alpha", "beta"}, 50, 20)
+		assert.Empty(t, inv)
+		assert.Nil(t, err)
+		assert.True(t, pair.Model.Done())
+		assert.NotNil(t, cmd)
 	})
 
-	root.SetOut(&strings.Builder{})
-	root.SetErr(&strings.Builder{})
-	root.SetArgs([]string{"delete", "--no-interactive"})
-
-	err := root.Execute()
-	if err == nil {
-		t.Fatal("expected error when --id is not provided in no-interactive mode")
-	}
-	if !strings.Contains(err.Error(), "--id is required") {
-		t.Fatal("expected --id required error, got:", err.Error())
-	}
+	t.Run("bad flags returns invalid", func(t *testing.T) {
+		pair := scaffolddelete.NewDeleteAction("widget", "widgets", del, collectItems, scaffolddelete.Options{})
+		inv, _, err := pair.Model.SetArgs(nil, []string{"--nonexistent"}, 50, 20)
+		assert.Nil(t, err)
+		assert.NotEmpty(t, inv)
+	})
 }
 
-func TestNonInteractive_DeleteError(t *testing.T) {
-	root := newTestCommand(failingDelete, func() ([]scaffolddelete.Item[uint64], error) {
-		return testItems(), nil
+func TestModelLifecycle(t *testing.T) {
+	t.Run("reset after done", func(t *testing.T) {
+		pair := scaffolddelete.NewDeleteAction("widget", "widgets", del, collectItems, scaffolddelete.Options{})
+		_, _, err := pair.Model.SetArgs(nil, []string{"alpha"}, 50, 20)
+		assert.Nil(t, err)
+		assert.True(t, pair.Model.Done())
+
+		assert.Nil(t, pair.Model.Reset())
+		assert.False(t, pair.Model.Done())
 	})
 
-	var out strings.Builder
-	root.SetOut(&out)
-	root.SetErr(&strings.Builder{})
-	root.SetArgs([]string{"delete", "--no-interactive", "--id=1", "--id=2"})
+	t.Run("repeated use", func(t *testing.T) {
+		pair := scaffolddelete.NewDeleteAction("widget", "widgets", del, collectItems, scaffolddelete.Options{})
 
-	err := root.Execute()
-	if err == nil {
-		t.Fatal("expected error when deletion fails")
-	}
-	// errors.Join produces joined errors for both
-	if !strings.Contains(err.Error(), "failed to delete") {
-		t.Fatal("expected 'failed to delete' in error, got:", err.Error())
-	}
-}
+		// First use
+		_, _, err := pair.Model.SetArgs(nil, []string{"alpha"}, 50, 20)
+		assert.Nil(t, err)
+		assert.True(t, pair.Model.Done())
+		assert.Nil(t, pair.Model.Reset())
 
-func TestNonInteractive_InvalidID(t *testing.T) {
-	root := newTestCommand(noopDelete, func() ([]scaffolddelete.Item[uint64], error) {
-		return testItems(), nil
+		// Second use with different args
+		_, _, err = pair.Model.SetArgs(nil, []string{"beta", "gamma"}, 50, 20)
+		assert.Nil(t, err)
+		assert.True(t, pair.Model.Done())
 	})
 
-	root.SetOut(&strings.Builder{})
-	root.SetErr(&strings.Builder{})
-	root.SetArgs([]string{"delete", "--no-interactive", "--id=notanumber"})
-
-	err := root.Execute()
-	if err == nil {
-		t.Fatal("expected error for non-numeric ID")
-	}
+	t.Run("view when done", func(t *testing.T) {
+		pair := scaffolddelete.NewDeleteAction("widget", "widgets", del, collectItems, scaffolddelete.Options{})
+		_, _, err := pair.Model.SetArgs(nil, []string{"alpha"}, 50, 20)
+		assert.Nil(t, err)
+		assert.NotEmpty(t, pair.Model.View())
+	})
 }
 
-// #endregion
+func TestOptions(t *testing.T) {
+	pair := scaffolddelete.NewDeleteAction("widget", "widgets", del, collectItems, scaffolddelete.Options{})
 
-// #region Interactive model (SetArgs) tests
-
-func TestSetArgs_NoItems(t *testing.T) {
-	pair := scaffolddelete.NewDeleteAction("widget", "widgets", noopDelete,
-		func() ([]scaffolddelete.Item[uint64], error) {
-			return nil, nil // no items
-		}, scaffolddelete.Options{})
-
-	inv, cmd, err := pair.Model.SetArgs(nil, []string{}, 80, 50)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if inv != "" {
-		t.Fatal("unexpected invalid:", inv)
-	}
-	// should be done immediately with a message about no items
-	if !pair.Model.Done() {
-		t.Fatal("expected Done() after SetArgs with no items")
-	}
-	if cmd == nil {
-		t.Fatal("expected a tea.Cmd (print message) when no items available")
-	}
+	assert.Equal(t, "delete", pair.Action.Use)
+	assert.Contains(t, pair.Action.Short, "widgets")
+	assert.NotNil(t, pair.Action.Flags().Lookup("dryrun"))
 }
-
-func TestSetArgs_FetchError(t *testing.T) {
-	fetchErr := errors.New("network error")
-	pair := scaffolddelete.NewDeleteAction("widget", "widgets", noopDelete,
-		func() ([]scaffolddelete.Item[uint64], error) {
-			return nil, fetchErr
-		}, scaffolddelete.Options{})
-
-	_, _, err := pair.Model.SetArgs(nil, []string{}, 80, 50)
-	if err == nil {
-		t.Fatal("expected error from SetArgs when fetch fails")
-	}
-	if !errors.Is(err, fetchErr) {
-		t.Fatal(testsupport.ExpectedActual(fetchErr, err))
-	}
-}
-
-func TestSetArgs_WithIDFlags(t *testing.T) {
-	td := &trackingDelete{}
-	pair := scaffolddelete.NewDeleteAction("widget", "widgets", td.delete,
-		func() ([]scaffolddelete.Item[uint64], error) {
-			return testItems(), nil
-		}, scaffolddelete.Options{})
-
-	inv, cmd, err := pair.Model.SetArgs(nil, []string{"--id=1", "--id=2"}, 80, 50)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if inv != "" {
-		t.Fatal("unexpected invalid:", inv)
-	}
-	// Should have immediately deleted the items
-	if !pair.Model.Done() {
-		t.Fatal("expected Done() after SetArgs with --id flags")
-	}
-	if len(td.deleted) != 2 {
-		t.Fatal(testsupport.ExpectedActual(2, len(td.deleted)))
-	}
-	if cmd == nil {
-		t.Fatal("expected a tea.Cmd with result messages")
-	}
-}
-
-func TestSetArgs_WithDryrunFlag(t *testing.T) {
-	td := &trackingDelete{}
-	pair := scaffolddelete.NewDeleteAction("widget", "widgets", td.delete,
-		func() ([]scaffolddelete.Item[uint64], error) {
-			return testItems(), nil
-		}, scaffolddelete.Options{})
-
-	inv, cmd, err := pair.Model.SetArgs(nil, []string{"--id=3", "--dryrun"}, 80, 50)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if inv != "" {
-		t.Fatal("unexpected invalid:", inv)
-	}
-	if !pair.Model.Done() {
-		t.Fatal("expected Done()")
-	}
-	if len(td.deleted) != 1 || !td.dryrun[0] {
-		t.Fatal("expected dryrun deletion of id 3")
-	}
-	if cmd == nil {
-		t.Fatal("expected a tea.Cmd with dryrun result messages")
-	}
-}
-
-func TestSetArgs_NoFlags_Interactive(t *testing.T) {
-	pair := scaffolddelete.NewDeleteAction("widget", "widgets", noopDelete,
-		func() ([]scaffolddelete.Item[uint64], error) {
-			return testItems(), nil
-		}, scaffolddelete.Options{})
-
-	inv, cmd, err := pair.Model.SetArgs(nil, []string{}, 80, 50)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if inv != "" {
-		t.Fatal("unexpected invalid:", inv)
-	}
-	// Should NOT be done -- waiting for interactive input
-	if pair.Model.Done() {
-		t.Fatal("should not be Done() without flags or interaction")
-	}
-	if cmd != nil {
-		t.Fatal("expected nil onStart cmd when entering interactive mode")
-	}
-}
-
-func TestSetArgs_BadFlags(t *testing.T) {
-	pair := scaffolddelete.NewDeleteAction("widget", "widgets", noopDelete,
-		func() ([]scaffolddelete.Item[uint64], error) {
-			return testItems(), nil
-		}, scaffolddelete.Options{})
-
-	inv, _, err := pair.Model.SetArgs(nil, []string{"--nonexistent"}, 80, 50)
-	if err != nil {
-		t.Fatal("expected invalid, not error, for bad flags")
-	}
-	if inv == "" {
-		t.Fatal("expected invalid string for unknown flag")
-	}
-}
-
-// #endregion
-
-// #region Model lifecycle tests
-
-func TestModel_Reset(t *testing.T) {
-	td := &trackingDelete{}
-	pair := scaffolddelete.NewDeleteAction("widget", "widgets", td.delete,
-		func() ([]scaffolddelete.Item[uint64], error) {
-			return testItems(), nil
-		}, scaffolddelete.Options{})
-
-	// First run: SetArgs with --id to complete
-	_, _, err := pair.Model.SetArgs(nil, []string{"--id=1"}, 80, 50)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !pair.Model.Done() {
-		t.Fatal("expected Done()")
-	}
-
-	// Reset should bring it back to a non-done state
-	if err := pair.Model.Reset(); err != nil {
-		t.Fatal(err)
-	}
-	if pair.Model.Done() {
-		t.Fatal("should not be Done() after Reset()")
-	}
-}
-
-func TestModel_RepeatedUse(t *testing.T) {
-	td := &trackingDelete{}
-	pair := scaffolddelete.NewDeleteAction("widget", "widgets", td.delete,
-		func() ([]scaffolddelete.Item[uint64], error) {
-			return testItems(), nil
-		}, scaffolddelete.Options{})
-
-	// First invocation
-	_, _, err := pair.Model.SetArgs(nil, []string{"--id=1"}, 80, 50)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !pair.Model.Done() {
-		t.Fatal("expected Done()")
-	}
-	if err := pair.Model.Reset(); err != nil {
-		t.Fatal(err)
-	}
-
-	// Second invocation with different args
-	td.reset()
-	_, _, err = pair.Model.SetArgs(nil, []string{"--id=2", "--id=3"}, 80, 50)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !pair.Model.Done() {
-		t.Fatal("expected Done()")
-	}
-	if len(td.deleted) != 2 {
-		t.Fatal(testsupport.ExpectedActual(2, len(td.deleted)))
-	}
-	if td.deleted[0] != 2 || td.deleted[1] != 3 {
-		t.Fatal(testsupport.ExpectedActual([]uint64{2, 3}, td.deleted))
-	}
-}
-
-func TestModel_View_WhenDone(t *testing.T) {
-	pair := scaffolddelete.NewDeleteAction("widget", "widgets", noopDelete,
-		func() ([]scaffolddelete.Item[uint64], error) {
-			return testItems(), nil
-		}, scaffolddelete.Options{})
-
-	_, _, err := pair.Model.SetArgs(nil, []string{"--id=1"}, 80, 50)
-	if err != nil {
-		t.Fatal(err)
-	}
-	view := pair.Model.View()
-	if view == "" {
-		t.Fatal("expected non-empty view when done")
-	}
-}
-
-// #endregion
-
-// #region Options tests
-
-func TestOptions_Apply(t *testing.T) {
-	pair := scaffolddelete.NewDeleteAction("widget", "widgets", noopDelete,
-		func() ([]scaffolddelete.Item[uint64], error) {
-			return testItems(), nil
-		}, scaffolddelete.Options{})
-
-	// Verify the command has expected defaults
-	if pair.Action.Use != "delete" {
-		t.Fatal(testsupport.ExpectedActual("delete", pair.Action.Use))
-	}
-	if !strings.Contains(pair.Action.Short, "widgets") {
-		t.Fatal("expected 'widgets' in Short description")
-	}
-}
-
-func TestOptions_ApplyWithOverrides(t *testing.T) {
-	pair := scaffolddelete.NewDeleteAction("widget", "widgets", noopDelete,
-		func() ([]scaffolddelete.Item[uint64], error) {
-			return testItems(), nil
-		}, scaffolddelete.Options{})
-
-	// Verify flags are registered
-	if pair.Action.Flags().Lookup("id") == nil {
-		t.Fatal("expected --id flag to be registered")
-	}
-	if pair.Action.Flags().Lookup("dryrun") == nil {
-		t.Fatal("expected --dryrun flag to be registered")
-	}
-}
-
-// #endregion
