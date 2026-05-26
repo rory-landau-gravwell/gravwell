@@ -7,49 +7,19 @@
  **************************************************************************/
 
 /*
-Package scaffolddelete provides a template for building actions that delete data.
+Package scaffolddelete provides a template for building actions that delete/destroy data.
 
 A delete action consumes a list of delete-able items, allowing the user to select one or more
 interactively (via a multiselectlist) or by passing one or more IDs via the --id flag.
 
 Delete actions have the --dryrun and --id default flags.
-
-Implementations will probably look a lot like:
-
-	func New[pkg]DeleteAction() action.Pair {
-		return scaffolddelete.NewDeleteAction("singular", "plural", del,
-			func() ([]scaffolddelete.Item[[integer]], error) {
-				couldDelete, err := connection.Client.GetAll[X]()
-				if err != nil {
-					return nil, err
-				}
-				slices.SortFunc(couldDelete, func(m1, m2 types.[Y]) int {
-					return strings.Compare(m1.Name, m2.Name)
-				})
-				var items = make([]scaffolddelete.Item[[integer]], len(couldDelete))
-				for i := range couldDelete {
-					items[i] = scaffolddelete.NewItem(couldDelete[i].Name,
-						couldDelete[i].Description,
-						couldDelete[i].ID)
-				}
-				return items, nil
-			},
-			scaffolddelete.Options{})
-	}
-
-	func del(dryrun bool, id uint64) error {
-		if dryrun {
-			_, err := connection.Client.Get[X](id)
-			return err
-		}
-		return connection.Client.Delete[X](id)
-	}
 */
 package scaffolddelete
 
 import (
 	"errors"
 	"fmt"
+
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/bubbles/confirmation"
 	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
@@ -66,22 +36,21 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// A function that performs the (faux-, on dryrun) deletion once an item is picked.
-// Only returns a value if the delete (or select, on dry run) failed.
-type deleteFunc[I scaffold.Id_t] func(dryrun bool, id I) error
+// DeleteFunc is the driver function for this action; it performs the (faux-, on dryrun) deletion once an item is picked.
+type DeleteFunc[I scaffold.Id_t] func(dryrun bool, id I) error
 
-// A function that fetches and formats the list of delete-able items.
-// It must return an array of Items.
-type fetchFunc[I scaffold.Id_t] func() ([]Item[I], error)
+// FetchFunc is the precursor function; it fetches and formats the list of delete-able items.
+type FetchFunc[I scaffold.Id_t] func() ([]Item[I], error)
 
 const (
-	dryrunSuccessText = "DRYRUN: %v (ID %v) would have been deleted"
-	deleteSuccessText = "%v (ID %v) deleted"
+	dryrunSuccessTextF = "DRYRUN: %v (ID %v) would have been deleted"
+	deleteSuccessTextF = "%v (ID %v) deleted"
 )
 
 const heightBuffer = 4
 
 // NewDeleteAction creates and returns a cobra.Command suitable for use as a delete action.
+//
 // Base flags:
 //
 //	--dryrun (SELECT, as a mock deletion)
@@ -90,16 +59,14 @@ const heightBuffer = 4
 //
 // You must provide two functions to instantiate a generic delete:
 //
-// Del is a function that performs the actual (mock) deletion.
-// It is given the dryrun boolean and an ID value and returns an error only if the delete or select
-// failed.
+// DeleteFunc is a function that performs the actual (mock) deletion.
+// It is given the dryrun boolean (so it can select instead) and the ID of th item to trash.
 //
-// Fch is a function that fetches all delete-able records for the user to pick from.
-// It returns a user-defined struct fitting the Item interface.
+// FetchFunc is a function that fetches all delete-able records for the user to pick from.
 func NewDeleteAction[I scaffold.Id_t](
 	singular, plural string,
-	del deleteFunc[I],
-	fch fetchFunc[I],
+	del DeleteFunc[I],
+	fch FetchFunc[I],
 	opts Options) action.Pair {
 	cmd := treeutils.GenerateAction(
 		"delete",
@@ -129,9 +96,9 @@ func NewDeleteAction[I scaffold.Id_t](
 				if err := del(dryrun, id); err != nil {
 					errs = append(errs, fmt.Errorf("failed to delete %v (ID %v): %w", singular, id, err))
 				} else if dryrun {
-					fmt.Fprintf(c.OutOrStdout(), dryrunSuccessText+"\n", singular, id)
+					fmt.Fprintf(c.OutOrStdout(), dryrunSuccessTextF+"\n", singular, id)
 				} else {
-					fmt.Fprintf(c.OutOrStdout(), deleteSuccessText+"\n", singular, id)
+					fmt.Fprintf(c.OutOrStdout(), deleteSuccessTextF+"\n", singular, id)
 				}
 			}
 			return errors.Join(errs...)
@@ -191,8 +158,8 @@ type deleteModel[I scaffold.Id_t] struct {
 	itemPlural   string // "macros", "kits", "queries"
 	mode         mode   // current mode
 	dryrun       bool
-	df           deleteFunc[I] // function to delete an item
-	ff           fetchFunc[I]  // function to get all delete-able items
+	df           DeleteFunc[I] // function to delete an item
+	ff           FetchFunc[I]  // function to get all delete-able items
 
 	// selecting mode
 	msl multiselectlist.Model[I]
@@ -203,7 +170,7 @@ type deleteModel[I scaffold.Id_t] struct {
 	flagset pflag.FlagSet
 }
 
-func newDeleteModel[I scaffold.Id_t](singular, plural string, del deleteFunc[I], fch fetchFunc[I]) *deleteModel[I] {
+func newDeleteModel[I scaffold.Id_t](singular, plural string, del DeleteFunc[I], fch FetchFunc[I]) *deleteModel[I] {
 	d := &deleteModel[I]{
 		itemSingular: singular,
 		itemPlural:   plural,
@@ -246,7 +213,7 @@ func (d *deleteModel[I]) Update(msg tea.Msg) tea.Cmd {
 				d.mode = modeDone
 				var cmds []tea.Cmd
 				for _, itm := range selected {
-					cmds = append(cmds, tea.Printf(dryrunSuccessText, d.itemSingular, itm.ID()))
+					cmds = append(cmds, tea.Printf(dryrunSuccessTextF, d.itemSingular, itm.ID()))
 				}
 				return tea.Batch(cmds...)
 			}
@@ -274,7 +241,7 @@ func (d *deleteModel[I]) Update(msg tea.Msg) tea.Cmd {
 				if err := d.df(false, itm.ID()); err != nil {
 					resultCmds = append(resultCmds, tea.Printf("Failed to delete %v (ID %v): %v", d.itemSingular, itm.ID(), err))
 				} else {
-					resultCmds = append(resultCmds, tea.Printf(deleteSuccessText, d.itemSingular, itm.ID()))
+					resultCmds = append(resultCmds, tea.Printf(deleteSuccessTextF, d.itemSingular, itm.ID()))
 				}
 			}
 			return tea.Batch(cmd, tea.Sequence(resultCmds...))
@@ -376,9 +343,9 @@ func (d *deleteModel[I]) SetArgs(_ *pflag.FlagSet, tokens []string, width, heigh
 					return "", nil, err
 				}
 			} else if dryrun {
-				resultCmds = append(resultCmds, tea.Printf(dryrunSuccessText, d.itemSingular, id))
+				resultCmds = append(resultCmds, tea.Printf(dryrunSuccessTextF, d.itemSingular, id))
 			} else {
-				resultCmds = append(resultCmds, tea.Printf(deleteSuccessText, d.itemSingular, id))
+				resultCmds = append(resultCmds, tea.Printf(deleteSuccessTextF, d.itemSingular, id))
 			}
 		}
 		if len(resultCmds) == 0 {
