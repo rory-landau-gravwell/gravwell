@@ -11,8 +11,10 @@ import (
 	"github.com/crewjam/rfc5424"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
+	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
@@ -256,15 +258,21 @@ func deleteAction() action.Pair {
 			}
 			return connection.Client.DeleteFile(id)
 		},
-		func() ([]scaffolddelete.Item[string], error) {
-			flr, err := connection.Client.ListFiles(nil)
+		func() ([]multiselectlist.SelectableItem[string], error) {
+			lr, err := connection.Client.ListFiles(nil)
 			if err != nil {
 				return nil, err
 			}
-			var items = make([]scaffolddelete.Item[string], len(flr.Results))
-			for i, f := range flr.Results {
-				items[i] = scaffolddelete.NewItem(f.Name, f.Description, f.ID)
+			var items = make([]multiselectlist.SelectableItem[string], len(lr.Results))
+			for i, f := range lr.Results {
+				items[i] = &listitem.Generic{
+					Selected_:  false,
+					ID_:        f.ID,
+					Name:       f.Name,
+					SecondLine: f.Description,
+				}
 			}
+
 			return items, nil
-		})
+		}, scaffolddelete.Options{})
 }

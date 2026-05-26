@@ -5,14 +5,17 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
+	"github.com/gravwell/gravwell/v4/gwcli/bubbles/confirmation"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	"github.com/gravwell/gravwell/v4/gwcli/mother"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
-	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/multiselectlist"
+	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/hotkeys"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/treeutils"
 	"github.com/gravwell/gravwell/v4/ingest/log"
@@ -22,50 +25,24 @@ import (
 
 // This file implements interactive versions of flow actions: cancel, toggle-backfill, and clear-results.
 
-//#region shared flow item
-
-type flowItem struct {
-	Selected_ bool
-	ID_       string
-	name      string
-	desc      string
-	schedule  string
-	disabled  bool
-}
-
-func (i flowItem) FilterValue() string { return i.name + i.desc }
-func (i flowItem) Title() string       { return i.name }
-func (i flowItem) ID() string          { return i.ID_ }
-func (i flowItem) Description() string {
-	state := "enabled"
-	if i.disabled {
-		state = "disabled"
-	}
-	return fmt.Sprintf("(%s) [%s] %s", state, i.schedule, i.desc)
-}
-func (i *flowItem) SetSelected(selected bool) { i.Selected_ = selected }
-func (i flowItem) Selected() bool             { return i.Selected_ }
-
-// fetchFlowItems returns flow items for the multiselect list.
-func fetchFlowItems() ([]multiselectlist.SelectableItem[string], error) {
+// listFlowItems returns flow items for use in a list.Model.
+func listFlowItems() ([]list.Item, error) {
 	baseList, err := connection.Client.ListFlows(nil)
 	if err != nil {
 		return nil, err
 	}
-	var itms = make([]multiselectlist.SelectableItem[string], 0, len(baseList.Results))
+	itms := make([]list.Item, 0, len(baseList.Results))
 	for _, f := range baseList.Results {
-		itms = append(itms, &flowItem{
-			ID_:      f.ID,
-			name:     f.Name,
-			desc:     f.Description,
-			schedule: f.Schedule,
-			disabled: f.Disabled,
+		itms = append(itms, &listitem.Generic{
+			ID_:          f.ID,
+			Name:         f.Name,
+			SecondLine:   fmt.Sprintf("[%s] %s", f.Schedule, f.Description),
+			ShowDisabled: true,
+			Enabled:      !f.Disabled,
 		})
 	}
 	return slices.Clip(itms), nil
 }
-
-//#endregion shared flow item
 
 //#region cancel
 
@@ -93,42 +70,82 @@ func cancel() action.Pair {
 			return nil
 		},
 	)
-	return action.NewPair(cmd, &cancelModel{})
+
+	m := &cancelModel{}
+	m.Reset()
+
+	return action.NewPair(cmd, m)
 }
 
 type cancelModel struct {
-	m multiselectlist.Model[string]
-}
+	selecting bool
 
-func (c *cancelModel) Init() tea.Cmd { return nil }
+	fList   list.Model
+	confirm confirmation.Model
+
+	done bool
+}
 
 func (c *cancelModel) Update(msg tea.Msg) (cmd tea.Cmd) {
-	c.m, cmd = c.m.Update(msg)
-	if c.m.Done() {
-		selected := c.m.GetSelectedItems()
-		if len(selected) == 0 {
-			c.m.Undone()
-			return c.m.NewStatusMessage("select at least 1 flow")
-		}
-		var cmds []tea.Cmd
-		for _, li := range selected {
-			if err := connection.Client.CancelFlow(li.ID()); err != nil {
-				cmds = append(cmds, tea.Printf("failed to cancel flow '%s': %v", li.Title(), err))
-				continue
-			}
-			cmds = append(cmds, tea.Printf("successfully cancelled flow '%s' (ID: %s)", li.Title(), li.ID()))
-		}
-		cmd = tea.Sequence(cmds...)
+	if c.done {
+		return nil
 	}
-	return cmd
+
+	if c.selecting {
+		if hotkeys.Match(msg, hotkeys.Invoke, hotkeys.Select) {
+			c.selecting = false
+		} else {
+			c.fList, cmd = c.fList.Update(msg)
+		}
+		return cmd
+	}
+
+	var (
+		selectionMade, confirmed bool
+		ret                      uint
+	)
+	c.confirm, cmd, selectionMade, confirmed, ret = c.confirm.Update(msg)
+	if !selectionMade {
+		return cmd
+	}
+
+	if !confirmed {
+		if ret != 0 {
+			clilog.Writer.Error("user selected non-0 choice", log.KV("choice", ret), log.KV("confirmation view", c.confirm.View()))
+		}
+		c.selecting = true
+		return nil
+	}
+
+	itm, err := listitem.GetGeneric(&c.fList)
+	if err != nil {
+		return tea.Println(err)
+	}
+	c.done = true
+	if err := connection.Client.CancelFlow(itm.ID()); err != nil {
+		return tea.Printf("failed to cancel flow '%s': %v", itm.Name, err)
+	}
+	return tea.Printf("successfully cancelled flow '%s' (ID: %s)", itm.Name, itm.ID())
 }
 
-func (c *cancelModel) View() string  { return c.m.View() }
-func (c *cancelModel) Done() bool    { return c.m.Done() }
-func (c *cancelModel) Reset() error  { c.m = multiselectlist.Model[string]{}; return nil }
+func (c *cancelModel) View() string {
+	if c.selecting {
+		return c.fList.View()
+	}
+	return c.confirm.View()
+}
+
+func (c *cancelModel) Done() bool { return c.done }
+func (c *cancelModel) Reset() error {
+	c.selecting = true
+	c.fList = list.Model{}
+	c.confirm = confirmation.Model{}
+	c.done = false
+	return nil
+}
 
 func (c *cancelModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (invalid string, onStart tea.Cmd, err error) {
-	itms, err := fetchFlowItems()
+	itms, err := listFlowItems()
 	if err != nil {
 		clilog.Writer.Error("failed to list flows", log.KV("error", err))
 		return "", nil, fmt.Errorf("failed to list flows")
@@ -136,10 +153,8 @@ func (c *cancelModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height i
 	if len(itms) == 0 {
 		return "there are no flows", nil, nil
 	}
-	c.m = multiselectlist.New(itms, width, height, multiselectlist.Options{})
-	c.m.StatusMessageLifetime = stylesheet.StatusMessageLifetime
-	c.m.StatusMessageOnSelect = true
-	c.m.Title = "Select flows to cancel"
+	c.fList = stylesheet.NewList(itms, width, height, "flow", "flows")
+	c.confirm.Init([]string{"flow selection"}, uint(width), uint(height))
 	return "", nil, nil
 }
 
@@ -170,13 +185,20 @@ func backfillToggle() action.Pair {
 			}
 			flow.BackfillEnabled = !flow.BackfillEnabled
 
-			if enable, err := c.Flags().GetBool("enable"); err != nil {
+			enable, err := c.Flags().GetBool("enable")
+			if err != nil {
 				clilog.GetFlag(err)
-			} else if enable {
-				flow.BackfillEnabled = true
 			}
-			if disable, err := c.Flags().GetBool("disable"); err != nil {
+			disable, err := c.Flags().GetBool("disable")
+			if err != nil {
 				clilog.GetFlag(err)
+			}
+			if enable && disable {
+				clilog.Writer.Warn("both enable and disable were set, failing out...")
+				return clilog.ErrInternal{}
+			}
+			if enable {
+				flow.BackfillEnabled = true
 			} else if disable {
 				flow.BackfillEnabled = false
 			}
@@ -195,52 +217,92 @@ func backfillToggle() action.Pair {
 	cmd.Flags().Bool("enable", false, "enable backfill")
 	cmd.Flags().Bool("disable", false, "disable backfill")
 
-	return action.NewPair(cmd, &backfillToggleModel{})
+	m := &backfillToggleModel{}
+	m.Reset()
+
+	return action.NewPair(cmd, m)
 }
 
 type backfillToggleModel struct {
-	m multiselectlist.Model[string]
-}
+	selecting bool
 
-func (c *backfillToggleModel) Init() tea.Cmd { return nil }
+	fList   list.Model
+	confirm confirmation.Model
+
+	done bool
+}
 
 func (c *backfillToggleModel) Update(msg tea.Msg) (cmd tea.Cmd) {
-	c.m, cmd = c.m.Update(msg)
-	if c.m.Done() {
-		selected := c.m.GetSelectedItems()
-		if len(selected) == 0 {
-			c.m.Undone()
-			return c.m.NewStatusMessage("select at least 1 flow")
-		}
-		var cmds []tea.Cmd
-		for _, li := range selected {
-			flow, err := connection.Client.GetFlow(li.ID())
-			if err != nil {
-				cmds = append(cmds, tea.Printf("failed to get flow '%s': %v", li.Title(), err))
-				continue
-			}
-			flow.BackfillEnabled = !flow.BackfillEnabled
-			if err := connection.Client.UpdateFlow(flow); err != nil {
-				cmds = append(cmds, tea.Printf("failed to toggle backfill for flow '%s': %v", li.Title(), err))
-				continue
-			}
-			state := "enabled"
-			if !flow.BackfillEnabled {
-				state = "disabled"
-			}
-			cmds = append(cmds, tea.Printf("flow '%s' backfill %s", li.Title(), state))
-		}
-		cmd = tea.Sequence(cmds...)
+	if c.done {
+		return nil
 	}
-	return cmd
+
+	if c.selecting {
+		if hotkeys.Match(msg, hotkeys.Invoke, hotkeys.Select) {
+			c.selecting = false
+		} else {
+			c.fList, cmd = c.fList.Update(msg)
+		}
+		return cmd
+	}
+
+	var (
+		selectionMade, confirmed bool
+		ret                      uint
+	)
+	c.confirm, cmd, selectionMade, confirmed, ret = c.confirm.Update(msg)
+	if !selectionMade {
+		return cmd
+	}
+
+	if !confirmed {
+		if ret != 0 {
+			clilog.Writer.Error("user selected non-0 choice", log.KV("choice", ret), log.KV("confirmation view", c.confirm.View()))
+		}
+		c.selecting = true
+		return nil
+	}
+
+	itm, err := listitem.GetGeneric(&c.fList)
+	if err != nil {
+		return tea.Println(err)
+	}
+	flow, err := connection.Client.GetFlow(itm.ID())
+	if err != nil {
+		c.done = true
+		return tea.Printf("failed to get flow '%s': %v", itm.Name, err)
+	}
+	flow.BackfillEnabled = !flow.BackfillEnabled
+	if err := connection.Client.UpdateFlow(flow); err != nil {
+		c.done = true
+		return tea.Printf("failed to toggle backfill for flow '%s': %v", itm.Name, err)
+	}
+	state := "enabled"
+	if !flow.BackfillEnabled {
+		state = "disabled"
+	}
+	c.done = true
+	return tea.Printf("flow '%s' backfill %s", itm.Name, state)
 }
 
-func (c *backfillToggleModel) View() string  { return c.m.View() }
-func (c *backfillToggleModel) Done() bool    { return c.m.Done() }
-func (c *backfillToggleModel) Reset() error  { c.m = multiselectlist.Model[string]{}; return nil }
+func (c *backfillToggleModel) View() string {
+	if c.selecting {
+		return c.fList.View()
+	}
+	return c.confirm.View()
+}
+
+func (c *backfillToggleModel) Done() bool { return c.done }
+func (c *backfillToggleModel) Reset() error {
+	c.selecting = true
+	c.fList = list.Model{}
+	c.confirm = confirmation.Model{}
+	c.done = false
+	return nil
+}
 
 func (c *backfillToggleModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (invalid string, onStart tea.Cmd, err error) {
-	itms, err := fetchFlowItems()
+	itms, err := listFlowItems()
 	if err != nil {
 		clilog.Writer.Error("failed to list flows", log.KV("error", err))
 		return "", nil, fmt.Errorf("failed to list flows")
@@ -248,10 +310,8 @@ func (c *backfillToggleModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, 
 	if len(itms) == 0 {
 		return "there are no flows", nil, nil
 	}
-	c.m = multiselectlist.New(itms, width, height, multiselectlist.Options{})
-	c.m.StatusMessageLifetime = stylesheet.StatusMessageLifetime
-	c.m.StatusMessageOnSelect = true
-	c.m.Title = "Select flows to toggle backfill"
+	c.fList = stylesheet.NewList(itms, width, height, "flow", "flows")
+	c.confirm.Init([]string{"flow selection"}, uint(width), uint(height))
 	return "", nil, nil
 }
 
@@ -283,42 +343,82 @@ func clearResults() action.Pair {
 			return nil
 		},
 	)
-	return action.NewPair(cmd, &clearResultsModel{})
+
+	m := &clearResultsModel{}
+	m.Reset()
+
+	return action.NewPair(cmd, m)
 }
 
 type clearResultsModel struct {
-	m multiselectlist.Model[string]
-}
+	selecting bool
 
-func (c *clearResultsModel) Init() tea.Cmd { return nil }
+	fList   list.Model
+	confirm confirmation.Model
+
+	done bool
+}
 
 func (c *clearResultsModel) Update(msg tea.Msg) (cmd tea.Cmd) {
-	c.m, cmd = c.m.Update(msg)
-	if c.m.Done() {
-		selected := c.m.GetSelectedItems()
-		if len(selected) == 0 {
-			c.m.Undone()
-			return c.m.NewStatusMessage("select at least 1 flow")
-		}
-		var cmds []tea.Cmd
-		for _, li := range selected {
-			if err := connection.Client.ClearFlowResults(li.ID()); err != nil {
-				cmds = append(cmds, tea.Printf("failed to clear results for flow '%s': %v", li.Title(), err))
-				continue
-			}
-			cmds = append(cmds, tea.Printf("successfully cleared results for flow '%s' (ID: %s)", li.Title(), li.ID()))
-		}
-		cmd = tea.Sequence(cmds...)
+	if c.done {
+		return nil
 	}
-	return cmd
+
+	if c.selecting {
+		if hotkeys.Match(msg, hotkeys.Invoke, hotkeys.Select) {
+			c.selecting = false
+		} else {
+			c.fList, cmd = c.fList.Update(msg)
+		}
+		return cmd
+	}
+
+	var (
+		selectionMade, confirmed bool
+		ret                      uint
+	)
+	c.confirm, cmd, selectionMade, confirmed, ret = c.confirm.Update(msg)
+	if !selectionMade {
+		return cmd
+	}
+
+	if !confirmed {
+		if ret != 0 {
+			clilog.Writer.Error("user selected non-0 choice", log.KV("choice", ret), log.KV("confirmation view", c.confirm.View()))
+		}
+		c.selecting = true
+		return nil
+	}
+
+	itm, err := listitem.GetGeneric(&c.fList)
+	if err != nil {
+		return tea.Println(err)
+	}
+	c.done = true
+	if err := connection.Client.ClearFlowResults(itm.ID()); err != nil {
+		return tea.Printf("failed to clear results for flow '%s': %v", itm.Name, err)
+	}
+	return tea.Printf("successfully cleared results for flow '%s' (ID: %s)", itm.Name, itm.ID())
 }
 
-func (c *clearResultsModel) View() string  { return c.m.View() }
-func (c *clearResultsModel) Done() bool    { return c.m.Done() }
-func (c *clearResultsModel) Reset() error  { c.m = multiselectlist.Model[string]{}; return nil }
+func (c *clearResultsModel) View() string {
+	if c.selecting {
+		return c.fList.View()
+	}
+	return c.confirm.View()
+}
+
+func (c *clearResultsModel) Done() bool { return c.done }
+func (c *clearResultsModel) Reset() error {
+	c.selecting = true
+	c.fList = list.Model{}
+	c.confirm = confirmation.Model{}
+	c.done = false
+	return nil
+}
 
 func (c *clearResultsModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (invalid string, onStart tea.Cmd, err error) {
-	itms, err := fetchFlowItems()
+	itms, err := listFlowItems()
 	if err != nil {
 		clilog.Writer.Error("failed to list flows", log.KV("error", err))
 		return "", nil, fmt.Errorf("failed to list flows")
@@ -326,10 +426,8 @@ func (c *clearResultsModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, he
 	if len(itms) == 0 {
 		return "there are no flows", nil, nil
 	}
-	c.m = multiselectlist.New(itms, width, height, multiselectlist.Options{})
-	c.m.StatusMessageLifetime = stylesheet.StatusMessageLifetime
-	c.m.StatusMessageOnSelect = true
-	c.m.Title = "Select flows to clear results"
+	c.fList = stylesheet.NewList(itms, width, height, "flow", "flows")
+	c.confirm.Init([]string{"flow selection"}, uint(width), uint(height))
 	return "", nil, nil
 }
 

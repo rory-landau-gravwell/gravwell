@@ -12,8 +12,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
+	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
@@ -35,7 +37,7 @@ func NewNav() *cobra.Command {
 		[]string{"flow"},
 		nil,
 		[]action.Pair{
-			list(),
+			listFlows(),
 			importCreate(),
 			download(),
 			deleteAction(),
@@ -48,7 +50,7 @@ func NewNav() *cobra.Command {
 
 //#region list
 
-func list() action.Pair {
+func listFlows() action.Pair {
 	return scaffoldlist.NewListAction("list flows", "Lists information about flows you can access.",
 		types.Flow{},
 		func(fs *pflag.FlagSet) ([]types.Flow, error) {
@@ -219,17 +221,23 @@ func deleteAction() action.Pair {
 			}
 			return connection.Client.DeleteFlow(id)
 		},
-		func() ([]scaffolddelete.Item[string], error) {
-			baseList, err := connection.Client.ListFlows(nil)
+		func() ([]multiselectlist.SelectableItem[string], error) {
+			lr, err := connection.Client.ListFlows(nil)
 			if err != nil {
 				return nil, err
 			}
-			var items = make([]scaffolddelete.Item[string], len(baseList.Results))
-			for i, f := range baseList.Results {
-				items[i] = scaffolddelete.NewItem(f.Name, f.Description, f.ID)
+			var items = make([]multiselectlist.SelectableItem[string], len(lr.Results))
+			for i, f := range lr.Results {
+				items[i] = &listitem.Generic{
+					Selected_:  false,
+					ID_:        f.ID,
+					Name:       f.Name,
+					SecondLine: f.Description,
+				}
 			}
+
 			return items, nil
-		})
+		}, scaffolddelete.Options{})
 }
 
 // cancel, backfillToggle, and clearResults are defined in interactive.go

@@ -14,7 +14,9 @@ import (
 
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
+	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
+	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldcreate"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldedit"
@@ -90,17 +92,23 @@ func delete() action.Pair {
 			}
 			return connection.Client.DeletePlaybook(id)
 		},
-		func() ([]scaffolddelete.Item[string], error) {
-			resp, err := connection.Client.ListPlaybooks(nil)
+		func() ([]multiselectlist.SelectableItem[string], error) {
+			lr, err := connection.Client.ListPlaybooks(nil)
 			if err != nil {
 				return nil, err
 			}
-			var items = make([]scaffolddelete.Item[string], len(resp.Results))
-			for i, pb := range resp.Results {
-				items[i] = scaffolddelete.NewItem(pb.Name, pb.Description, pb.ID)
+			var items = make([]multiselectlist.SelectableItem[string], len(lr.Results))
+			for i, p := range lr.Results {
+				items[i] = &listitem.Generic{
+					Selected_:  false,
+					ID_:        p.ID,
+					Name:       p.Name,
+					SecondLine: p.Description,
+				}
 			}
+
 			return items, nil
-		})
+		}, scaffolddelete.Options{})
 }
 
 func edit() action.Pair {
