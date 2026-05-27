@@ -53,6 +53,7 @@ func NewNav() *cobra.Command {
 			addIndexer(),
 			backup(),
 			restore(),
+			impersonate(),
 		},
 	)
 }
@@ -336,4 +337,33 @@ func restore() action.Pair {
 				return "", nil
 			},
 		})
+}
+
+// impersonate replaces the active session with a session for another user.
+// All subsequent commands in this gwcli session will run as that user.
+func impersonate() action.Pair {
+return scaffold.NewBasicAction("impersonate", "impersonate another user (admin)",
+"Replace the active session with a session for the specified user.\n"+
+"All subsequent commands in this gwcli session will run as that user.\n\n"+
+"Usage: admin impersonate <user-ID>",
+func(fs *pflag.FlagSet) (string, tea.Cmd) {
+var uid int32
+if _, err := fmt.Sscan(fs.Arg(0), &uid); err != nil {
+return fmt.Sprintf("invalid user ID %q: %v", fs.Arg(0), err), nil
+}
+nc, err := connection.Client.Impersonate(uid)
+if err != nil {
+return err.Error(), nil
+}
+connection.Client = nc
+return fmt.Sprintf("now impersonating user %d", uid), nil
+},
+scaffold.BasicOptions{
+ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+if fs.NArg() != 1 {
+return phrases.Exactly1ArgRequired("user ID"), nil
+}
+return "", nil
+},
+})
 }

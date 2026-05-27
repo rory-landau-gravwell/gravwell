@@ -34,6 +34,7 @@ import (
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/admin"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/alerts"
+	"github.com/gravwell/gravwell/v4/gwcli/tree/cbac"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/dashboards"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/email"
 	"github.com/gravwell/gravwell/v4/gwcli/tree/extractors"
@@ -367,6 +368,7 @@ func Execute(args []string, stdout, stderr io.Writer) int {
 		systemshealth.NewSystemsNav,
 		templates.NewNav,
 		tokens.NewNav,
+		cbac.NewCBACNav,
 		pivots.NewNav,
 		playbooks.NewNav,
 	}

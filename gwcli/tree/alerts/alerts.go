@@ -12,8 +12,10 @@ package alerts
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
@@ -44,6 +46,8 @@ func NewAlertsNav() *cobra.Command {
 			toggle(),
 			delete(),
 			alertscreate.Action(),
+			setDispatchers(),
+			setSave(),
 		})
 }
 
@@ -208,14 +212,24 @@ func toggle() action.Pair {
 			return items, nil
 		},
 		func(ID string, addtlFlags *pflag.FlagSet) (success string, _ error) {
+			// read flags directly so we get the correct values regardless of call path
+			enable, err := addtlFlags.GetBool("enable")
+			if err != nil {
+				clilog.GetFlag(err)
+			}
+			disable, err := addtlFlags.GetBool("disable")
+			if err != nil {
+				clilog.GetFlag(err)
+			}
+
 			alert, err := connection.Client.GetAlert(ID)
 			if err != nil {
 				return "", err
 			}
 			alert.Disabled = !alert.Disabled
-			if toggleEnable {
+			if enable {
 				alert.Disabled = false
-			} else if toggleDisable {
+			} else if disable {
 				alert.Disabled = true
 			}
 			if _, err := connection.Client.UpdateAlert(alert); err != nil {
@@ -238,27 +252,244 @@ func toggle() action.Pair {
 				},
 			},
 			NoItemsError: func(fs *pflag.FlagSet) string {
-				if toggleEnable {
+				enable, _ := fs.GetBool("enable")
+				disable, _ := fs.GetBool("disable")
+				if enable {
 					return "You have no alerts that can be enabled."
-				} else if toggleDisable {
+				} else if disable {
 					return "You have no alerts that can be disabled."
 				}
 				return "You have no alerts that can be toggled."
 			},
 			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
 				// ensure !(enable && disable)
-				toggleEnable, err := fs.GetBool("enable")
+				en, err := fs.GetBool("enable")
 				if err != nil {
 					clilog.GetFlag(err)
 				}
-				toggleDisable, err := fs.GetBool("disable")
+				dis, err := fs.GetBool("disable")
 				if err != nil {
 					clilog.GetFlag(err)
 				}
-				if toggleEnable && toggleDisable {
+				if en && dis {
 					return ft.ErrMutuallyExclusive("enable", "disable").Error(), nil
 				}
 				return "", nil
 			},
 		})
 }
+
+//#region set-dispatchers
+
+// setDispatchers lets the user add or remove scheduled search dispatchers from an alert.
+func setDispatchers() action.Pair {
+return scaffold.NewBasicAction("set-dispatchers",
+"set the scheduled search dispatchers for an alert",
+"Set which scheduled searches act as dispatchers (triggers) for an alert.\n"+
+"Pass one or more scheduled-search IDs as arguments.\n"+
+"Use --add to add dispatchers, --remove to remove them, or neither to replace the entire list.\n\n"+
+"Example: alerts set-dispatchers --add <alert-ID> <ss-ID1> <ss-ID2>",
+func(fs *pflag.FlagSet) (string, tea.Cmd) {
+alertID, err := fs.GetString("alert")
+if err != nil {
+return err.Error(), nil
+}
+add, err := fs.GetBool("add")
+if err != nil {
+return err.Error(), nil
+}
+remove, err := fs.GetBool("remove")
+if err != nil {
+return err.Error(), nil
+}
+
+a, err := connection.Client.GetAlert(alertID)
+if err != nil {
+return err.Error(), nil
+}
+
+// build new dispatchers from positional args
+newIDs := fs.Args()
+switch {
+case add:
+// append only IDs not already present
+existing := make(map[string]bool, len(a.Dispatchers))
+for _, d := range a.Dispatchers {
+existing[d.ID] = true
+}
+for _, id := range newIDs {
+if !existing[id] {
+a.Dispatchers = append(a.Dispatchers, types.AlertDispatcher{
+ID:   id,
+Type: types.ALERTDISPATCHERTYPE_SCHEDULEDSEARCH,
+})
+}
+}
+case remove:
+remove := make(map[string]bool, len(newIDs))
+for _, id := range newIDs {
+remove[id] = true
+}
+filtered := a.Dispatchers[:0]
+for _, d := range a.Dispatchers {
+if !remove[d.ID] {
+filtered = append(filtered, d)
+}
+}
+a.Dispatchers = filtered
+default:
+// replace entirely
+a.Dispatchers = make([]types.AlertDispatcher, 0, len(newIDs))
+for _, id := range newIDs {
+a.Dispatchers = append(a.Dispatchers, types.AlertDispatcher{
+ID:   id,
+Type: types.ALERTDISPATCHERTYPE_SCHEDULEDSEARCH,
+})
+}
+}
+
+if _, err := connection.Client.UpdateAlert(a); err != nil {
+return err.Error(), nil
+}
+ids := make([]string, len(a.Dispatchers))
+for i, d := range a.Dispatchers {
+ids[i] = d.ID
+}
+return fmt.Sprintf("alert '%s' dispatchers set to: [%s]", a.Name, strings.Join(ids, ", ")), nil
+},
+scaffold.BasicOptions{
+CommonOptions: scaffold.CommonOptions{
+AddtlFlags: func() *pflag.FlagSet {
+fs := &pflag.FlagSet{}
+fs.String("alert", "", "ID of the alert to modify (required)")
+fs.Bool("add", false, "add the given dispatcher IDs instead of replacing the list. Mutually exclusive with --remove")
+fs.Bool("remove", false, "remove the given dispatcher IDs instead of replacing the list. Mutually exclusive with --add")
+return fs
+},
+},
+ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+alertID, err := fs.GetString("alert")
+if err != nil {
+clilog.GetFlag(err)
+return "", err
+}
+if strings.TrimSpace(alertID) == "" {
+return "--alert (alert ID) is required", nil
+}
+add, err := fs.GetBool("add")
+if err != nil {
+clilog.GetFlag(err)
+return "", err
+}
+remove, err := fs.GetBool("remove")
+if err != nil {
+clilog.GetFlag(err)
+return "", err
+}
+if add && remove {
+return ft.ErrMutuallyExclusive("add", "remove").Error(), nil
+}
+return "", nil
+},
+})
+}
+
+//#endregion set-dispatchers
+
+//#region set-save
+
+// setSave lets the user configure whether triggered searches should be saved and for how long.
+func setSave() action.Pair {
+return scaffold.NewBasicAction("set-save",
+"configure save-search settings for an alert",
+"Configure whether searches that trigger an alert should be automatically saved,\n"+
+"and for how long (in seconds).\n\n"+
+"Examples:\n"+
+"  alerts set-save <alert-ID> --enable --duration 86400\n"+
+"  alerts set-save <alert-ID> --disable",
+func(fs *pflag.FlagSet) (string, tea.Cmd) {
+if fs.NArg() < 1 {
+return "alert ID is required as first argument", nil
+}
+alertID := fs.Arg(0)
+
+enable, err := fs.GetBool("enable")
+if err != nil {
+return err.Error(), nil
+}
+disable, err := fs.GetBool("disable")
+if err != nil {
+return err.Error(), nil
+}
+duration, err := fs.GetInt("duration")
+if err != nil {
+return err.Error(), nil
+}
+
+a, err := connection.Client.GetAlert(alertID)
+if err != nil {
+return err.Error(), nil
+}
+
+if enable {
+a.SaveSearchEnabled = true
+}
+if disable {
+a.SaveSearchEnabled = false
+}
+if fs.Changed("duration") {
+a.SaveSearchDuration = int32(duration)
+}
+
+if _, err := connection.Client.UpdateAlert(a); err != nil {
+return err.Error(), nil
+}
+
+state := "disabled"
+if a.SaveSearchEnabled {
+state = fmt.Sprintf("enabled (duration: %ds)", a.SaveSearchDuration)
+}
+return fmt.Sprintf("alert '%s' save-search: %s", a.Name, state), nil
+},
+scaffold.BasicOptions{
+CommonOptions: scaffold.CommonOptions{
+AddtlFlags: func() *pflag.FlagSet {
+fs := &pflag.FlagSet{}
+fs.Bool("enable", false, "enable save-search for this alert. Mutually exclusive with --disable")
+fs.Bool("disable", false, "disable save-search for this alert. Mutually exclusive with --enable")
+fs.Int("duration", 0, "how long (in seconds) triggered searches should be saved. Only meaningful when save-search is enabled")
+return fs
+},
+},
+ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+if fs.NArg() < 1 {
+return "alert ID is required as first argument", nil
+}
+enable, err := fs.GetBool("enable")
+if err != nil {
+clilog.GetFlag(err)
+return "", err
+}
+disable, err := fs.GetBool("disable")
+if err != nil {
+clilog.GetFlag(err)
+return "", err
+}
+if enable && disable {
+return ft.ErrMutuallyExclusive("enable", "disable").Error(), nil
+}
+dur, err := fs.GetInt("duration")
+if err != nil {
+clilog.GetFlag(err)
+return "", err
+}
+if dur < 0 {
+return fmt.Sprintf("--duration must be >= 0, got %d", dur), nil
+}
+_ = strconv.Itoa(dur) // suppress unused import warning; already validated above
+return "", nil
+},
+})
+}
+
+//#endregion set-save

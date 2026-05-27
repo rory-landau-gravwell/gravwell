@@ -10,7 +10,9 @@
 package kits
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
@@ -44,11 +46,13 @@ func NewKitsNav() *cobra.Command {
 		[]action.Pair{
 			newKitsListAction(),
 			deleteKit(),
+			uninstall(),
 			install(),
 			upload(),
 			pull(),
 			remote(),
 			get(),
+			buildKit(),
 		})
 }
 
@@ -231,4 +235,58 @@ func get() action.Pair {
 				return "", nil
 			},
 		})
+}
+
+// uninstall is an alias for deleteKit to match the API naming.
+// It registers the same delete logic under the "uninstall" name.
+func uninstall() action.Pair {
+	inner := deleteKit()
+	// Rename so cobra registers it as a distinct sub-command while preserving behaviour
+	inner.Action.Use = "uninstall"
+	inner.Action.Short = "uninstall (delete) an installed kit"
+	inner.Action.Long = inner.Action.Long // keep existing long desc
+	inner.Action.Aliases = []string{"remove"}
+	return inner
+}
+
+// buildKit assembles a kit from a JSON build-request file and returns the resulting kit UUID.
+// The JSON must match the types.KitBuildRequest structure.
+// See https://docs.gravwell.io/api/kits.html for the spec.
+func buildKit() action.Pair {
+return scaffold.NewBasicAction("build", "build a kit from a JSON spec file",
+"Assemble a new kit from a JSON file that describes its contents.\n"+
+"The JSON must conform to the KitBuildRequest schema.\n\n"+
+"On success the new kit UUID is printed; the kit will then appear in the staged list\n"+
+"and can be downloaded with the 'kits download' action.\n\n"+
+"See https://docs.gravwell.io/api/kits.html for the expected JSON structure.",
+func(fs *pflag.FlagSet) (string, tea.Cmd) {
+path := fs.Arg(0)
+raw, err := os.ReadFile(path)
+if err != nil {
+return fmt.Sprintf("failed to read file '%s': %v", path, err), nil
+}
+var req types.KitBuildRequest
+if err := json.Unmarshal(raw, &req); err != nil {
+return fmt.Sprintf("failed to parse build-request JSON: %v", err), nil
+}
+resp, err := connection.Client.BuildKit(req)
+if err != nil {
+return err.Error(), nil
+}
+return fmt.Sprintf("built kit '%s' (UUID: %s, size: %d bytes)", req.Name, resp.UUID, resp.Size), nil
+},
+scaffold.BasicOptions{
+CommonOptions: scaffold.CommonOptions{
+Usage: fmt.Sprintf("build %s", ft.Mandatory("build-spec.json")),
+},
+ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+if fs.NArg() != 1 {
+return phrases.Exactly1ArgRequired("path to build-spec JSON file"), nil
+}
+if _, err := os.Stat(fs.Arg(0)); err != nil {
+return fmt.Sprintf("cannot access file '%s': %v", fs.Arg(0), err), nil
+}
+return "", nil
+},
+})
 }

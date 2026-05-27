@@ -57,6 +57,7 @@ func NewResourcesNav() *cobra.Command {
 			delete(),
 			download(),
 			edit(),
+			upload(),
 		})
 }
 
@@ -303,4 +304,51 @@ func edit() action.Pair {
 			return data.Name, connection.Client.UpdateResourceMetadata(data.ID, *data)
 		},
 	})
+}
+
+// upload replaces the content of an existing resource with the bytes read from a local file.
+// Unlike edit, which only modifies metadata, upload replaces the stored binary data.
+func upload() action.Pair {
+return scaffold.NewBasicAction("upload", "replace a resource's content from a file",
+"Replace the content of an existing resource with the bytes from a local file.\n"+
+"Specify the resource by ID and provide the file path.\n\n"+
+"Example: resources upload <resource-ID> --path /tmp/lookup.csv",
+func(fs *pflag.FlagSet) (string, tea.Cmd) {
+id := fs.Arg(0)
+path, err := fs.GetString("path")
+if err != nil {
+return err.Error(), nil
+}
+f, err := os.Open(path)
+if err != nil {
+return fmt.Sprintf("failed to open '%s': %v", path, err), nil
+}
+defer f.Close()
+if err := connection.Client.PopulateResourceFromReader(id, f); err != nil {
+return err.Error(), nil
+}
+return fmt.Sprintf("successfully uploaded content for resource %s", id), nil
+},
+scaffold.BasicOptions{
+CommonOptions: scaffold.CommonOptions{
+AddtlFlags: func() *pflag.FlagSet {
+fs := &pflag.FlagSet{}
+fs.StringP("path", "p", "", "local file whose bytes will replace the resource content (required)")
+return fs
+},
+},
+ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+if fs.NArg() != 1 {
+return phrases.Exactly1ArgRequired("resource ID"), nil
+}
+path, _ := fs.GetString("path")
+if path == "" {
+return "--path is required", nil
+}
+if _, err := os.Stat(path); err != nil {
+return fmt.Sprintf("cannot access file '%s': %v", path, err), nil
+}
+return "", nil
+},
+})
 }

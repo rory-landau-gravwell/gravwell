@@ -41,6 +41,7 @@ func NewNav() *cobra.Command {
 			create(),
 			edit(),
 			deleteAction(),
+			uploadContent(),
 		})
 }
 
@@ -275,4 +276,52 @@ func deleteAction() action.Pair {
 
 			return items, nil
 		}, scaffolddelete.Options{})
+}
+
+// uploadContent replaces the stored bytes of an existing user file with the contents of a local file.
+// Unlike edit, which only modifies metadata (name, description, labels), uploadContent
+// replaces the binary payload.
+func uploadContent() action.Pair {
+return scaffold.NewBasicAction("upload", "replace a file's content from a local path",
+"Replace the bytes stored in an existing user file.\n"+
+"Specify the file by its ID and provide the local path via --path.\n\n"+
+"Example: files upload <file-ID> --path /tmp/logo.png",
+func(fs *pflag.FlagSet) (string, tea.Cmd) {
+id := fs.Arg(0)
+path, err := fs.GetString("path")
+if err != nil {
+return err.Error(), nil
+}
+f, err := os.Open(path)
+if err != nil {
+return fmt.Sprintf("failed to open '%s': %v", path, err), nil
+}
+defer f.Close()
+if _, err := connection.Client.PopulateFileFromReader(id, f); err != nil {
+return err.Error(), nil
+}
+return fmt.Sprintf("successfully uploaded content for file %s", id), nil
+},
+scaffold.BasicOptions{
+CommonOptions: scaffold.CommonOptions{
+AddtlFlags: func() *pflag.FlagSet {
+fs := &pflag.FlagSet{}
+fs.StringP("path", "p", "", "local file whose bytes will replace the file content (required)")
+return fs
+},
+},
+ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
+if fs.NArg() != 1 {
+return phrases.Exactly1ArgRequired("file ID"), nil
+}
+path, _ := fs.GetString("path")
+if path == "" {
+return "--path is required", nil
+}
+if _, err := os.Stat(path); err != nil {
+return fmt.Sprintf("cannot access file '%s': %v", path, err), nil
+}
+return "", nil
+},
+})
 }
