@@ -758,20 +758,20 @@ func ParseJWT(tkn string) (header JWTHeader, payload JWTPayload, signature []byt
 	}
 
 	// header
-	decodedUrl, err := hex.DecodeString(exploded[0])
+	decodedURL, err := hex.DecodeString(exploded[0])
 	if err != nil {
 		return JWTHeader{}, JWTPayload{}, nil, err
 	}
-	if err := json.Unmarshal(decodedUrl, &header); err != nil {
+	if err := json.Unmarshal(decodedURL, &header); err != nil {
 		return JWTHeader{}, JWTPayload{}, nil, err
 	}
 
 	// payload
-	decodedUrl, err = hex.DecodeString(exploded[1])
+	decodedURL, err = hex.DecodeString(exploded[1])
 	if err != nil {
 		return header, JWTPayload{}, nil, err
 	}
-	if err := json.Unmarshal(decodedUrl, &payload); err != nil {
+	if err := json.Unmarshal(decodedURL, &payload); err != nil {
 		return header, JWTPayload{}, nil, err
 	}
 
