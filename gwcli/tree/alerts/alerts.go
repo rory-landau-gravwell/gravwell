@@ -12,7 +12,7 @@ package alerts
 import (
 	"fmt"
 	"slices"
-	"strconv"
+
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -326,13 +326,13 @@ Type: types.ALERTDISPATCHERTYPE_SCHEDULEDSEARCH,
 }
 }
 case remove:
-remove := make(map[string]bool, len(newIDs))
+toRemove := make(map[string]bool, len(newIDs))
 for _, id := range newIDs {
-remove[id] = true
+toRemove[id] = true
 }
 filtered := a.Dispatchers[:0]
 for _, d := range a.Dispatchers {
-if !remove[d.ID] {
+if !toRemove[d.ID] {
 filtered = append(filtered, d)
 }
 }
@@ -486,7 +486,7 @@ return "", err
 if dur < 0 {
 return fmt.Sprintf("--duration must be >= 0, got %d", dur), nil
 }
-_ = strconv.Itoa(dur) // suppress unused import warning; already validated above
+_ = dur // already validated above
 return "", nil
 },
 })

@@ -254,15 +254,15 @@ if err != nil {
 return err.Error(), nil
 }
 return fmt.Sprintf(
-"ID: %s\nState: %s\nQuery: %s\nEffective: %s\nStarted: %s\nRange: %s - %s\nBackground: %v",
-si.ID,
-si.Error,
-si.UserQuery,
-si.EffectiveQuery,
-si.Started.Local().Format("2006-01-02 15:04:05"),
-si.StartRange.Local().Format("2006-01-02 15:04:05"),
-si.EndRange.Local().Format("2006-01-02 15:04:05"),
-si.Background,
+	"ID: %s\nQuery: %s\nEffective: %s\nStarted: %s\nRange: %s - %s\nBackground: %v\nError: %s",
+	si.ID,
+	si.UserQuery,
+	si.EffectiveQuery,
+	si.Started.Local().Format("2006-01-02 15:04:05"),
+	si.StartRange.Local().Format("2006-01-02 15:04:05"),
+	si.EndRange.Local().Format("2006-01-02 15:04:05"),
+	si.Background,
+	si.Error,
 ), nil
 },
 scaffold.BasicOptions{
