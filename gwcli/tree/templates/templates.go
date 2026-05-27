@@ -13,8 +13,8 @@ package templates
 
 import (
 	"fmt"
+	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
@@ -22,7 +22,6 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
 	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
-	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldedit"
@@ -47,9 +46,47 @@ For instance, templates which expect an IP address as their variable can be used
 			//create(),
 			delete(),
 			edit(),
-			show(),
 			//download(),
 		})
+}
+
+// wrap templates so we can better display variables
+type wrappedTemplate struct {
+	types.CommonFields
+
+	Query     string
+	Variables string
+}
+
+func wrap(ts []types.Template) []wrappedTemplate {
+	wrapped := make([]wrappedTemplate, len(ts))
+	for i, t := range ts {
+		w := wrappedTemplate{
+			CommonFields: t.CommonFields,
+
+			Query: t.Query,
+		}
+		var vars = make([]string, len(t.Variables))
+		for j, v := range t.Variables {
+			var sb strings.Builder
+			if v.Required {
+				sb.WriteString("(required) ")
+			}
+			fmt.Fprintf(&sb, "%s=%s", v.Name, v.Label)
+			if v.Description != "" {
+				sb.WriteString(" \"" + v.Description + "\"")
+			}
+			if v.DefaultValue != "" {
+				sb.WriteString(" Default: \"" + v.DefaultValue + "\"")
+			}
+			vars[j] = sb.String()
+		}
+		w.Variables = strings.Join(vars, ";")
+		wrapped[i] = w
+	}
+
+	return wrapped
+
 }
 
 func list() action.Pair {
@@ -58,7 +95,7 @@ func list() action.Pair {
 		long  string = "view templates available to your user."
 	)
 	return scaffoldlist.NewListAction(short, long,
-		types.Template{}, func(fs *pflag.FlagSet) ([]types.Template, error) {
+		wrappedTemplate{}, func(fs *pflag.FlagSet) ([]wrappedTemplate, error) {
 			if all, err := fs.GetBool("all"); err != nil {
 				clilog.GetFlag(err)
 			} else if all {
@@ -66,14 +103,14 @@ func list() action.Pair {
 				if err != nil {
 					return nil, err
 				}
-				return resp.Results, nil
+				return wrap(resp.Results), nil
 			}
 
 			resp, err := connection.Client.ListTemplates(nil)
 			if err != nil {
 				return nil, err
 			}
-			return resp.Results, nil
+			return wrap(resp.Results), nil
 		},
 		nil,
 		scaffoldlist.Options{
@@ -243,28 +280,4 @@ func edit() action.Pair {
 		},
 	}
 	return scaffoldedit.NewEditAction("template", "templates", cfg, funcs)
-}
-
-func show() action.Pair {
-	return scaffold.NewBasicAction("show", "display a template", "Display the details of a template by its ID.",
-		func(fs *pflag.FlagSet) (string, tea.Cmd) {
-			id := fs.Arg(0)
-			t, err := connection.Client.GetTemplate(id)
-			if err != nil {
-				return err.Error(), nil
-			}
-			return fmt.Sprintf("Name: %s\nDescription: %s\nQuery: %s\nVariables: %v",
-				t.Name, t.Description, t.Query, t.Variables), nil
-		},
-		scaffold.BasicOptions{
-			CommonOptions: scaffold.CommonOptions{
-				Aliases: []string{"print", "get"},
-			},
-			ValidateArgs: func(fs *pflag.FlagSet) (invalid string, err error) {
-				if fs.NArg() != 1 {
-					return phrases.Exactly1ArgRequired("template ID"), nil
-				}
-				return "", nil
-			},
-		})
 }

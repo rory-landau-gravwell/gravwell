@@ -40,7 +40,7 @@ func NewNav() *cobra.Command {
 			listFlows(),
 			importCreate(),
 			download(),
-			deleteAction(),
+			delete(),
 			cancel(),
 			backfillToggle(),
 			clearResults(),
@@ -212,7 +212,7 @@ func download() action.Pair {
 			}})
 }
 
-func deleteAction() action.Pair {
+func delete() action.Pair {
 	return scaffolddelete.NewDeleteAction("flow", "flows",
 		func(dryrun bool, id string) error {
 			if dryrun {
@@ -239,5 +239,3 @@ func deleteAction() action.Pair {
 			return items, nil
 		}, scaffolddelete.Options{})
 }
-
-// cancel, backfillToggle, and clearResults are defined in interactive.go
