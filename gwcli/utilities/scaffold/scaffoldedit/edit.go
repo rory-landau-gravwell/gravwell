@@ -196,6 +196,9 @@ func newEditModel[I scaffold.Id_t, S any](cfg Config, singular, plural string,
 	}
 }
 
+// SetArgs parses tokens into the model's own flag set.
+// The outer *pflag.FlagSet (fs) is intentionally unused: the model maintains
+// em.fs internally to persist flag state across multiple Update cycles.
 func (em *editModel[I, S]) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (
 	invalid string, onStart tea.Cmd, err error) {
 
