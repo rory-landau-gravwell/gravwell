@@ -62,8 +62,6 @@ package scaffoldcreate
 import (
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
 	"strings"
 
 	"github.com/crewjam/rfc5424"
@@ -116,7 +114,7 @@ func NewCreateAction(singular string, fields map[string]Field, createFunc Create
 		}
 	}
 	// pull createFlags from provided fields
-	var createFlags = installFlagsFromFields(fields)
+	var createFlags = scaffold.InstallFlagsFromFields(fields)
 
 	// pull required flags from cfg to set usage
 	requiredFlags := make([]string, 0)
@@ -139,7 +137,7 @@ func NewCreateAction(singular string, fields map[string]Field, createFunc Create
 				return err
 			}
 			// check and set flags; spool up mother to prompt for missing required flags if !non-interactive
-			if mr, err := setValuesFromFlags(c.Flags(), fields); err != nil {
+			if mr, err := scaffold.SetValuesFromFlags(c.Flags(), fields); err != nil {
 				return err
 			} else if mr != nil {
 				if !noInteractive {
@@ -228,36 +226,21 @@ func newCreateModel(fields map[string]Field, singular string, createFunc CreateF
 		singular: singular,
 		fields:   fields,
 		inputs: inputs{
-			ordered: slices.Collect(maps.Keys(fields)),
+			ordered: scaffold.SortFieldKeys(fields),
 		},
 		addtlFlagFunc: opts.AddtlFlags,
 		cf:            createFunc,
 	}
 
 	// set flags by mining fields and, if applicable, tacking on additional flags
-	c.fs = installFlagsFromFields(fields)
+	c.fs = scaffold.InstallFlagsFromFields(fields)
 	if c.addtlFlagFunc != nil {
 		addtlFlags := c.addtlFlagFunc()
 		c.fs.AddFlagSet(addtlFlags)
 	}
 
-	slices.SortStableFunc(c.inputs.ordered, func(aKey, bKey string) int {
-		// sort on order, then alpha on title
-		switch {
-		case fields[aKey].Order < fields[bKey].Order:
-			return 1
-		case fields[aKey].Order > fields[bKey].Order:
-			return -1
-		}
-		return strings.Compare(fields[aKey].Title, fields[bKey].Title)
-	})
-
 	// compute longestFieldLength for title column alignment in View()
-	for _, field := range fields {
-		if titleLen := len(field.Title); titleLen > c.longestTitleLength {
-			c.longestTitleLength = titleLen
-		}
-	}
+	c.longestTitleLength = scaffold.LongestTitleLen(fields)
 
 	// focus the first input
 	if len(c.inputs.ordered) > 0 {
@@ -512,7 +495,7 @@ func (c *createModel) SetArgs(_ *pflag.FlagSet, tokens []string, width, height i
 		c.fields[key].Provider.SetArgs(width, height)
 	}
 
-	if _, err := setValuesFromFlags(&c.fs, c.fields); err != nil {
+	if _, err := scaffold.SetValuesFromFlags(&c.fs, c.fields); err != nil {
 		return "", nil, err
 	}
 

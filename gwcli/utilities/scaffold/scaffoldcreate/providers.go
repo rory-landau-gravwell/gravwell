@@ -25,55 +25,21 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/sigils"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/pathtextinput"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/validate"
 )
 
-type ViewKind uint
+// ViewKind, TitleValue, Line, and Takeover are re-exported from the scaffold package for convenience.
+type ViewKind = scaffold.ViewKind
 
 const (
-	// default view kind. Returns bifurcated data: title text and value.
-	TitleValue ViewKind = iota
-	Line                // data is displayed as a single block, centered relative to other fields
-	// This provider is in takeover mode and will provide the view for the entire pane.
-	// View processing stops on the first takeover.
-	Takeover
+	TitleValue = scaffold.TitleValue
+	Line       = scaffold.Line
+	Takeover   = scaffold.Takeover
 )
 
-// A FieldProvider defines the contract fields must provide to be usable with create.
-type FieldProvider interface {
-	// initialize the instance, fetching required data.
-	// This is only called once, at tree-construction time.
-	Initialize(defaultValue string, required bool)
-	// Reset the instance back to its initial, ready-for-use state.
-	// Called after the action's invocation completes.
-	Reset()
-	// Hijack SetArgs to alter/set data before the user can interact with/see the provider.
-	// This is called BEFORE flags are parsed into their fields.
-	// Does not pass in flagset or tokens as we don't want fields interacting with raw data: complexity management.
-	SetArgs(width, height int)
-	// Update for the Provider.
-	// Takeover tells scaffoldcreate that this field would like to assert control over the action.
-	// This bool takes effect immediately and will be reflected in the following view.
-	// In takeover mode, all updates will be passed directly to this Provider.
-	// scaffoldcreate will reassert control as soon as takeover returns false or the user provides a soft kill key (soft kill keys NYI).
-	Update(selected bool, msg tea.Msg) (_ tea.Cmd, takeover bool)
-	// View for the Provider.
-	// Kind tells scaffoldcreate how to display this view and if it should continue to process the Views of other fields.
-	//
-	// SecondLine contains content that will be displayed below the title+value or single line.
-	// It is not shown if Kind == Takeover or if secondLine == "".
-	View(selected bool, width int) (_ ViewKind, value, secondLine string)
-	// Is this field done and ready to be submitted or is something about it invalid?
-	Satisfied() (invalid string)
-
-	// Try to set val into this provider.
-	Set(val string) (invalid string)
-
-	// Get the current value of the field as a string.
-	Get() string
-	// ToggleFocus focuses or blurs this provider.
-	ToggleFocus(focus bool)
-}
+// FieldProvider is re-exported from the scaffold package for convenience.
+type FieldProvider = scaffold.FieldProvider
 
 var _ FieldProvider = &TextProvider{}
 var _ FieldProvider = &PathProvider{}
@@ -154,6 +120,8 @@ func (p *TextProvider) ToggleFocus(focus bool) {
 	}
 	p.ti.Blur()
 }
+
+func (p *TextProvider) AsBoolFlag() bool { return false }
 
 type PathProvider struct {
 	pti pathtextinput.Model
@@ -250,6 +218,8 @@ func (p *PathProvider) ToggleFocus(focus bool) {
 	}
 	p.pti.Blur()
 }
+
+func (p *PathProvider) AsBoolFlag() bool { return false }
 
 // MSLProvider provides a multiselect list field.
 // Use NewMSLProvider() constructor.
@@ -406,6 +376,8 @@ func (p *MSLProvider) ToggleFocus(_ bool) {
 	// MSL doesn't actually care if it is in focus
 }
 
+func (p *MSLProvider) AsBoolFlag() bool { return false }
+
 //#region bool provider
 
 type BoolProvider struct {
@@ -471,6 +443,8 @@ func (p *BoolProvider) Get() string {
 }
 
 func (p *BoolProvider) ToggleFocus(focus bool) {}
+
+func (p *BoolProvider) AsBoolFlag() bool { return true }
 
 //#region number provider
 
@@ -561,3 +535,5 @@ func (p *NumberProvider) ToggleFocus(focus bool) {
 	}
 	p.ti.Blur()
 }
+
+func (p *NumberProvider) AsBoolFlag() bool { return false }

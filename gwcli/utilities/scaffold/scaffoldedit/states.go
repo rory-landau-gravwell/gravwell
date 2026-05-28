@@ -1,204 +1,273 @@
+/*************************************************************************
+ * Copyright 2026 Gravwell, Inc. All rights reserved.
+ * Contact: <legal@gravwell.io>
+ *
+ * This software may be modified and distributed under the terms of the
+ * BSD 2-clause license. See the LICENSE file for details.
+ **************************************************************************/
+
 package scaffoldedit
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet"
 	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/hotkeys"
+	"github.com/gravwell/gravwell/v4/gwcli/stylesheet/phrases"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
+	"github.com/spf13/pflag"
 )
 
-// stateEdit is the collection of fields required to track and display an item currently being edited.
-// Expects to be prepared by editModel.enterEditMode().
+// stateEdit is the collection of state required to display and manage the fields of an item being edited.
+// It is prepared by editModel.enterEditMode().
 type stateEdit[S any] struct {
-	err              string // SetField or Update encountered an error or invalid setting
-	item             S      // the item being altered
-	longestLineWidth int    // longest line width
+	// err holds the most recent validation or update error message.
+	err string
+	// updateErr holds an error from the EditSub call itself (not field validation).
+	updateErr string
+	// item is the struct being edited.
+	item S
 
-	// currently selected field.
-	// Equal to len(tiCount), where the last item is the submit button
+	// selected is the index of the currently focused field (len(ordered) == submit button).
 	selected uint
-	// # of TIs currently available for editing this item
-	tiCount     int
-	orderedKTIs []KeyedTI // KTIs, sorted by rank (cfg.Order)
+	// ordered is the sorted list of field keys (descending by Order, then alpha by Title).
+	ordered []string
+	// longestTitleLength is the width of the longest field title, used for alignment.
+	longestTitleLength int
+	// takeover is the key of the field currently asserting full-pane control.
+	takeover string
+
+	width int
 }
 
-// update() handling for editing mode, used onces an item has been selected from the list of editables.
-// Updates the TIs and performs data transmutation and submission if user confirms changes.
-//
-// An item identifier, as returned by updateSub, is returned iff the item update subroutine was triggered and processed successfully.
-// The empty string means that an error occurred or the item update subroutine was not fired at all.
-func (se *stateEdit[S]) update(msg tea.Msg, _ Config, setFieldSub SetFieldSubroutine[S], updateSub UpdateStructSubroutine[S]) (
-	_ tea.Cmd, identifier string,
-) {
+// submitSelected returns true if the submit button is currently focused.
+func (se *stateEdit[S]) submitSelected() bool {
+	return se.selected == uint(len(se.ordered))
+}
+
+// update handles a tea.Msg during edit mode.
+// Returns:
+//   - cmd: any tea.Cmd to issue
+//   - identifier: a non-empty string means the update was submitted and succeeded
+func (se *stateEdit[S]) update(
+	msg tea.Msg,
+	fields map[string]scaffold.Field,
+	editSub EditFuncT[S],
+	fs *pflag.FlagSet,
+) (_ tea.Cmd, identifier string) {
+	// clear errors on any key
 	if _, ok := msg.(tea.KeyMsg); ok {
-		se.err = "" // clear input errors on new key input
-		switch {
-		case hotkeys.Match(msg, hotkeys.Invoke, hotkeys.Select):
-			if se.submitSelected() {
-				var missing []string
-				for _, kti := range se.orderedKTIs { // check all required fields are populated
-					if kti.Required && strings.TrimSpace(kti.TI.Value()) == "" {
-						missing = append(missing, kti.Key)
-					}
-				}
+		se.err = ""
+		se.updateErr = ""
+	}
 
-				// if fields are missing, warn and do not submit
-				if len(missing) > 0 {
-					imploded := strings.Join(missing, ", ")
-					copula := "is"
-					if len(missing) > 1 {
-						copula = "are"
-					}
-					se.err = fmt.Sprintf("%v %v required", imploded, copula)
-					return textinput.Blink, ""
-				}
+	// handle takeover mode: all updates go to the takeover provider
+	if se.takeover != "" {
+		cmd, tko := fields[se.takeover].Provider.Update(true, msg)
+		if !tko {
+			se.takeover = ""
+		}
+		return cmd, ""
+	}
 
-				// yank the TI values and reinstall them into a data structure to update against
-				for _, kti := range se.orderedKTIs {
-					if inv, err := setFieldSub(&se.item, kti.Key, kti.TI.Value()); err != nil {
-						clilog.Writer.Errorf("failed to set value '%v' to field with key %v (item: %v)", kti.TI.Value(), kti.Key, se.item)
-						se.err = err.Error()
-						return nil, ""
-					} else if inv != "" {
-						se.err = inv
-						return textinput.Blink, ""
-					}
-				}
-
-				// perform the update
-				identifier, err := updateSub(&se.item)
-				if err != nil {
-					se.err = err.Error()
-					return textinput.Blink, ""
-				}
-				// success
-				return nil, identifier
+	if wsm, ok := msg.(tea.WindowSizeMsg); ok {
+		se.width = wsm.Width
+		// forward to all fields
+		var cmds []tea.Cmd
+		for i, key := range se.ordered {
+			if cmd, _ := fields[key].Provider.Update(i == int(se.selected), msg); cmd != nil {
+				cmds = append(cmds, cmd)
 			}
-		case hotkeys.Match(msg, hotkeys.CursorUp):
-			se.previousTI()
-		case hotkeys.Match(msg, hotkeys.CursorDown):
-			se.nextTI()
 		}
+		if len(cmds) > 0 {
+			return tea.Batch(cmds...), ""
+		}
+		return nil, ""
 	}
 
-	// update tis
-	cmds := make([]tea.Cmd, len(se.orderedKTIs))
-	for i, tti := range se.orderedKTIs {
-		se.orderedKTIs[i].TI, cmds[i] = tti.TI.Update(msg)
+	if hotkeys.Match(msg, hotkeys.CursorUp) {
+		se.focusPrevious(fields)
+		return textinput.Blink, ""
+	} else if hotkeys.Match(msg, hotkeys.CursorDown) {
+		se.focusNext(fields)
+		return textinput.Blink, ""
 	}
-	return tea.Batch(cmds...), ""
+
+	if hotkeys.Match(msg, hotkeys.Invoke, hotkeys.Select) && se.submitSelected() {
+		// validate required fields
+		se.checkSatisfaction(fields, false)
+		if se.err != "" {
+			return nil, ""
+		}
+		// call the edit function
+		ident, invalid, err := editSub(&se.item, fields, fs)
+		if err != nil {
+			se.updateErr = err.Error()
+			return nil, ""
+		} else if invalid != "" {
+			se.err = invalid
+			return nil, ""
+		}
+		return nil, ident
+	}
+
+	if se.submitSelected() {
+		return nil, ""
+	}
+
+	// pass the message to the currently selected provider
+	p := fields[se.ordered[se.selected]].Provider
+	cmd, tko := p.Update(true, msg)
+	if tko {
+		se.takeover = se.ordered[se.selected]
+	}
+	se.checkSatisfaction(fields, false)
+	return cmd, ""
 }
 
-func (se *stateEdit[S]) view() string {
-
-	inputs := ViewKTIs(uint(se.longestLineWidth)/2, uint(se.longestLineWidth)/2, se.orderedKTIs, se.selected)
-
-	var wrapSty = lipgloss.NewStyle().Width(se.longestLineWidth)
-
-	var inE string
-	if se.err != "" {
-		inE = wrapSty.Render(se.err)
+// view renders the edit form for the currently selected item.
+func (se *stateEdit[S]) view(fields map[string]scaffold.Field) string {
+	if se.takeover != "" {
+		_, v, _ := fields[se.takeover].Provider.View(true, se.width)
+		return v
 	}
 
-	return inputs +
-		"\n" +
-		lipgloss.NewStyle().Width(lipgloss.Width(inputs)).AlignHorizontal(lipgloss.Center).Render(
-			stylesheet.ViewSubmitButton(se.submitSelected(), se.longestLineWidth, inE),
-		)
-}
-
-var (
-	rightAlignSty = lipgloss.NewStyle().AlignHorizontal(lipgloss.Right)
-)
-
-// ViewKTIs composes a uniform view of the given keyedTIs.
-// All field will be padded to a consistent length based on maxFieldWidth and right-aligned.
-// TIs are attached as View() to their respective TIs.
-func ViewKTIs(maxFieldWidth, maxTIWidth uint, ktis []KeyedTI, selectedIdx uint) string {
-	if maxFieldWidth == 0 {
-		clilog.Writer.Warnf("field width is unset")
-	} else if maxTIWidth == 0 {
-		clilog.Writer.Warnf("TI width is unset")
+	views, setWidth := se.collectViewValues(fields)
+	if setWidth == 0 {
+		setWidth = se.width
 	}
 
-	var fields []string
-	var TIs []string
-
-	var sb strings.Builder // reused each cycle
-	for i, kti := range ktis {
-		// apply consistent left padding, then pip
-		sb.WriteString(strings.Repeat(" ", int(max(maxFieldWidth, maxTIWidth))-len(kti.Title)) + stylesheet.Pip(selectedIdx, uint(i)))
-		// colourize and attach title
-		if kti.Required {
-			sb.WriteString(stylesheet.RequiredTitle(kti.Title))
+	centerSty := lipgloss.NewStyle().Width(setWidth).AlignHorizontal(lipgloss.Center)
+	lines := make([]string, 0, len(views))
+	for _, v := range views {
+		if v.toCenter {
+			lines = append(lines, centerSty.MaxHeight(2).Render(v.content))
 		} else {
-			sb.WriteString(stylesheet.OptionalTitle(kti.Title))
+			lines = append(lines, v.content)
 		}
-		// render the line and right-align it
-		fields = append(fields, rightAlignSty.Render(sb.String()))
-		sb.Reset()
-
-		TIs = append(TIs, kti.TI.View())
 	}
 
-	// compose all fields
-	f := lipgloss.JoinVertical(lipgloss.Right, fields...)
-
-	// compose all TIs
-	t := lipgloss.JoinVertical(lipgloss.Left, TIs...)
-
-	// conjoin fields and TIs
-	return lipgloss.JoinHorizontal(lipgloss.Center, f, t)
+	mainView := lipgloss.JoinVertical(lipgloss.Left, lines...)
+	sbtn := stylesheet.ViewSubmitButton(se.submitSelected(), setWidth, se.err, se.updateErr)
+	return lipgloss.NewStyle().AlignHorizontal(lipgloss.Left).Render(mainView) + "\n" + sbtn
 }
 
-// Blur existing TI, select and focus previous (higher) TI.
-// Wraps from the first TI to the submit button.
-func (se *stateEdit[S]) previousTI() {
-	// if we are not on the submit button, then blur
-	if !se.submitSelected() {
-		se.orderedKTIs[se.selected].TI.Blur()
+// material is a view component, matching the analogous type in scaffoldcreate.
+type material struct {
+	content  string
+	toCenter bool
+}
+
+// collectViewValues gathers the material views from the provider fields.
+// Returns the views (ordered as se.ordered) and the widest TitleValue line width.
+func (se *stateEdit[S]) collectViewValues(fields map[string]scaffold.Field) (views []material, setWidth int) {
+	views = make([]material, 0, len(se.ordered))
+	for i, key := range se.ordered {
+		field := fields[key]
+		kind, value, secondLine := fields[key].Provider.View(i == int(se.selected), se.width)
+
+		switch kind {
+		case scaffold.TitleValue:
+			padding := strings.Repeat(" ", se.longestTitleLength-len(field.Title))
+			pip := stylesheet.Pip(se.selected, uint(i))
+			var styledTitle string
+			if field.Required {
+				styledTitle = stylesheet.RequiredTitle(field.Title)
+			} else {
+				styledTitle = stylesheet.OptionalTitle(field.Title)
+			}
+			line := padding + pip + styledTitle + value
+			views = append(views, material{content: line, toCenter: false})
+			if w := lipgloss.Width(line); w > setWidth {
+				setWidth = w
+			}
+		case scaffold.Line:
+			views = append(views, material{
+				content:  stylesheet.Pip(se.selected, uint(i)) + value,
+				toCenter: true,
+			})
+		}
+		if secondLine != "" {
+			views = append(views, material{content: secondLine, toCenter: true})
+		}
 	}
-	if se.selected == 0 { // wrap to submit button
-		se.selected = uint(len(se.orderedKTIs))
+	return views, setWidth
+}
+
+// checkSatisfaction validates fields and sets se.err on the first invalid field.
+// Clears se.err if all fields are satisfied.
+// If selectedOnly is true, only the currently selected field is checked.
+func (se *stateEdit[S]) checkSatisfaction(fields map[string]scaffold.Field, selectedOnly bool) {
+	check := func(f scaffold.Field) bool {
+		if f.Required && f.Provider.Get() == "" {
+			se.err = phrases.MissingRequiredFields([]string{f.Title})
+			return true
+		}
+		if invalid := f.Provider.Satisfied(); invalid != "" {
+			se.err = invalid
+			return true
+		}
+		se.err = ""
+		return false
+	}
+	if selectedOnly {
+		if !se.submitSelected() {
+			check(fields[se.ordered[se.selected]])
+		}
+		return
+	}
+	for _, key := range se.ordered {
+		if check(fields[key]) {
+			return
+		}
+	}
+}
+
+// focusNext blurs the current field and focuses the next one.
+// Wraps from the last field to the submit button, and from the submit button to the first field.
+func (se *stateEdit[S]) focusNext(fields map[string]scaffold.Field) {
+	se.focusInput(fields, false)
+	se.selected += 1
+	if se.selected > uint(len(se.ordered)) {
+		se.selected = 0
+	}
+	se.focusInput(fields, true)
+}
+
+// focusPrevious blurs the current field and focuses the previous one.
+// Wraps from the first field to the submit button.
+func (se *stateEdit[S]) focusPrevious(fields map[string]scaffold.Field) {
+	se.focusInput(fields, false)
+	if se.selected == 0 {
+		se.selected = uint(len(se.ordered))
 	} else {
 		se.selected -= 1
 	}
-	// if we are not on the submit button, then focus
-	if !se.submitSelected() {
-		se.orderedKTIs[se.selected].TI.Focus()
-	}
+	se.focusInput(fields, true)
 }
 
-// Blur existing TI, select and focus next (lower) TI.
-// Selects the submit button after the last TI and wraps after the submit button.
-func (se *stateEdit[S]) nextTI() {
-	if !se.submitSelected() {
-		se.orderedKTIs[se.selected].TI.Blur()
+// focusInput toggles focus on the currently selected field (no-op if submit is selected).
+func (se *stateEdit[S]) focusInput(fields map[string]scaffold.Field, focus bool) {
+	if se.submitSelected() {
+		return
 	}
-	se.selected += 1
-	if se.selected > uint(len(se.orderedKTIs)) { // jump to start
-		se.selected = 0
-	}
-	if !se.submitSelected() {
-		se.orderedKTIs[se.selected].TI.Focus()
-	}
+	key := se.ordered[se.selected]
+	fields[key].Provider.ToggleFocus(focus)
 }
 
+
+// reset returns the stateEdit to its zero value.
 func (se *stateEdit[S]) reset() {
 	var zero S
-
-	se.orderedKTIs = nil
+	se.ordered = nil
 	se.selected = 0
 	se.item = zero
 	se.err = ""
-	se.tiCount = 0
+	se.updateErr = ""
+	se.takeover = ""
+	se.longestTitleLength = 0
 }
 
-func (se *stateEdit[S]) submitSelected() bool {
-	return se.selected == uint(se.tiCount)
-}

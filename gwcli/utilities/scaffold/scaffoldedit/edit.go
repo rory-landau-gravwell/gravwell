@@ -12,50 +12,21 @@ Package scaffoldedit provides a template for building actions that modify existi
 An edit action allows the user to select an entity from a list of all available entities, modify its
 fields, and reflect the changes to the server.
 
-Implementor (you) must provide a struct of subroutines and a map of manipulate-able Fields to be displayed
-after an item is selected for editing.
-The subroutines provide methods for scaffoldedit to find and manipulate data,
-including translation services for plucking specific fields out of the generic data struct.
+Implementors must provide a SubroutineSet and a Config (map of scaffold.Field) to be displayed
+after an item is selected for editing. Each Field must have a Provider set (e.g. a TextProvider).
 
-This scaffold is notably more complex to modify and heavier to implement than the other scaffolds.
-See the Design block below for why.
+The editing phase operates like scaffoldcreate: fields are navigated with arrow keys, providers
+render their own inputs, and submission is confirmed via enter/space on the submit button.
 
-! Once a Config is given by the implementor, it should be considered ReadOnly.
+The subroutines provide methods for scaffoldedit to find and manipulate data.
 
-! Note that some subs in the SubroutineSet explicitly pass pointers as parameters; these subroutines
-are destructive by design.
-
-Implementations will resemble scaffoldcreate implementations with the addition of a SubroutineSet.
-An example implementation doesn't really make sense due to the amount that scaffoldedit requires from the
-implementor; instead take a look at the macro edit action implementation. That is fairly simple.
+Example implementation: see macro edit action, which is fairly minimal.
 */
 package scaffoldedit
-
-/**
- * More on Design:
- * Edit is definitely the most complex of the scaffolds, requiring components of both Create
- * (arbitrary TIs) and Delete (list possible structs/items).
- * By virtue of passing around structs and ids, it was always going to require multiple generics.
- * As implemented, it uses I to represent a singular, generally-numeric ID and S to represent a
- * single instance of the struct we are/will be editing.
- * The use of reflection to reduce the complexity of the SubroutineSet, thereby reducing implementor
- * load, was considered, but ditched fairly early.
- * Reflection is
- * 1) slow
- * 2) error-prone (needing to look up qualified field names given by the implementor)
- * 3) an added layer of complexity on top of the already-in-play generics
- * Thus, no reflection.
- * The side effect of this, of course, is that we need yet more functions from the implementor and a
- * couple of trivial get/sets to be able to operate on the struct we want to update.
- *
- * Not sharing the Field struct between edit and create was a conscious choice to allow them to be
- * updated independently as it is more coincidental that they are similar.
- */
 
 import (
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/gravwell/gravwell/v4/gwcli/action"
@@ -82,12 +53,11 @@ const (
 )
 
 // NewEditAction composes a usable edit action, returning its action pair.
-// The parameters, specifically funcs, do most of the heavy lifting; this just bolts on necessities to make the new action work in Mother and via a script.
-// This is the function that implementations/implementors should call as their action implementation.
-// This function panics if any parameters are missing.
+// This is the function that implementors should call to create an edit action.
+// Panics if any required parameters are missing.
 func NewEditAction[I scaffold.Id_t, S any](singular, plural string, cfg Config, funcs SubroutineSet[I, S]) action.Pair {
-	funcs.guarantee() // check that all functions are given
-	if len(cfg) < 1 { // check that config has fields in it
+	funcs.guarantee()
+	if len(cfg) < 1 {
 		panic("cannot edit with no fields defined")
 	}
 	if strings.TrimSpace(singular) == "" {
@@ -96,28 +66,24 @@ func NewEditAction[I scaffold.Id_t, S any](singular, plural string, cfg Config, 
 		panic("plural form of the noun cannot be empty")
 	}
 
-	var fs = generateFlagSet(cfg, singular)
+	fs := generateFlagSet(cfg, singular)
 
 	cmd := treeutils.GenerateAction(
-		"edit",                             // use
-		"edit a "+singular,                 // short
-		"edit/alter an existing "+singular, // long
-		[]string{"e"},                      // aliases
+		"edit",
+		"edit a "+singular,
+		"edit/alter an existing "+singular,
+		[]string{"e"},
 		func(cmd *cobra.Command, args []string) error {
-			var err error
-			// hard branch on noInteractive mode
-			var noInteractive bool
-			if noInteractive, err = cmd.Flags().GetBool(ft.NoInteractive.Name()); err != nil {
+			noInteractive, err := cmd.Flags().GetBool(ft.NoInteractive.Name())
+			if err != nil {
 				return err
 			}
 			if noInteractive {
 				return runNonInteractive(cmd, cfg, funcs, singular)
 			}
 			return runInteractive(cmd, args)
-
 		})
 
-	// attach flags to cmd
 	cmd.Flags().AddFlagSet(&fs)
 
 	return action.NewPair(cmd,
@@ -125,211 +91,158 @@ func NewEditAction[I scaffold.Id_t, S any](singular, plural string, cfg Config, 
 	)
 }
 
-// Generates a flagset from the given configuration and appends flags native to scaffoldedit.
+// generateFlagSet builds a pflag.FlagSet from the Config fields plus the native --id flag.
 func generateFlagSet(cfg Config, singular string) pflag.FlagSet {
-	var fs pflag.FlagSet
-	for _, field := range cfg {
-		if field.FlagName == "" {
-			field.FlagName = ft.DeriveFlagName(field.Title)
-		}
-
-		// map fields to their flags
-		if field.FlagShorthand != 0 {
-			fs.StringP(field.FlagName, string(field.FlagShorthand), "", field.Usage)
-		} else {
-			fs.String(field.FlagName, "", field.Usage)
-		}
-	}
-
-	// attach native flags
+	fs := scaffold.InstallFlagsFromFields(cfg)
 	fs.StringP("id", "i", "", fmt.Sprintf("id of the %v to edit", singular))
-
 	return fs
 }
 
-// run helper function.
-// runNonInteractive is the --no-interactive portion of edit's runFunc.
-// It requires --id be set and is ineffectual if no other flags were given.
-// Prints and error handles on its own; the program is expected to exit on its completion.
+// runNonInteractive handles --no-interactive mode:
+//  1. Requires --id to identify the target item.
+//  2. Calls PrepopulateSub to fill providers with current values.
+//  3. Calls ApplyChangedFlags to override providers with any explicitly-set flags.
+//  4. Calls EditSub to submit the updated item.
 func runNonInteractive[I scaffold.Id_t, S any](cmd *cobra.Command, cfg Config, funcs SubroutineSet[I, S], singular string) error {
-	var err error
 	var (
 		id   I
 		zero I
-		itm  S
 	)
-	if strid, err := cmd.Flags().GetString("id"); err != nil {
+	strid, err := cmd.Flags().GetString("id")
+	if err != nil {
 		return err
-	} else {
-		id, err = scaffold.FromString[I](strid)
-		if err != nil {
-			return err
-		}
 	}
-	if id == zero { // id was not given
+	id, err = scaffold.FromString[I](strid)
+	if err != nil {
+		return err
+	}
+	if id == zero {
 		return errors.New("--id is required in no-interactive mode")
 	}
 
-	// get the item to edit
-	if itm, err = funcs.SelectSub(id); err != nil {
-		return fmt.Errorf("Failed to select %s (id: %v): %w", singular, id, err)
+	itm, err := funcs.SelectSub(id)
+	if err != nil {
+		return fmt.Errorf("failed to select %s (id: %v): %w", singular, id, err)
 	}
 
-	var fieldUpdated bool   // was a value actually changed?
-	for k, v := range cfg { // check each field for updates to be made
-		// get current value
-		curVal, err := funcs.GetFieldSub(itm, k)
-		if err != nil {
-			return err
-		}
-		var newVal = curVal
-		if cmd.Flags().Changed(v.FlagName) { // flag *presumably* updates the field
-			if x, err := cmd.Flags().GetString(v.FlagName); err != nil {
-				clilog.Tee(clilog.ERROR, cmd.ErrOrStderr(), err.Error()+"\n")
-			} else {
-				newVal = x
-			}
-		}
+	// pre-fill providers with current values
+	funcs.PrepopulateSub(itm, cfg)
 
-		if newVal != curVal { // update the struct
-			fieldUpdated = true // note if a change occurred
-			if inv, err := funcs.SetFieldSub(&itm, k, newVal); err != nil {
-				return err
-			} else if inv != "" {
-				return errors.New(inv)
-			}
-		}
+	// apply any flags that were explicitly set
+	fs := cmd.Flags()
+	anyChanged, err := scaffold.ApplyChangedFlags(fs, cfg)
+	if err != nil {
+		return err
 	}
-
-	if !fieldUpdated { // only bother to update if at least one field was changed
+	if !anyChanged {
 		return errors.New("no field would be updated; quitting...")
 	}
 
-	// perform the actual update
-	identifier, err := funcs.UpdateSub(&itm)
+	identifier, invalid, err := funcs.EditSub(&itm, cfg, fs)
 	if err != nil {
 		return err
+	}
+	if invalid != "" {
+		return errors.New(invalid)
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), successStringF+"\n", singular, identifier)
 	return nil
 }
 
-// run helper function.
-// Boots Mother, allowing her to handle the request.
+// runInteractive boots Mother to handle the interactive edit session.
 func runInteractive(cmd *cobra.Command, args []string) error {
-	// we have no way of knowing if the user has passed enough data to make the edit autonomously
-	// ex: they provided one flag, but are they only planning to edit one flag?
-	// therefore, just spawn mother; she is smart enough to handle the flags naturally
 	return mother.Spawn(cmd.Root(), cmd, args)
 }
 
-//#region interactive mode (model) implementation
+//#region interactive mode (model)
 
-// the possible modes editModel can be in
 type mode = uint8
 
 const (
-	quitting  mode = iota // mother should reassert
-	selecting             // picking from a list of edit-able items
-	editing               // item selected; currently altering
+	quitting  mode = iota // done; mother should reassert
+	selecting             // picking an item from the list
+	editing               // item selected; user is editing fields
 	idle                  // inactive
 )
 
 type editModel[I scaffold.Id_t, S any] struct {
-	mode             mode                // current program state
-	fs               pflag.FlagSet       // current state of the flagset
-	singular, plural string              // forms of the noun
-	width, height    int                 // tty dimensions, queried by SetArgs()
-	funcs            SubroutineSet[I, S] // functions provided by implementor
+	mode             mode
+	fs               pflag.FlagSet
+	singular, plural string
+	width, height    int
+	funcs            SubroutineSet[I, S]
 
-	cfg Config // RO configuration provided by the caller
+	// cfg holds the fields and their providers.
+	// Providers are mutated in-place as values are set.
+	cfg Config
 
-	data []S // full, raw data retrieved by fchFunc
+	data []S
 
-	list            list.Model // list displayed during `selecting` mode
-	listInitialized bool       // check before accessing the list, in case the user skipped to edit mode
+	list            list.Model
+	listInitialized bool
 
-	// editing-specific fields
-	editing   stateEdit[S]
-	updateErr string // error occurred performing the update
+	editing stateEdit[S]
 }
 
-// Creates and returns a new edit model, ready for interactive use.
 func newEditModel[I scaffold.Id_t, S any](cfg Config, singular, plural string,
 	funcs SubroutineSet[I, S], initialFS pflag.FlagSet) *editModel[I, S] {
-	em := &editModel[I, S]{
+	return &editModel[I, S]{
 		mode:     idle,
 		fs:       initialFS,
 		singular: singular,
 		plural:   plural,
 		cfg:      cfg,
 		funcs:    funcs,
-		editing:  stateEdit[S]{},
 	}
-
-	return em
 }
 
-func (em *editModel[I, S]) SetArgs(fs *pflag.FlagSet, tokens []string, width, height int) (
+func (em *editModel[I, S]) SetArgs(_ *pflag.FlagSet, tokens []string, width, height int) (
 	invalid string, onStart tea.Cmd, err error) {
-	// parse the flags, save them for later, when TIs are created
+
 	if err := em.fs.Parse(tokens); err != nil {
 		return err.Error(), nil, nil
 	}
 
-	// check for an explicit ID
+	// if --id was given, jump directly to editing mode
 	if em.fs.Changed("id") {
-		var id I
-		if strid, err := em.fs.GetString("id"); err != nil {
-			return "", nil, err
-		} else {
-			id, err = scaffold.FromString[I](strid)
-			if err != nil {
-				return "failed to parse id from " + strid, nil, nil
-			}
-		}
-
-		// select the item associated to the id
-		item, err := em.funcs.SelectSub(id)
+		strid, err := em.fs.GetString("id")
 		if err != nil {
-			// treat this as an invalid argument
+			return "", nil, err
+		}
+		id, err := scaffold.FromString[I](strid)
+		if err != nil {
+			return "failed to parse id from " + strid, nil, nil
+		}
+		itm, err := em.funcs.SelectSub(id)
+		if err != nil {
 			return fmt.Sprintf("failed to fetch %s by id (%v): %v", em.singular, id, err), nil, nil
 		}
-		// we can jump directly to editing phase on start
-		if err := em.enterEditMode(item); err != nil {
+		if err := em.enterEditMode(itm, width); err != nil {
 			em.mode = quitting
 			clilog.Writer.Errorf("%v", err)
 			return "", nil, err
 		}
-
 		return "", nil, nil
-
 	}
 
-	// fetch edit-able items
-	if em.data, err = em.funcs.FetchSub(); err != nil {
+	// fetch all editable items for the list
+	em.data, err = em.funcs.FetchSub()
+	if err != nil {
 		return
 	}
-
-	var dataCount = len(em.data)
-
-	// check for a lack of data
-	if dataCount < 1 { // die
+	dataCount := len(em.data)
+	if dataCount < 1 {
 		em.mode = quitting
 		return "", tea.Printf("You have no %v that can be edited", em.plural), nil
 	}
 
-	// transmute data into list items
-	var itms = make([]list.Item, dataCount)
+	itms := make([]list.Item, dataCount)
 	for i, s := range em.data {
-		itms[i] = item{em.funcs.GetTitleSub(s), em.funcs.GetDescriptionSub(s)}
+		itms[i] = listItem{em.funcs.GetTitleSub(s), em.funcs.GetDescriptionSub(s)}
 	}
 
-	// cache term size, apply a minimum on width to ensure everything is rendered
 	em.width = max(width, initialMinWidth)
 	em.height = height
-
-	// generate list
 	em.list = stylesheet.NewList(itms, em.width, em.height, em.singular, em.plural)
 	hotkeys.ApplyToList(&em.list.KeyMap)
 	em.listInitialized = true
@@ -342,23 +255,19 @@ func (em *editModel[I, S]) Update(msg tea.Msg) tea.Cmd {
 	if wsMsg, ok := msg.(tea.WindowSizeMsg); ok {
 		em.width = wsMsg.Width
 		em.height = wsMsg.Height
-		// if we skipped directly to edit mode, list will be nil
 		if em.listInitialized {
 			em.list.SetHeight(min(wsMsg.Height-6, listHeightMax))
 			em.list.SetWidth(em.width)
 		}
-	} else if _, ok := msg.(tea.KeyMsg); ok {
-		em.updateErr = ""
 	}
 
-	// switch handling based on mode
 	switch em.mode {
 	case quitting:
 		return nil
 	case selecting:
 		return em.updateSelecting(msg)
 	case editing:
-		cmd, identifier := em.editing.update(msg, em.cfg, em.funcs.SetFieldSub, em.funcs.UpdateSub)
+		cmd, identifier := em.editing.update(msg, em.cfg, em.funcs.EditSub, &em.fs)
 		if identifier != "" {
 			em.mode = quitting
 			return tea.Printf(successStringF, em.singular, identifier)
@@ -366,19 +275,15 @@ func (em *editModel[I, S]) Update(msg tea.Msg) tea.Cmd {
 		return cmd
 	default:
 		clilog.Writer.Criticalf("unknown edit mode %v.", em.mode)
-		clilog.Writer.Debugf("model dump: %#v.", em)
-		clilog.Writer.Info("Returning control to Mother...")
 		em.mode = quitting
 		return textinput.Blink
 	}
 }
 
-// Update() handling for selecting mode.
-// Updates the list and transitions to editing mode if an item is selected.
 func (em *editModel[I, S]) updateSelecting(msg tea.Msg) tea.Cmd {
 	if hotkeys.Match(msg, hotkeys.Invoke) {
-		item := em.data[em.list.GlobalIndex()]
-		if err := em.enterEditMode(item); err != nil {
+		itm := em.data[em.list.GlobalIndex()]
+		if err := em.enterEditMode(itm, em.width); err != nil {
 			em.mode = quitting
 			clilog.Writer.Errorf("%v", err)
 			return tea.Println(err.Error())
@@ -401,7 +306,7 @@ func (em *editModel[I, S]) View() string {
 				Width(em.width).
 				Render("Press space or enter to select")
 	case editing:
-		return em.editing.view()
+		return em.editing.view(em.cfg)
 	default:
 		clilog.Writer.Errorf("unknown mode %v", em.mode)
 		em.mode = quitting
@@ -417,97 +322,67 @@ func (em *editModel[I, S]) Reset() error {
 	em.mode = idle
 	em.data = nil
 	em.fs = generateFlagSet(em.cfg, em.singular)
-
-	// selecting mode
 	em.list = list.Model{}
 	em.listInitialized = false
-
-	// editing mode
 	em.editing.reset()
-	em.updateErr = ""
-
+	// reset all providers
+	for _, key := range scaffold.SortFieldKeys(em.cfg) {
+		em.cfg[key].Provider.Reset()
+	}
 	return nil
 }
 
-// Triggers the edit model to enter editing mode, establishing and displaying a TI for each field
-// and sorting them into an ordered array.
-func (em *editModel[I, S]) enterEditMode(item S) error {
-	es := stateEdit[S]{
-		item:        item,
-		tiCount:     len(em.cfg),
-		orderedKTIs: make([]KeyedTI, len(em.cfg)),
+// enterEditMode transitions the model to editing mode for the given item.
+// It calls PrepopulateSub to pre-fill providers with the item's current values,
+// then applies any flags that were explicitly set.
+func (em *editModel[I, S]) enterEditMode(item S, width int) error {
+	// reset providers from any previous edit
+	for _, key := range scaffold.SortFieldKeys(em.cfg) {
+		em.cfg[key].Provider.Reset()
 	}
 
-	// use the get function to pull current values for each field and display them in their
-	// respective TIs
-	var i uint8 = 0
-	for k, fieldCfg := range em.cfg {
-		// create the ti
-		var ti textinput.Model
-		if fieldCfg.CustomTIFuncInit != nil {
-			ti = fieldCfg.CustomTIFuncInit()
-		} else {
-			ti = stylesheet.NewTI("", !fieldCfg.Required)
-		}
+	// pre-fill providers with the item's current values
+	em.funcs.PrepopulateSub(item, em.cfg)
 
-		var setByFlag bool
-		if em.fs.Changed(fieldCfg.FlagName) { // prefer flag value
-			if x, err := em.fs.GetString(fieldCfg.FlagName); err == nil {
-				ti.SetValue(x)
-				setByFlag = true
-			}
-		}
-
-		if !setByFlag { // fallback to current value
-			curVal, err := em.funcs.GetFieldSub(es.item, k)
-			if err != nil {
-				return err
-			}
-			ti.SetValue(curVal)
-		}
-
-		// attach TI to list
-		es.orderedKTIs[i] = NewKTI(k, fieldCfg.Title, fieldCfg.Required)
-		es.orderedKTIs[i].TI = ti
-		i += 1
-
-		// check width
-		es.longestLineWidth = max(lipgloss.Width(fieldCfg.Title)+3+ti.Width, es.longestLineWidth)
+	// apply any flags that were explicitly set
+	if _, err := scaffold.ApplyChangedFlags(&em.fs, em.cfg); err != nil {
+		return err
 	}
 
-	if len(es.orderedKTIs) < 1 {
-		return errors.New("no TIs created by transmutation")
+	// call SetArgs hooks on providers
+	for _, key := range scaffold.SortFieldKeys(em.cfg) {
+		em.cfg[key].Provider.SetArgs(width, 0)
 	}
 
-	// order TIs from highest to lowest orders
-	slices.SortFunc(es.orderedKTIs, func(a, b KeyedTI) int {
-		return em.cfg[b.Key].Order - em.cfg[a.Key].Order
-	})
+	ordered := scaffold.SortFieldKeys(em.cfg)
+	if len(ordered) == 0 {
+		return errors.New("no fields available to edit")
+	}
 
-	es.orderedKTIs[0].TI.Focus() // focus the first TI
+	em.editing = stateEdit[S]{
+		item:               item,
+		ordered:            ordered,
+		longestTitleLength: scaffold.LongestTitleLen(em.cfg),
+		width:              width,
+	}
 
-	em.editing = es
+	// focus the first field
+	em.editing.focusInput(em.cfg, true)
 	em.mode = editing
 	return nil
 }
 
-//#endregion interactive mode (model) implementation
+//#endregion interactive mode (model)
 
-type item struct {
+// listItem is the list.Item implementation used in the selecting state.
+type listItem struct {
 	title       string
 	description string
 }
 
-var _ stylesheet.ListItem = item{}
+var _ stylesheet.ListItem = listItem{}
 
-func (i item) Title() string {
-	return i.title
-}
+func (i listItem) Title() string       { return i.title }
+func (i listItem) Description() string { return i.description }
+func (i listItem) FilterValue() string { return i.title }
 
-func (i item) Description() string {
-	return i.description
-}
-
-func (i item) FilterValue() string {
-	return i.title
-}
