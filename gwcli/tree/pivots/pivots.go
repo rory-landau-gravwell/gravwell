@@ -124,32 +124,18 @@ func editAction() action.Pair {
 		FetchSub: func() ([]types.WirePivot, error) {
 			return connection.Client.ListPivots()
 		},
-		GetFieldSub: func(item types.WirePivot, fieldKey string) (string, error) {
-			switch fieldKey {
-			case "name":
-				return item.Name, nil
-			case "description":
-				return item.Description, nil
-			}
-			return "", fmt.Errorf("unknown field key: %v", fieldKey)
-		},
-		SetFieldSub: func(item *types.WirePivot, fieldKey, val string) (string, error) {
-			switch fieldKey {
-			case "name":
-				item.Name = val
-			case "description":
-				item.Description = val
-			default:
-				return "", fmt.Errorf("unknown field key: %v", fieldKey)
-			}
-			return "", nil
-		},
 		GetTitleSub:       func(item types.WirePivot) string { return item.Name },
 		GetDescriptionSub: func(item types.WirePivot) string { return item.Description },
-		UpdateSub: func(data *types.WirePivot) (string, error) {
-			uid := data.ThingUUID
-			_, err := connection.Client.SetPivot(uid, *data)
-			return data.Name, err
+		PrepopulateSub: func(item types.WirePivot, fields map[string]scaffold.Field) {
+			fields["name"].Provider.Set(item.Name)
+			fields["description"].Provider.Set(item.Description)
+		},
+		EditSub: func(item *types.WirePivot, fields map[string]scaffold.Field, fs *pflag.FlagSet) (string, string, error) {
+			item.Name = fields["name"].Provider.Get()
+			item.Description = fields["description"].Provider.Get()
+			uid := item.ThingUUID
+			_, err := connection.Client.SetPivot(uid, *item)
+			return item.Name, "", err
 		},
 	}
 	return scaffoldedit.NewEditAction("pivot", "pivots", cfg, funcs)

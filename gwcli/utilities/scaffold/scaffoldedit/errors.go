@@ -14,7 +14,7 @@ func ErrUnknownID[I scaffold.Id_t](id I) error {
 }
 
 // ErrUnknownField returns "unknown field <>".
-// Intended for use in Get/SetField subroutines.
+// Intended for use in SelectSub implementations when an ID does not match any known item.
 func ErrUnknownField(fieldKey string) error {
 	return errors.New("unknown field " + fieldKey)
 }

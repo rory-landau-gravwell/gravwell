@@ -324,40 +324,39 @@ func edit() action.Pair {
 	return scaffoldedit.NewEditAction("extractor", "extractors", scaffoldedit.Config{
 		fieldKeyName: scaffoldedit.FieldName("extractor"),
 		fieldKeyDesc: scaffoldedit.FieldDescription("extractor"),
-		fieldKeyModule: &scaffoldedit.Field{
-			Required:      true,
-			Title:         "module",
-			Usage:         "extraction module to use. Call `extractors modules` to list available options.",
-			FlagName:      "module",
-			FlagShorthand: 'm',
-			Order:         80,
+		fieldKeyModule: scaffold.Field{
+			Required: true,
+			Title:    "module",
+			Flag:     scaffold.FlagConfig{Name: "module", Usage: "extraction module to use. Call `extractors modules` to list available options.", Shorthand: 'm'},
+			Order:    80,
+			Provider: &scaffoldcreate.TextProvider{},
 		},
-		fieldKeyTags: &scaffoldedit.Field{
-			Required:      true,
-			Title:         "tags",
-			Usage:         "tags this ax will extract from. There can only be one extractor per tag.",
-			FlagName:      "tags",
-			FlagShorthand: 't',
-			Order:         70,
-			CustomTIFuncInit: func() textinput.Model {
-				ti := stylesheet.NewTI("", false)
-				ti.Placeholder = "tag1,tag2,tag3"
-				return ti
+		fieldKeyTags: scaffold.Field{
+			Required: true,
+			Title:    "tags",
+			Flag:     scaffold.FlagConfig{Name: "tags", Usage: "tags this ax will extract from. There can only be one extractor per tag.", Shorthand: 't'},
+			Order:    70,
+			Provider: &scaffoldcreate.TextProvider{
+				CustomInit: func() textinput.Model {
+					ti := stylesheet.NewTI("", false)
+					ti.Placeholder = "tag1,tag2,tag3"
+					return ti
+				},
 			},
 		},
-		fieldKeyParams: &scaffoldedit.Field{
+		fieldKeyParams: scaffold.Field{
 			Required: false,
 			Title:    "params/regex",
-			Usage:    fieldUsageParams,
-			FlagName: "params",
+			Flag:     scaffold.FlagConfig{Name: "params", Usage: fieldUsageParams},
 			Order:    60,
+			Provider: &scaffoldcreate.TextProvider{},
 		},
-		fieldKeyArgs: &scaffoldedit.Field{
+		fieldKeyArgs: scaffold.Field{
 			Required: false,
 			Title:    "arguments/options",
-			Usage:    fieldUsageArgs,
-			FlagName: "args",
+			Flag:     scaffold.FlagConfig{Name: "args", Usage: fieldUsageArgs},
 			Order:    50,
+			Provider: &scaffoldcreate.TextProvider{},
 		},
 		fieldKeyLabels: fLabels,
 	},
@@ -372,60 +371,46 @@ func edit() action.Pair {
 				}
 				return resp.Results, nil
 			},
-			GetFieldSub: func(item types.AX, fieldKey string) (value string, err error) {
-				switch fieldKey {
-				case fieldKeyName:
-					return item.Name, nil
-				case fieldKeyDesc:
-					return item.Description, nil
-				case fieldKeyModule:
-					return item.Module, nil
-				case fieldKeyTags:
-					return strings.Join(item.Tags, ","), nil
-				case fieldKeyParams:
-					return item.Params, nil
-				case fieldKeyArgs:
-					return item.Args, nil
-				case fieldKeyLabels:
-					return strings.Join(item.Labels, ","), nil
-				}
-				return "", fmt.Errorf("unknown field key: %v", fieldKey)
-			},
-			SetFieldSub: func(item *types.AX, fieldKey, val string) (invalid string, err error) {
-				switch fieldKey {
-				case fieldKeyName:
-					item.Name = val
-				case fieldKeyDesc:
-					item.Description = val
-				case fieldKeyModule:
-					item.Module = val
-				case fieldKeyTags:
-					item.Tags = strings.Split(val, ",")
-				case fieldKeyParams:
-					item.Params = val
-				case fieldKeyArgs:
-					item.Args = val
-				case fieldKeyLabels:
-					item.Labels = strings.Split(val, ",")
-				default:
-					return "", fmt.Errorf("unknown field key: %v", fieldKey)
-				}
-				return "", nil
-			},
 			GetTitleSub: func(item types.AX) string {
 				return item.Name
 			},
 			GetDescriptionSub: func(item types.AX) string {
 				return item.Description
 			},
-			UpdateSub: func(data *types.AX) (identifier string, err error) {
-				if data == nil {
+			PrepopulateSub: func(item types.AX, fields map[string]scaffold.Field) {
+				fields[fieldKeyName].Provider.Set(item.Name)
+				fields[fieldKeyDesc].Provider.Set(item.Description)
+				fields[fieldKeyModule].Provider.Set(item.Module)
+				fields[fieldKeyTags].Provider.Set(strings.Join(item.Tags, ","))
+				fields[fieldKeyParams].Provider.Set(item.Params)
+				fields[fieldKeyArgs].Provider.Set(item.Args)
+				fields[fieldKeyLabels].Provider.Set(strings.Join(item.Labels, ","))
+			},
+			EditSub: func(item *types.AX, fields map[string]scaffold.Field, fs *pflag.FlagSet) (string, string, error) {
+				if item == nil {
 					clilog.Writer.Error("update subroutine given nil data!")
-					return "", errors.New("an error occurred")
+					return "", "", errors.New("an error occurred")
 				}
-				warnings, err := connection.Client.UpdateExtraction(*data)
+				item.Name = fields[fieldKeyName].Provider.Get()
+				item.Description = fields[fieldKeyDesc].Provider.Get()
+				item.Module = fields[fieldKeyModule].Provider.Get()
+				item.Tags = strings.Split(fields[fieldKeyTags].Provider.Get(), ",")
+				item.Params = fields[fieldKeyParams].Provider.Get()
+				item.Args = fields[fieldKeyArgs].Provider.Get()
+				if lbls := fields[fieldKeyLabels].Provider.Get(); lbls != "" {
+					var filtered []string
+					for _, l := range strings.Split(lbls, ",") {
+						if l != "" {
+							filtered = append(filtered, l)
+						}
+					}
+					item.Labels = filtered
+				} else {
+					item.Labels = nil
+				}
+				warnings, err := connection.Client.UpdateExtraction(*item)
 				if err != nil {
-					return "", err
+					return "", "", err
 				}
 				if len(warnings) > 0 {
 					var params = make([]rfc5424.SDParam, len(warnings))
@@ -435,10 +420,9 @@ func edit() action.Pair {
 							Value: fmt.Sprint(warn.Name, ": ", warn.Err),
 						}
 					}
-
 					clilog.Writer.Warn("extractor update caused warnings", params...)
 				}
-				return data.Name, nil
+				return item.Name, "", nil
 			},
 		},
 	)

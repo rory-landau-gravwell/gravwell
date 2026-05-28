@@ -23,6 +23,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
 	ft "github.com/gravwell/gravwell/v4/gwcli/stylesheet/flagtext"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldcreate"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldedit"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldlist"
@@ -232,12 +233,12 @@ func edit() action.Pair {
 	cfg := scaffoldedit.Config{
 		"name":        scaffoldedit.FieldName("template"),
 		"description": scaffoldedit.FieldDescription("template"),
-		"query": &scaffoldedit.Field{
+		"query": scaffold.Field{
 			Required: true,
 			Title:    "Query",
-			Usage:    "the query string for this template",
-			FlagName: "query",
+			Flag:     scaffold.FlagConfig{Name: "query", Usage: "the query string for this template"},
 			Order:    60,
+			Provider: &scaffoldcreate.TextProvider{},
 		},
 	}
 	funcs := scaffoldedit.SubroutineSet[string, types.Template]{
@@ -248,35 +249,19 @@ func edit() action.Pair {
 			resp, err := connection.Client.ListTemplates(nil)
 			return resp.Results, err
 		},
-		GetFieldSub: func(item types.Template, fieldKey string) (string, error) {
-			switch fieldKey {
-			case "name":
-				return item.Name, nil
-			case "description":
-				return item.Description, nil
-			case "query":
-				return item.Query, nil
-			}
-			return "", fmt.Errorf("unknown field key: %v", fieldKey)
-		},
-		SetFieldSub: func(item *types.Template, fieldKey, val string) (string, error) {
-			switch fieldKey {
-			case "name":
-				item.Name = val
-			case "description":
-				item.Description = val
-			case "query":
-				item.Query = val
-			default:
-				return "", fmt.Errorf("unknown field key: %v", fieldKey)
-			}
-			return "", nil
-		},
 		GetTitleSub:       func(item types.Template) string { return item.Name },
 		GetDescriptionSub: func(item types.Template) string { return item.Description },
-		UpdateSub: func(data *types.Template) (string, error) {
-			_, err := connection.Client.UpdateTemplate(*data)
-			return data.Name, err
+		PrepopulateSub: func(item types.Template, fields map[string]scaffold.Field) {
+			fields["name"].Provider.Set(item.Name)
+			fields["description"].Provider.Set(item.Description)
+			fields["query"].Provider.Set(item.Query)
+		},
+		EditSub: func(item *types.Template, fields map[string]scaffold.Field, fs *pflag.FlagSet) (string, string, error) {
+			item.Name = fields["name"].Provider.Get()
+			item.Description = fields["description"].Provider.Get()
+			item.Query = fields["query"].Provider.Get()
+			_, err := connection.Client.UpdateTemplate(*item)
+			return item.Name, "", err
 		},
 	}
 	return scaffoldedit.NewEditAction("template", "templates", cfg, funcs)

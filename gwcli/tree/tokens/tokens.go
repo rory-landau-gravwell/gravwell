@@ -351,12 +351,12 @@ func delete() action.Pair {
 func regenerate() action.Pair {
 	return scaffoldedit.NewEditAction("token", "tokens",
 		scaffoldedit.Config{
-			"expires": {
+			"expires": scaffold.Field{
 				Required: false,
 				Title:    "Expires At",
-				Usage:    "new expiration date for the token (RFC3339 format, e.g. 2026-01-01T00:00:00Z); leave blank to keep existing",
-				FlagName: "expires",
+				Flag:     scaffold.FlagConfig{Name: "expires", Usage: "new expiration date for the token (RFC3339 format, e.g. 2026-01-01T00:00:00Z); leave blank to keep existing"},
 				Order:    80,
+				Provider: &scaffoldcreate.TextProvider{},
 			},
 		},
 		scaffoldedit.SubroutineSet[string, types.Token]{
@@ -370,51 +370,38 @@ func regenerate() action.Pair {
 				}
 				return resp.Results, nil
 			},
-			GetFieldSub: func(item types.Token, fieldKey string) (value string, err error) {
-				switch fieldKey {
-				case "expires":
-					if item.ExpiresAt.IsZero() {
-						return "", nil
-					}
-					return item.ExpiresAt.Format(time.RFC3339), nil
-				}
-				return "", fmt.Errorf("unknown field key: %v", fieldKey)
-			},
-			SetFieldSub: func(item *types.Token, fieldKey, val string) (invalid string, err error) {
-				if item == nil {
-					return "", errors.New("cannot set nil item")
-				}
-				switch fieldKey {
-				case "expires":
-					if strings.TrimSpace(val) == "" {
-						item.ExpiresAt = time.Time{}
-						return "", nil
-					}
-					t, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(val))
-					if parseErr != nil {
-						return "expires must be in RFC3339 format (e.g. 2026-01-01T00:00:00Z)", nil
-					}
-					item.ExpiresAt = t
-				default:
-					return "", fmt.Errorf("unknown field key: %v", fieldKey)
-				}
-				return
-			},
 			GetTitleSub: func(item types.Token) string {
 				return item.Name
 			},
 			GetDescriptionSub: func(item types.Token) string {
 				return item.Description
 			},
-			UpdateSub: func(data *types.Token) (identifier string, err error) {
+			PrepopulateSub: func(item types.Token, fields map[string]scaffold.Field) {
+				if item.ExpiresAt.IsZero() {
+					fields["expires"].Provider.Set("")
+				} else {
+					fields["expires"].Provider.Set(item.ExpiresAt.Format(time.RFC3339))
+				}
+			},
+			EditSub: func(item *types.Token, fields map[string]scaffold.Field, fs *pflag.FlagSet) (string, string, error) {
+				val := fields["expires"].Provider.Get()
+				if strings.TrimSpace(val) == "" {
+					item.ExpiresAt = time.Time{}
+				} else {
+					t, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(val))
+					if parseErr != nil {
+						return "", "expires must be in RFC3339 format (e.g. 2026-01-01T00:00:00Z)", nil
+					}
+					item.ExpiresAt = t
+				}
 				tr := types.TokenRegeneration{
-					Expires: data.ExpiresAt,
+					Expires: item.ExpiresAt,
 				}
-				tf, err := connection.Client.RegenToken(data.ID, tr)
+				tf, err := connection.Client.RegenToken(item.ID, tr)
 				if err != nil {
-					return "", err
+					return "", "", err
 				}
-				return fmt.Sprintf("%s(full token:%s)", tf.ID, tf.Value), nil
+				return fmt.Sprintf("%s(full token:%s)", tf.ID, tf.Value), "", nil
 			},
 		},
 	)

@@ -2,7 +2,6 @@
 package files
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -202,49 +201,37 @@ func edit() action.Pair {
 				}
 				return flr.Results, nil
 			},
-			GetFieldSub: func(item types.File, fieldKey string) (value string, err error) {
-				switch fieldKey {
-				case "name":
-					return item.Name, nil
-				case "desc":
-					return item.Description, nil
-				case "labels":
-					return strings.Join(item.Labels, ","), nil
-				}
-				return "", fmt.Errorf("unknown field key: %v", fieldKey)
-			},
-			SetFieldSub: func(item *types.File, fieldKey, val string) (invalid string, err error) {
-				if item == nil {
-					return "", errors.New("cannot set nil item")
-				}
-				switch fieldKey {
-				case "name":
-					if strings.Contains(val, " ") {
-						return "name may not contain spaces", nil
-					}
-					val = strings.ToUpper(val)
-					item.Name = val
-				case "desc":
-					item.Description = val
-				case "labels":
-					item.Labels = strings.Split(val, ",")
-				default:
-					return "", fmt.Errorf("unknown field key: %v", fieldKey)
-				}
-				return
-			},
 			GetTitleSub: func(item types.File) string {
 				return item.Name
 			},
 			GetDescriptionSub: func(item types.File) string {
 				return item.Description
 			},
-			UpdateSub: func(data *types.File) (identifier string, err error) {
-				if data == nil {
-					return "", errors.New("cannot update nil item")
+			PrepopulateSub: func(item types.File, fields map[string]scaffold.Field) {
+				fields["name"].Provider.Set(item.Name)
+				fields["desc"].Provider.Set(item.Description)
+				fields["labels"].Provider.Set(strings.Join(item.Labels, ","))
+			},
+			EditSub: func(item *types.File, fields map[string]scaffold.Field, fs *pflag.FlagSet) (string, string, error) {
+				name := fields["name"].Provider.Get()
+				if strings.Contains(name, " ") {
+					return "", "name may not contain spaces", nil
 				}
-				_, err = connection.Client.UpdateFileMetadata(data.ID, *data)
-				return data.ID, err
+				item.Name = strings.ToUpper(name)
+				item.Description = fields["desc"].Provider.Get()
+				if lbls := fields["labels"].Provider.Get(); lbls != "" {
+					var filtered []string
+					for _, l := range strings.Split(lbls, ",") {
+						if l != "" {
+							filtered = append(filtered, l)
+						}
+					}
+					item.Labels = filtered
+				} else {
+					item.Labels = nil
+				}
+				_, err := connection.Client.UpdateFileMetadata(item.ID, *item)
+				return item.ID, "", err
 			},
 		},
 	)

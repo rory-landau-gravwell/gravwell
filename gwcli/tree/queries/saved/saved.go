@@ -123,12 +123,12 @@ func edit() action.Pair {
 	cfg := scaffoldedit.Config{
 		"name":        scaffoldedit.FieldName(singular),
 		"description": scaffoldedit.FieldDescription(singular),
-		"query": &scaffoldedit.Field{
+		"query": scaffold.Field{
 			Required: true,
 			Title:    "query",
-			Usage:    "the query to save",
-			FlagName: "query",
+			Flag:     scaffold.FlagConfig{Name: "query", Usage: "the query to save"},
 			Order:    80,
+			Provider: &scaffoldcreate.TextProvider{},
 		},
 	}
 
@@ -140,39 +140,23 @@ func edit() action.Pair {
 			r, err := connection.Client.ListSavedQueries(nil)
 			return r.Results, err
 		},
-		GetFieldSub: func(item types.SavedQuery, fieldKey string) (string, error) {
-			switch fieldKey {
-			case "name":
-				return item.Name, nil
-			case "description":
-				return item.Description, nil
-			case "query":
-				return item.Query, nil
-			}
-			return "", fmt.Errorf("unknown field key: %v", fieldKey)
-		},
-		SetFieldSub: func(item *types.SavedQuery, fieldKey, val string) (string, error) {
-			switch fieldKey {
-			case "name":
-				item.Name = val
-			case "description":
-				item.Description = val
-			case "query":
-				item.Query = val
-			default:
-				return "", fmt.Errorf("unknown field key: %v", fieldKey)
-			}
-			return "", nil
-		},
 		GetTitleSub: func(item types.SavedQuery) string {
 			return item.Name
 		},
 		GetDescriptionSub: func(item types.SavedQuery) string {
 			return fmt.Sprintf("%s\nQuery: %s", item.Description, item.Query)
 		},
-		UpdateSub: func(data *types.SavedQuery) (identifier string, err error) {
-			result, err := connection.Client.UpdateSavedQuery(*data)
-			return result.Name, err
+		PrepopulateSub: func(item types.SavedQuery, fields map[string]scaffold.Field) {
+			fields["name"].Provider.Set(item.Name)
+			fields["description"].Provider.Set(item.Description)
+			fields["query"].Provider.Set(item.Query)
+		},
+		EditSub: func(item *types.SavedQuery, fields map[string]scaffold.Field, fs *pflag.FlagSet) (string, string, error) {
+			item.Name = fields["name"].Provider.Get()
+			item.Description = fields["description"].Provider.Get()
+			item.Query = fields["query"].Provider.Get()
+			result, err := connection.Client.UpdateSavedQuery(*item)
+			return result.Name, "", err
 		},
 	}
 

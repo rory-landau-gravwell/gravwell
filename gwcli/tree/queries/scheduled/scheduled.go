@@ -221,38 +221,39 @@ const singular string = "scheduled search"
 
 func edit() action.Pair {
 	cfg := scaffoldedit.Config{
-		editNameKey: &scaffoldedit.Field{
+		editNameKey: scaffold.Field{
 			Required: true,
 			Title:    "name",
-			Usage:    ft.Name.Usage(singular),
-			FlagName: ft.Name.Name(),
+			Flag:     scaffold.FlagConfig{Name: ft.Name.Name(), Usage: ft.Name.Usage(singular)},
 			Order:    100,
+			Provider: &scaffoldcreate.TextProvider{},
 		},
-		editDescKey: &scaffoldedit.Field{
+		editDescKey: scaffold.Field{
 			Required: true,
 			Title:    "description",
-			Usage:    ft.Description.Usage(singular),
-			FlagName: ft.Description.Name(),
+			Flag:     scaffold.FlagConfig{Name: ft.Description.Name(), Usage: ft.Description.Usage(singular)},
 			Order:    80,
+			Provider: &scaffoldcreate.TextProvider{},
 		},
-		editSearchKey: &scaffoldedit.Field{
+		editSearchKey: scaffold.Field{
 			Required: true,
 			Title:    "query",
-			Usage:    "the query executed by this scheduled search",
-			FlagName: "query",
+			Flag:     scaffold.FlagConfig{Name: "query", Usage: "the query executed by this scheduled search"},
 			Order:    60,
+			Provider: &scaffoldcreate.TextProvider{},
 		},
-		editScheduleKey: &scaffoldedit.Field{
+		editScheduleKey: scaffold.Field{
 			Required: true,
 			Title:    "frequency",
-			Usage:    ft.Frequency.Usage(),
-			FlagName: ft.Frequency.Name(),
+			Flag:     scaffold.FlagConfig{Name: ft.Frequency.Name(), Usage: ft.Frequency.Usage()},
 			Order:    40,
-			CustomTIFuncInit: func() textinput.Model {
-				ti := stylesheet.NewTI("", false)
-				ti.Placeholder = "* * * * *"
-				ti.Validate = validate.CronRuneValidator
-				return ti
+			Provider: &scaffoldcreate.TextProvider{
+				CustomInit: func() textinput.Model {
+					ti := stylesheet.NewTI("", false)
+					ti.Placeholder = "* * * * *"
+					ti.Validate = validate.CronRuneValidator
+					return ti
+				},
 			},
 		},
 	}
@@ -266,45 +267,24 @@ func edit() action.Pair {
 			list, err := connection.Client.ListScheduledSearches(nil)
 			return list.Results, err
 		},
-		GetFieldSub: func(item types.ScheduledSearch, fieldKey string) (value string, err error) {
-			switch fieldKey {
-			case editNameKey:
-				return item.Name, nil
-			case editDescKey:
-				return item.Description, nil
-			case editSearchKey:
-				return item.SearchString, nil
-			case editScheduleKey:
-				return item.Schedule, nil
-			}
-
-			return "", fmt.Errorf("unknown get field key: %v", fieldKey)
-		},
-		SetFieldSub: func(item *types.ScheduledSearch, fieldKey, val string) (invalid string, err error) {
-			switch fieldKey {
-			case editNameKey:
-				item.Name = val
-			case editDescKey:
-				item.Description = val
-			case editSearchKey:
-				item.SearchString = val
-			case editScheduleKey:
-				item.Schedule = val
-			default:
-				return "", fmt.Errorf("unknown set field key: %v", fieldKey)
-			}
-
-			return "", nil
-
-		},
 		GetTitleSub: func(item types.ScheduledSearch) string {
 			return fmt.Sprintf("%s (executes '%s')", item.Name, item.SearchString)
 		},
 		GetDescriptionSub: func(item types.ScheduledSearch) string {
 			return fmt.Sprintf("(%s) %s", item.Schedule, item.Description)
 		},
-		UpdateSub: func(data *types.ScheduledSearch) (identifier string, err error) {
-			return data.Name, connection.Client.UpdateScheduledSearch(*data)
+		PrepopulateSub: func(item types.ScheduledSearch, fields map[string]scaffold.Field) {
+			fields[editNameKey].Provider.Set(item.Name)
+			fields[editDescKey].Provider.Set(item.Description)
+			fields[editSearchKey].Provider.Set(item.SearchString)
+			fields[editScheduleKey].Provider.Set(item.Schedule)
+		},
+		EditSub: func(item *types.ScheduledSearch, fields map[string]scaffold.Field, fs *pflag.FlagSet) (string, string, error) {
+			item.Name = fields[editNameKey].Provider.Get()
+			item.Description = fields[editDescKey].Provider.Get()
+			item.SearchString = fields[editSearchKey].Provider.Get()
+			item.Schedule = fields[editScheduleKey].Provider.Get()
+			return item.Name, "", connection.Client.UpdateScheduledSearch(*item)
 		},
 	}
 

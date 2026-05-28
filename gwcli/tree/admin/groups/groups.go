@@ -127,30 +127,16 @@ func edit() action.Pair {
 			}
 			return resp.Results, nil
 		},
-		GetFieldSub: func(item types.Group, fieldKey string) (string, error) {
-			switch fieldKey {
-			case "name":
-				return item.Name, nil
-			case "description":
-				return item.Description, nil
-			}
-			return "", fmt.Errorf("unknown field key: %v", fieldKey)
-		},
-		SetFieldSub: func(item *types.Group, fieldKey, val string) (string, error) {
-			switch fieldKey {
-			case "name":
-				item.Name = val
-			case "description":
-				item.Description = val
-			default:
-				return "", fmt.Errorf("unknown field key: %v", fieldKey)
-			}
-			return "", nil
-		},
 		GetTitleSub:       func(item types.Group) string { return item.Name },
 		GetDescriptionSub: func(item types.Group) string { return item.Description },
-		UpdateSub: func(data *types.Group) (string, error) {
-			return data.Name, connection.Client.UpdateGroup(*data)
+		PrepopulateSub: func(item types.Group, fields map[string]scaffold.Field) {
+			fields["name"].Provider.Set(item.Name)
+			fields["description"].Provider.Set(item.Description)
+		},
+		EditSub: func(item *types.Group, fields map[string]scaffold.Field, fs *pflag.FlagSet) (string, string, error) {
+			item.Name = fields["name"].Provider.Get()
+			item.Description = fields["description"].Provider.Get()
+			return item.Name, "", connection.Client.UpdateGroup(*item)
 		},
 	}
 	return scaffoldedit.NewEditAction("group", "groups", cfg, funcs)

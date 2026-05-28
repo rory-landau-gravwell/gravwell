@@ -10,13 +10,12 @@
 package playbooks
 
 import (
-	"fmt"
-
 	"github.com/gravwell/gravwell/v4/client/types"
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/bubbles/multiselectlist"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
 	"github.com/gravwell/gravwell/v4/gwcli/internal/listitem"
+	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldcreate"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffolddelete"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/scaffold/scaffoldedit"
@@ -115,12 +114,12 @@ func edit() action.Pair {
 	cfg := scaffoldedit.Config{
 		"name":        scaffoldedit.FieldName("playbook"),
 		"description": scaffoldedit.FieldDescription("playbook"),
-		"body": &scaffoldedit.Field{
+		"body": scaffold.Field{
 			Required: true,
 			Title:    "body",
-			Usage:    "markdown body content",
-			FlagName: "body",
+			Flag:     scaffold.FlagConfig{Name: "body", Usage: "markdown body content"},
 			Order:    40,
+			Provider: &scaffoldcreate.TextProvider{},
 		},
 	}
 	funcs := scaffoldedit.SubroutineSet[string, types.Playbook]{
@@ -131,35 +130,19 @@ func edit() action.Pair {
 			resp, err := connection.Client.ListPlaybooks(nil)
 			return resp.Results, err
 		},
-		GetFieldSub: func(item types.Playbook, fieldKey string) (string, error) {
-			switch fieldKey {
-			case "name":
-				return item.Name, nil
-			case "description":
-				return item.Description, nil
-			case "body":
-				return item.Body, nil
-			}
-			return "", fmt.Errorf("unknown field key: %v", fieldKey)
-		},
-		SetFieldSub: func(item *types.Playbook, fieldKey, val string) (string, error) {
-			switch fieldKey {
-			case "name":
-				item.Name = val
-			case "description":
-				item.Description = val
-			case "body":
-				item.Body = val
-			default:
-				return "", fmt.Errorf("unknown field key: %v", fieldKey)
-			}
-			return "", nil
-		},
 		GetTitleSub:       func(item types.Playbook) string { return item.Name },
 		GetDescriptionSub: func(item types.Playbook) string { return item.Description },
-		UpdateSub: func(data *types.Playbook) (string, error) {
-			_, err := connection.Client.UpdatePlaybook(*data)
-			return data.Name, err
+		PrepopulateSub: func(item types.Playbook, fields map[string]scaffold.Field) {
+			fields["name"].Provider.Set(item.Name)
+			fields["description"].Provider.Set(item.Description)
+			fields["body"].Provider.Set(item.Body)
+		},
+		EditSub: func(item *types.Playbook, fields map[string]scaffold.Field, fs *pflag.FlagSet) (string, string, error) {
+			item.Name = fields["name"].Provider.Get()
+			item.Description = fields["description"].Provider.Get()
+			item.Body = fields["body"].Provider.Get()
+			_, err := connection.Client.UpdatePlaybook(*item)
+			return item.Name, "", err
 		},
 	}
 	return scaffoldedit.NewEditAction("playbook", "playbooks", cfg, funcs)

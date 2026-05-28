@@ -170,12 +170,12 @@ func edit() action.Pair {
 	cfg := scaffoldedit.Config{
 		"name":        scaffoldedit.FieldName("macro"),
 		"description": scaffoldedit.FieldDescription("macro"),
-		"expansion": &scaffoldedit.Field{
+		"expansion": scaffold.Field{
 			Required: true,
 			Title:    "Expansion",
-			Usage:    FlagExpansionUsage,
-			FlagName: FlagExpansion,
+			Flag:     scaffold.FlagConfig{Name: FlagExpansion, Usage: FlagExpansionUsage},
 			Order:    60,
+			Provider: &scaffoldcreate.TextProvider{},
 		},
 	}
 
@@ -187,44 +187,27 @@ func edit() action.Pair {
 			r, err := connection.Client.ListMacros(nil)
 			return r.Results, err
 		},
-		GetFieldSub: func(item types.Macro, fieldKey string) (string, error) {
-			switch fieldKey {
-			case "name":
-				return item.Name, nil
-			case "description":
-				return item.Description, nil
-			case "expansion":
-				return item.Expansion, nil
-			}
-
-			return "", fmt.Errorf("unknown field key: %v", fieldKey)
-		},
-		SetFieldSub: func(item *types.Macro, fieldKey, val string) (string, error) {
-			switch fieldKey {
-			case "name":
-				if strings.Contains(val, " ") {
-					return "name may not contain spaces", nil
-				}
-				val = strings.ToUpper(val)
-				item.Name = val
-			case "description":
-				item.Description = val
-			case "expansion":
-				item.Expansion = val
-			default:
-				return "", fmt.Errorf("unknown field key: %v", fieldKey)
-			}
-			return "", nil
-		},
 		GetTitleSub: func(item types.Macro) string {
 			return fmt.Sprintf("%s -> %v", item.Name, item.Expansion)
 		},
 		GetDescriptionSub: func(item types.Macro) string { return item.Description },
-		UpdateSub: func(data *types.Macro) (identifier string, err error) {
-			if err := connection.Client.UpdateMacro(*data); err != nil {
-				return "", err
+		PrepopulateSub: func(item types.Macro, fields map[string]scaffold.Field) {
+			fields["name"].Provider.Set(item.Name)
+			fields["description"].Provider.Set(item.Description)
+			fields["expansion"].Provider.Set(item.Expansion)
+		},
+		EditSub: func(item *types.Macro, fields map[string]scaffold.Field, fs *pflag.FlagSet) (string, string, error) {
+			name := fields["name"].Provider.Get()
+			if strings.Contains(name, " ") {
+				return "", "name may not contain spaces", nil
 			}
-			return data.Name, nil
+			item.Name = strings.ToUpper(name)
+			item.Description = fields["description"].Provider.Get()
+			item.Expansion = fields["expansion"].Provider.Get()
+			if err := connection.Client.UpdateMacro(*item); err != nil {
+				return "", "", err
+			}
+			return item.Name, "", nil
 		},
 	}
 

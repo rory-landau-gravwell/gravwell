@@ -2,7 +2,6 @@
 package users
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"slices"
@@ -170,23 +169,26 @@ func delete() action.Pair {
 func edit() action.Pair {
 	return scaffoldedit.NewEditAction("user", "users",
 		scaffoldedit.Config{
-			"username": {
+			"username": scaffold.Field{
 				Required: true,
 				Title:    "Username",
-				Usage:    "unique username to assign",
+				Flag:     scaffold.FlagConfig{Name: "username", Usage: "unique username to assign"},
 				Order:    200,
+				Provider: &scaffoldcreate.TextProvider{},
 			},
-			"name": {
+			"name": scaffold.Field{
 				Required: true,
 				Title:    "Name",
-				Usage:    "actual name of the user",
+				Flag:     scaffold.FlagConfig{Name: "name", Usage: "actual name of the user"},
 				Order:    180,
+				Provider: &scaffoldcreate.TextProvider{},
 			},
-			"email": {
+			"email": scaffold.Field{
 				Required: true,
 				Title:    "Email",
-				Usage:    "email associated to this user",
+				Flag:     scaffold.FlagConfig{Name: "email", Usage: "email associated to this user"},
 				Order:    160,
+				Provider: &scaffoldcreate.TextProvider{},
 			},
 			// TODO include admin bool
 		},
@@ -202,41 +204,22 @@ func edit() action.Pair {
 				resp, err := connection.Client.ListUsers(nil)
 				return resp.Results, err
 			},
-			GetFieldSub: func(item types.User, fieldKey string) (value string, err error) {
-				switch fieldKey {
-				case "username":
-					return item.Username, nil
-				case "name":
-					return item.Name, nil
-				case "email":
-					return item.Email, nil
-				}
-				return "", fmt.Errorf("unknown field key: %v", fieldKey)
-			},
-			SetFieldSub: func(item *types.User, fieldKey, val string) (invalid string, err error) {
-				if item == nil {
-					return "", errors.New("cannot set nil item")
-				}
-				switch fieldKey {
-				case "username":
-					item.Username = val
-				case "name":
-					item.Name = val
-				case "email":
-					item.Email = val
-				default:
-					return "", fmt.Errorf("unknown field key: %v", fieldKey)
-				}
-				return
-			},
 			GetTitleSub: func(item types.User) string {
 				return item.Name
 			},
 			GetDescriptionSub: func(item types.User) string {
 				return descriptionLine(item.Admin, item.Email)
 			},
-			UpdateSub: func(data *types.User) (identifier string, err error) {
-				return data.Name, connection.Client.UpdateUser(*data)
+			PrepopulateSub: func(item types.User, fields map[string]scaffold.Field) {
+				fields["username"].Provider.Set(item.Username)
+				fields["name"].Provider.Set(item.Name)
+				fields["email"].Provider.Set(item.Email)
+			},
+			EditSub: func(item *types.User, fields map[string]scaffold.Field, fs *pflag.FlagSet) (string, string, error) {
+				item.Username = fields["username"].Provider.Get()
+				item.Name = fields["name"].Provider.Get()
+				item.Email = fields["email"].Provider.Get()
+				return item.Name, "", connection.Client.UpdateUser(*item)
 			},
 		},
 	)

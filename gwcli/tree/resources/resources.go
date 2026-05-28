@@ -253,46 +253,15 @@ func edit() action.Pair {
 		"desc":   scaffoldedit.FieldDescription("resource"),
 		"labels": scaffoldedit.FieldLabels(),
 	}, scaffoldedit.SubroutineSet[string, types.Resource]{
-		SelectSub: func(id string) (item types.Resource, err error) { // get a specific resource
+		SelectSub: func(id string) (item types.Resource, err error) {
 			return connection.Client.GetResourceMetadata(id)
 		},
-		FetchSub: func() (items []types.Resource, err error) { // get all available resources
+		FetchSub: func() (items []types.Resource, err error) {
 			resp, err := connection.Client.ListResources(nil)
 			if err != nil {
 				return nil, err
 			}
 			return resp.Results, nil
-		},
-		GetFieldSub: func(item types.Resource, fieldKey string) (value string, err error) {
-			switch fieldKey {
-			case "name":
-				return item.Name, nil
-			case "desc":
-				return item.Description, nil
-			case "labels":
-				return strings.Join(item.Labels, ","), nil
-			}
-			return "", fmt.Errorf("unknown field key: %v", fieldKey)
-		},
-		SetFieldSub: func(item *types.Resource, fieldKey, val string) (invalid string, err error) {
-			if item == nil {
-				return "", errors.New("cannot set nil item")
-			}
-			switch fieldKey {
-			case "name":
-				if strings.Contains(val, " ") {
-					return "name may not contain spaces", nil
-				}
-				val = strings.ToUpper(val)
-				item.Name = val
-			case "desc":
-				item.Description = val
-			case "labels":
-				item.Labels = strings.Split(val, ",")
-			default:
-				return "", fmt.Errorf("unknown field key: %v", fieldKey)
-			}
-			return
 		},
 		GetTitleSub: func(item types.Resource) string {
 			return item.Name
@@ -300,8 +269,30 @@ func edit() action.Pair {
 		GetDescriptionSub: func(item types.Resource) string {
 			return item.Description
 		},
-		UpdateSub: func(data *types.Resource) (identifier string, err error) {
-			return data.Name, connection.Client.UpdateResourceMetadata(data.ID, *data)
+		PrepopulateSub: func(item types.Resource, fields map[string]scaffold.Field) {
+			fields["name"].Provider.Set(item.Name)
+			fields["desc"].Provider.Set(item.Description)
+			fields["labels"].Provider.Set(strings.Join(item.Labels, ","))
+		},
+		EditSub: func(item *types.Resource, fields map[string]scaffold.Field, fs *pflag.FlagSet) (string, string, error) {
+			name := fields["name"].Provider.Get()
+			if strings.Contains(name, " ") {
+				return "", "name may not contain spaces", nil
+			}
+			item.Name = strings.ToUpper(name)
+			item.Description = fields["desc"].Provider.Get()
+			if lbls := fields["labels"].Provider.Get(); lbls != "" {
+				var filtered []string
+				for _, l := range strings.Split(lbls, ",") {
+					if l != "" {
+						filtered = append(filtered, l)
+					}
+				}
+				item.Labels = filtered
+			} else {
+				item.Labels = nil
+			}
+			return item.Name, "", connection.Client.UpdateResourceMetadata(item.ID, *item)
 		},
 	})
 }
