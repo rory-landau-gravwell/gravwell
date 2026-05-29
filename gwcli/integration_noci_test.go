@@ -69,6 +69,18 @@ func TestMain(m *testing.M) {
 	}
 	fmt.Println("testing against binary", binaryPath)
 
+	// If no server was explicitly configured via environment, launch a fresh container.
+	var containerCleanup func() = func() {}
+	if _, explicit := os.LookupEnv(testsupport.ENV_SERVER); !explicit {
+		fmt.Println("no server configured; launching gravwell container...")
+		var launchErr error
+		_, containerCleanup, launchErr = testsupport.LaunchGravwell()
+		if launchErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to launch gravwell container: %v\n", launchErr)
+			os.Exit(1)
+		}
+	}
+
 	serverString = testsupport.Server()
 	fmt.Println("connecting to test server @", serverString)
 
@@ -114,7 +126,9 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	os.Exit(m.Run())
+	code := m.Run()
+	containerCleanup()
+	os.Exit(code)
 }
 
 func TestCompletionsDoNotRequireLogin(t *testing.T) {

@@ -43,8 +43,17 @@ var (
 	server      string
 )
 
-func init() {
-	server = testsupport.Server()
+func TestMain(m *testing.M) {
+	var cleanup func()
+	var err error
+	server, cleanup, err = testsupport.LaunchGravwell()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to launch gravwell container: %v\n", err)
+		os.Exit(1)
+	}
+	code := m.Run()
+	cleanup()
+	os.Exit(code)
 }
 
 func TestLoginNotInitialized(t *testing.T) {

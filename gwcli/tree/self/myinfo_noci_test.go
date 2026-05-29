@@ -14,6 +14,8 @@ import (
 	"bytes"
 	"encoding/csv"
 	"errors"
+	"fmt"
+	"os"
 	"path"
 	"strings"
 	"testing"
@@ -22,7 +24,7 @@ import (
 	"github.com/gravwell/gravwell/v4/gwcli/action"
 	"github.com/gravwell/gravwell/v4/gwcli/clilog"
 	"github.com/gravwell/gravwell/v4/gwcli/connection"
-	. "github.com/gravwell/gravwell/v4/gwcli/internal/testsupport"
+	testsupport "github.com/gravwell/gravwell/v4/gwcli/internal/testsupport"
 	"github.com/gravwell/gravwell/v4/gwcli/utilities/uniques"
 	"github.com/spf13/cobra"
 )
@@ -36,8 +38,17 @@ var (
 	password string = "changeme"
 )
 
-func init() {
-	server = Server()
+func TestMain(m *testing.M) {
+	var cleanup func()
+	var err error
+	server, cleanup, err = testsupport.LaunchGravwell()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to launch gravwell container: %v\n", err)
+		os.Exit(1)
+	}
+	code := m.Run()
+	cleanup()
+	os.Exit(code)
 }
 
 func TestNewUserMyInfoAction(t *testing.T) {
@@ -122,10 +133,10 @@ func model(t *testing.T, mdl action.Model) (normalOut, csvOut string) {
 	}
 	// rip the string out of the command
 	// myinfo does not return an extra command, so this should NOT be a sequence
-	normalOut = ExtractPrintLineMessageString(t, cmd, false, 0)
+	normalOut = testsupport.ExtractPrintLineMessageString(t, cmd, false, 0)
 	// continue Mother's cycle
 	if v := mdl.View(); v != "" {
-		t.Error("basic actions should not return a view.", ExpectedActual("", v))
+		t.Error("basic actions should not return a view.", testsupport.ExpectedActual("", v))
 	}
 	if !mdl.Done() {
 		t.Error("basic actions should be done after a single cycle")
@@ -151,10 +162,10 @@ func model(t *testing.T, mdl action.Model) (normalOut, csvOut string) {
 	}
 	// rip the string out of the command
 	// myinfo does not return an extra command, so this should NOT be a sequence
-	csvOut = ExtractPrintLineMessageString(t, cmd, false, 0)
+	csvOut = testsupport.ExtractPrintLineMessageString(t, cmd, false, 0)
 	// continue Mother's cycle
 	if v := mdl.View(); v != "" {
-		t.Error("basic actions should not return a view.", ExpectedActual("", v))
+		t.Error("basic actions should not return a view.", testsupport.ExpectedActual("", v))
 	}
 	if !mdl.Done() {
 		t.Error("basic actions should be done after a single cycle")
@@ -173,7 +184,7 @@ func model(t *testing.T, mdl action.Model) (normalOut, csvOut string) {
 func validateCSV(csvStr string) error {
 	// perform some basic validation
 	if exploded := strings.Split(csvStr, "\n"); len(exploded) != 2 {
-		return errors.New("bad CSV line count." + ExpectedActual(2, len(exploded)))
+		return errors.New("bad CSV line count." + testsupport.ExpectedActual(2, len(exploded)))
 	}
 	csvR := csv.NewReader(strings.NewReader(csvStr))
 	if _, err := csvR.ReadAll(); err != nil {

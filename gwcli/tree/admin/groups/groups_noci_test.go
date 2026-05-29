@@ -14,6 +14,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -24,6 +25,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestMain(m *testing.M) {
+	_, cleanup, err := testsupport.LaunchGravwell()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to launch gravwell container: %v\n", err)
+		os.Exit(1)
+	}
+	code := m.Run()
+	cleanup()
+	os.Exit(code)
+}
 
 // TestComplete executes a workflow designed to test every action in the `groups` nav.
 //
