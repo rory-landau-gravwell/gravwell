@@ -369,7 +369,7 @@ func (c *Client) ListAllExtractions(opts *types.QueryOptions) (ret types.AXListR
 	return
 }
 
-// GetExtraction returns a particular extraction by UUID
+// GetExtraction returns a particular extraction by ID.
 func (c *Client) GetExtraction(id string) (d types.AX, err error) {
 	err = c.getStaticURL(extractionIdUrl(id), &d)
 	return
