@@ -1,6 +1,8 @@
 module github.com/gravwell/gravwell/v4
 
-go 1.26.3
+go 1.26.4
+
+tool github.com/gravwell/gravwell/v4/tools/repo
 
 require (
 	cloud.google.com/go/pubsub/v2 v2.5.1
@@ -12,7 +14,12 @@ require (
 	github.com/Jeffail/gabs/v2 v2.7.0
 	github.com/Pallinder/go-randomdata v1.2.0
 	github.com/asergeyev/nradix v0.0.0-20170505151046-3872ab85bb56
-	github.com/aws/aws-sdk-go v1.55.7
+	github.com/aws/aws-sdk-go-v2 v1.41.7
+	github.com/aws/aws-sdk-go-v2/config v1.32.17
+	github.com/aws/aws-sdk-go-v2/credentials v1.19.16
+	github.com/aws/aws-sdk-go-v2/service/kinesis v1.43.7
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.101.0
+	github.com/aws/aws-sdk-go-v2/service/sqs v1.42.27
 	github.com/bmatcuk/doublestar/v4 v4.4.0
 	github.com/brianvoe/gofakeit v3.18.0+incompatible
 	github.com/bxcodec/faker/v3 v3.3.1
@@ -41,7 +48,7 @@ require (
 	github.com/gosnmp/gosnmp v1.35.0
 	github.com/gravwell/buffer v0.0.0-20220728204757-23339f4bab66
 	github.com/gravwell/gcfg v1.2.10-0.20260506153221-04dce6faf68d
-	github.com/gravwell/gravwell/v3 v3.8.73
+	github.com/gravwell/gravwell/v3 v3.8.80-0.20260515215027-220e2449b547
 	github.com/gravwell/ipfix v1.4.6-0.20240221191955-c76630f7cc37
 	github.com/gravwell/ipmigo v0.0.0-20230307161134-29dce87c333e
 	github.com/gravwell/jsonparser v0.0.0-20241122184510-d9e3b05f5d3b
@@ -51,7 +58,7 @@ require (
 	github.com/inhies/go-bytesize v0.0.0-20201103132853-d0aed0d254f8
 	github.com/jaswdr/faker/v2 v2.3.2
 	github.com/k-sone/ipmigo v0.0.0-20190922011749-b22c7a70e949
-	github.com/klauspost/compress v1.18.5
+	github.com/klauspost/compress v1.18.6
 	github.com/magefile/mage v1.17.2
 	github.com/miekg/dns v1.1.56
 	github.com/minio/highwayhash v1.0.3
@@ -100,6 +107,20 @@ require (
 	github.com/Azure/go-autorest/tracing v0.6.1 // indirect
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.10 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.23 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.23 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.23 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.24 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.9 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.15 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.23 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.19.23 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.0.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.30.17 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.21 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.42.1 // indirect
+	github.com/aws/smithy-go v1.25.1 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymanbagabas/go-udiff v0.2.0 // indirect
 	github.com/boombuler/barcode v1.1.0 // indirect
@@ -135,8 +156,7 @@ require (
 	github.com/jcmturner/gofork v1.7.6 // indirect
 	github.com/jcmturner/gokrb5/v8 v8.4.4 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
-	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/jpillora/backoff v1.0.0 // indirect
+	github.com/jpillora/backoff v0.0.0-20180909062703-3050d21c67d7 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-localereader v0.0.1 // indirect
@@ -151,7 +171,6 @@ require (
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sahilm/fuzzy v0.1.1 // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/turnage/redditproto v0.0.0-20151223012412-afedf1b6eddb // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
@@ -173,6 +192,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260504160031-60b97b32f348 // indirect
 	gopkg.in/gcfg.v1 v1.2.3 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
