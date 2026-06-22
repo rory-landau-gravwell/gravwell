@@ -86,6 +86,7 @@ func (c *Client) UploadKit(p string) (pc types.KitState, err error) {
 // PullKit tells the webserver to stage the kit with the specified GUID for installation,
 // pulling the kit from the kit server. A KitState object containing information
 // about the kit is returned on success.
+// TODO GUID is depreciated
 func (c *Client) PullKit(guid uuid.UUID) (pc types.KitState, err error) {
 	var mp io.Writer
 	var req *http.Request
@@ -114,6 +115,7 @@ func (c *Client) PullKit(guid uuid.UUID) (pc types.KitState, err error) {
 }
 
 // ListRemoteKits returns a list of kits available on the kit server.
+// TODO document what all does
 func (c *Client) ListRemoteKits(all bool) (mds []types.KitMetadata, err error) {
 	err = c.getStaticURL(remoteKitUrl(all), &mds)
 	return
