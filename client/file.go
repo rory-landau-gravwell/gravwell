@@ -56,7 +56,7 @@ func (c *Client) GetFileEx(id string, opts *types.QueryOptions) ([]byte, error) 
 		opts = &types.QueryOptions{}
 	}
 
-	resp, err := c.methodParamRequestURL(http.MethodGet, filesIdRawUrl(id), map[string]string{"include_deleted": strconv.FormatBool(opts.IncludeDeleted)}, nil)
+	resp, err := c.methodParamRequestURL(http.MethodGet, filesIDRawUrl(id), map[string]string{"include_deleted": strconv.FormatBool(opts.IncludeDeleted)}, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -81,14 +81,14 @@ func (c *Client) GetFileEx(id string, opts *types.QueryOptions) ([]byte, error) 
 //
 // Changes to ID, size, and/or hash will be ignored.
 func (c *Client) UpdateFileMetadata(id string, metadata types.File) (updated types.File, err error) {
-	err = c.methodStaticPushURL(http.MethodPut, filesIdUrl(id), metadata, &updated, nil, nil)
+	err = c.methodStaticPushURL(http.MethodPut, filesIDUrl(id), metadata, &updated, nil, nil)
 	return updated, err
 }
 
 // GetFileMetadata gets the specified file sans contents.
 func (c *Client) GetFileMetadata(id string) (types.File, error) {
 	var metadata types.File
-	err := c.getStaticURL(filesIdUrl(id), &metadata)
+	err := c.getStaticURL(filesIDUrl(id), &metadata)
 	return metadata, err
 }
 
@@ -142,7 +142,7 @@ func (c *Client) PopulateFileFromReader(id string, data io.Reader) (types.File, 
 		}
 	}()
 
-	resp, err = c.methodRequestURL(http.MethodPut, filesIdRawUrl(id), contentType, rdr)
+	resp, err = c.methodRequestURL(http.MethodPut, filesIDRawUrl(id), contentType, rdr)
 	if err != nil {
 		return types.File{}, err
 	}
@@ -191,11 +191,11 @@ func (c *Client) ListAllFiles(opts *types.QueryOptions) (ret types.FileListRespo
 
 // DeleteFile removes a file by ID by marking it deleted in the database.
 func (c *Client) DeleteFile(id string) error {
-	return c.deleteStaticURL(filesIdUrl(id), nil)
+	return c.deleteStaticURL(filesIDUrl(id), nil)
 }
 
 // PurgeFile removes the specified ID entirely, skipping any kind of soft-delete.
 func (c *Client) PurgeFile(id string) error {
-	return c.deleteStaticURL(filesIdUrl(id), nil, ezParam("purge", "true"))
+	return c.deleteStaticURL(filesIDUrl(id), nil, ezParam("purge", "true"))
 
 }

@@ -42,7 +42,7 @@ func (c *Client) ListTokens(opts *types.QueryOptions) (ts types.TokenListRespons
 
 // GetToken returns a particular token.
 func (c *Client) GetToken(id string) (t types.Token, err error) {
-	err = c.getStaticURL(tokenIdUrl(id), &t)
+	err = c.getStaticURL(tokenIDUrl(id), &t)
 	return
 }
 
@@ -54,30 +54,30 @@ func (c *Client) GetTokenEx(id string, opts *types.QueryOptions) (types.Token, e
 	if opts == nil {
 		opts = &types.QueryOptions{}
 	}
-	err := c.getStaticURL(tokenIdUrl(id), &token, ezParam("include_deleted", opts.IncludeDeleted))
+	err := c.getStaticURL(tokenIDUrl(id), &token, ezParam("include_deleted", opts.IncludeDeleted))
 	return token, err
 }
 
 // UpdateToken modifies an existing token.
 func (c *Client) UpdateToken(id string, tr types.TokenCreate) (t types.Token, err error) {
-	err = c.methodStaticPushURL(http.MethodPut, tokenIdUrl(id), tr, &t, nil, nil)
+	err = c.methodStaticPushURL(http.MethodPut, tokenIDUrl(id), tr, &t, nil, nil)
 	return
 }
 
 // RegenToken requests that the secret token string be regenerated without modifying the token contents or permissions
 func (c *Client) RegenToken(id string, tr types.TokenRegeneration) (t types.TokenFull, err error) {
-	err = c.methodStaticPushURL(http.MethodPatch, tokenIdUrl(id), tr, &t, nil, nil)
+	err = c.methodStaticPushURL(http.MethodPatch, tokenIDUrl(id), tr, &t, nil, nil)
 	return
 }
 
 // DeleteToken removes a token value without deleting the data around the token, it essentially disables the token
 func (c *Client) DeleteToken(id string) (err error) {
-	return c.methodStaticPushURL(http.MethodDelete, tokenIdUrl(id), nil, nil, []int{http.StatusNoContent}, nil)
+	return c.methodStaticPushURL(http.MethodDelete, tokenIDUrl(id), nil, nil, []int{http.StatusNoContent}, nil)
 }
 
 // PurgeToken completely deletes a token.
 func (c *Client) PurgeToken(id string) (err error) {
-	return c.methodStaticPushURL(http.MethodDelete, tokenIdUrl(id), nil, nil, []int{http.StatusNoContent}, []urlParam{ezParam("purge", "true")})
+	return c.methodStaticPushURL(http.MethodDelete, tokenIDUrl(id), nil, nil, []int{http.StatusNoContent}, []urlParam{ezParam("purge", "true")})
 }
 
 // CleanupTokens (admin-only) purges all deleted tokens for all users.

@@ -45,25 +45,25 @@ func (c *Client) ListAllSavedQueries(opts *types.QueryOptions) (wsl types.SavedQ
 // If that is not found, it looks for a query with a matching GUID, prioritizing
 // queries belonging to the current user.
 func (c *Client) GetSavedQuery(id string) (sl types.SavedQuery, err error) {
-	err = c.getStaticURL(searchLibIdUrl(id), &sl)
+	err = c.getStaticURL(searchLibIDUrl(id), &sl)
 	return
 }
 
 // DeleteSavedQuery deletes a specific library entry.
 func (c *Client) DeleteSavedQuery(id string) (err error) {
-	err = c.deleteStaticURL(searchLibIdUrl(id), nil)
+	err = c.deleteStaticURL(searchLibIDUrl(id), nil)
 	return
 }
 
 // PurgeSavedQuery deletes a specific library entry.
 func (c *Client) PurgeSavedQuery(id string) (err error) {
-	err = c.deleteStaticURL(searchLibIdUrl(id), nil, ezParam("purge", "true"))
+	err = c.deleteStaticURL(searchLibIDUrl(id), nil, ezParam("purge", "true"))
 	return
 }
 
 // UpdateSavedQuery updates a specific search library entry.
 func (c *Client) UpdateSavedQuery(sl types.SavedQuery) (nsl types.SavedQuery, err error) {
-	err = c.methodStaticPushURL(http.MethodPut, searchLibIdUrl(sl.ID), sl, &nsl, nil, nil)
+	err = c.methodStaticPushURL(http.MethodPut, searchLibIDUrl(sl.ID), sl, &nsl, nil, nil)
 	return
 }
 

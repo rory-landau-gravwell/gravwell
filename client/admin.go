@@ -371,7 +371,7 @@ func (c *Client) ListAllExtractions(opts *types.QueryOptions) (ret types.AXListR
 
 // GetExtraction returns a particular extraction by ID.
 func (c *Client) GetExtraction(id string) (d types.AX, err error) {
-	err = c.getStaticURL(extractionIdUrl(id), &d)
+	err = c.getStaticURL(extractionIDUrl(id), &d)
 	return
 }
 
@@ -382,7 +382,7 @@ func (c *Client) GetExtractionEx(id string, opts *types.QueryOptions) (d types.A
 	if opts == nil {
 		opts = &types.QueryOptions{}
 	}
-	err = c.getStaticURL(extractionIdUrl(id), &ax, ezParam("include_deleted", opts.IncludeDeleted))
+	err = c.getStaticURL(extractionIDUrl(id), &ax, ezParam("include_deleted", opts.IncludeDeleted))
 	return ax, err
 }
 
@@ -394,7 +394,7 @@ func (c *Client) FindExtraction(tag string) (d types.AX, err error) {
 
 // DeleteExtraction deletes the specified autoextraction.
 func (c *Client) DeleteExtraction(id string) (wrs []types.WarnResp, err error) {
-	if err = c.deleteStaticURL(extractionIdUrl(id), nil); err == io.EOF {
+	if err = c.deleteStaticURL(extractionIDUrl(id), nil); err == io.EOF {
 		err = nil
 	}
 	return
@@ -402,7 +402,7 @@ func (c *Client) DeleteExtraction(id string) (wrs []types.WarnResp, err error) {
 
 // PurgeExtraction deletes the specified autoextraction.
 func (c *Client) PurgeExtraction(id string) (wrs []types.WarnResp, err error) {
-	if err = c.deleteStaticURL(extractionIdUrl(id), nil, ezParam("purge", "true")); err == io.EOF {
+	if err = c.deleteStaticURL(extractionIDUrl(id), nil, ezParam("purge", "true")); err == io.EOF {
 		err = nil
 	}
 	return
@@ -428,7 +428,7 @@ func (c *Client) AddExtraction(d types.AX) (result types.AX, wrs []types.WarnRes
 // UpdateExtraction modifies an existing autoextractor. The UUID field of the definition
 // passed in must match the UUID of an existing definition owned by the user.
 func (c *Client) UpdateExtraction(d types.AX) (wrs []types.WarnResp, err error) {
-	if err = c.methodStaticPushURL(http.MethodPut, extractionIdUrl(d.ID), d, nil, nil, nil); err == io.EOF {
+	if err = c.methodStaticPushURL(http.MethodPut, extractionIDUrl(d.ID), d, nil, nil, nil); err == io.EOF {
 		err = nil
 	}
 	return

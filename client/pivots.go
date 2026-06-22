@@ -36,7 +36,7 @@ func (c *Client) ListAllActionables(opts *types.QueryOptions) (ret types.Actiona
 // GetActionable returns a particular actionable by ID.
 func (c *Client) GetActionable(id string) (types.Actionable, error) {
 	var actionable types.Actionable
-	err := c.getStaticURL(actionableIdUrl(id), &actionable)
+	err := c.getStaticURL(actionableIDUrl(id), &actionable)
 	return actionable, err
 }
 
@@ -48,18 +48,18 @@ func (c *Client) GetActionableEx(id string, opts *types.QueryOptions) (types.Act
 	if opts == nil {
 		opts = &types.QueryOptions{}
 	}
-	err := c.getStaticURL(actionableIdUrl(id), &actionable, ezParam("include_deleted", opts.IncludeDeleted))
+	err := c.getStaticURL(actionableIDUrl(id), &actionable, ezParam("include_deleted", opts.IncludeDeleted))
 	return actionable, err
 }
 
 // DeleteActionable deletes an actionable by marking it deleted in the database.
 func (c *Client) DeleteActionable(id string) error {
-	return c.deleteStaticURL(actionableIdUrl(id), nil)
+	return c.deleteStaticURL(actionableIDUrl(id), nil)
 }
 
 // PurgeActionable deletes an actionable entirely, removing it from the database.
 func (c *Client) PurgeActionable(id string) error {
-	return c.deleteStaticURL(actionableIdUrl(id), nil, ezParam("purge", "true"))
+	return c.deleteStaticURL(actionableIDUrl(id), nil, ezParam("purge", "true"))
 }
 
 // CreateActionable creates a new actionable, returning the newly-created actionable.
@@ -70,7 +70,7 @@ func (c *Client) CreateActionable(a types.Actionable) (result types.Actionable, 
 
 // UpdateActionable modifies an existing actionable.
 func (c *Client) UpdateActionable(a types.Actionable) (result types.Actionable, err error) {
-	err = c.methodStaticPushURL(http.MethodPut, actionableIdUrl(a.ID), a, &result, nil, nil)
+	err = c.methodStaticPushURL(http.MethodPut, actionableIDUrl(a.ID), a, &result, nil, nil)
 	return
 }
 

@@ -45,7 +45,7 @@ func (c *Client) CreateSecret(sc types.SecretCreate) (sf types.Secret, err error
 // GetSecret fetches information about a particular Secret.
 // The actual secret string will not be returned.
 func (c *Client) GetSecret(id string) (s types.Secret, err error) {
-	err = c.getStaticURL(secretIdUrl(id), &s)
+	err = c.getStaticURL(secretIDUrl(id), &s)
 	return
 }
 
@@ -57,7 +57,7 @@ func (c *Client) GetSecretEx(id string, opts *types.QueryOptions) (s types.Secre
 	if opts == nil {
 		opts = &types.QueryOptions{}
 	}
-	err = c.getStaticURL(secretIdUrl(id), &s, ezParam("include_deleted", opts.IncludeDeleted))
+	err = c.getStaticURL(secretIDUrl(id), &s, ezParam("include_deleted", opts.IncludeDeleted))
 	return
 }
 
@@ -65,25 +65,25 @@ func (c *Client) GetSecretEx(id string, opts *types.QueryOptions) (s types.Secre
 // The actual secret string will not be returned.
 func (c *Client) UpdateSecretValue(id string, value string) (s types.Secret, err error) {
 	sc := types.SecretCreate{Value: value}
-	err = c.methodStaticPushURL(http.MethodPut, secretIdValueUrl(id), sc, &s, nil, nil)
+	err = c.methodStaticPushURL(http.MethodPut, secretIDValueUrl(id), sc, &s, nil, nil)
 	return
 }
 
 // UpdateSecret changes the details (not the value) of a particular secret.
 // The actual secret string will not be returned.
 func (c *Client) UpdateSecret(id string, sc types.SecretCreate) (s types.Secret, err error) {
-	err = c.methodStaticPushURL(http.MethodPut, secretIdUrl(id), sc, &s, nil, nil)
+	err = c.methodStaticPushURL(http.MethodPut, secretIDUrl(id), sc, &s, nil, nil)
 	return
 }
 
 // DeleteSecret deletes a Secret.
 func (c *Client) DeleteSecret(id string) (err error) {
-	return c.deleteStaticURL(secretIdUrl(id), nil)
+	return c.deleteStaticURL(secretIDUrl(id), nil)
 }
 
 // PurgeSecret deletes a secret entirely, removing it from the database.
 func (c *Client) PurgeSecret(id string) error {
-	return c.deleteStaticURL(secretIdUrl(id), nil, ezParam("purge", "true"))
+	return c.deleteStaticURL(secretIDUrl(id), nil, ezParam("purge", "true"))
 }
 
 // CleanupSecrets (admin-only) purges all deleted secrets for all users.
@@ -97,6 +97,6 @@ func (c *Client) CleanupSecrets() error {
 // If you are not writing something which acts like the search agent, you don't
 // want this function, it won't work.
 func (c *Client) GetFullSecret(id string) (s types.SecretFull, err error) {
-	err = c.getStaticURL(secretIdFullUrl(id), &s)
+	err = c.getStaticURL(secretIDFullUrl(id), &s)
 	return
 }

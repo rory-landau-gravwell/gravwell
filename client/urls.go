@@ -483,11 +483,11 @@ func searchQueueUrl() string {
 	return QUEUE_URL
 }
 
-func macroUrl(id string) string {
+func macroIDUrl(id string) string {
 	return fmt.Sprintf(MACROS_ID_URL, id)
 }
 
-func playbookUrl(id string) string {
+func playbookIDUrl(id string) string {
 	return fmt.Sprintf(PLAYBOOKS_ID_URL, id)
 }
 
@@ -502,7 +502,7 @@ func remoteKitUrl(all bool) string {
 	return KIT_REMOTE_LIST_URL
 }
 
-func kitIdUrl(id string) string {
+func kitIDUrl(id string) string {
 	return fmt.Sprintf(KIT_ID_URL, id)
 }
 
@@ -526,7 +526,7 @@ func kitBuildHistoryUrl() string {
 	return KIT_BUILD_HISTORY_URL
 }
 
-func kitDeleteBuildHistoryUrl(id string) string {
+func kitDeleteBuildHistoryIDUrl(id string) string {
 	return fmt.Sprintf(KIT_BUILD_HISTORY_ID_URL, id)
 }
 
@@ -542,7 +542,7 @@ func extractionsTestUrl() string {
 	return EXTRACTORS_TEST_URL
 }
 
-func extractionIdUrl(id string) string {
+func extractionIDUrl(id string) string {
 	return fmt.Sprintf(EXTRACTORS_ID_URL, id)
 }
 
@@ -562,11 +562,11 @@ func templatesUrl() string {
 	return TEMPLATES_URL
 }
 
-func templateUrl(id string) string {
+func templateIDUrl(id string) string {
 	return fmt.Sprintf(TEMPLATES_ID_URL, id)
 }
 
-func actionableIdUrl(id string) string {
+func actionableIDUrl(id string) string {
 	return fmt.Sprintf(ACTIONABLES_ID_URL, id)
 }
 
@@ -574,11 +574,11 @@ func filesUrl() string {
 	return FILES_URL
 }
 
-func filesIdUrl(id string) string {
+func filesIDUrl(id string) string {
 	return fmt.Sprintf(FILES_ID_URL, id)
 }
 
-func filesIdRawUrl(id string) string {
+func filesIDRawUrl(id string) string {
 	return fmt.Sprintf(FILES_ID_RAW_URL, id)
 }
 
@@ -586,7 +586,7 @@ func searchLibUrl() string {
 	return LIBRARY_URL
 }
 
-func searchLibIdUrl(id string) string {
+func searchLibIDUrl(id string) string {
 	return fmt.Sprintf(LIBRARY_ID_URL, id)
 }
 
@@ -602,7 +602,7 @@ func tokensUrl() string {
 	return TOKENS_URL
 }
 
-func tokenIdUrl(id string) string {
+func tokenIDUrl(id string) string {
 	return fmt.Sprintf(TOKENS_ID_URL, id)
 }
 
@@ -614,15 +614,15 @@ func secretsUrl() string {
 	return SECRETS_URL
 }
 
-func secretIdUrl(id string) string {
+func secretIDUrl(id string) string {
 	return fmt.Sprintf(SECRETS_ID_URL, id)
 }
 
-func secretIdValueUrl(id string) string {
+func secretIDValueUrl(id string) string {
 	return fmt.Sprintf(SECRETS_ID_VALUE_URL, id)
 }
 
-func secretIdFullUrl(id string) string {
+func secretIDFullUrl(id string) string {
 	return fmt.Sprintf(SECRETS_ID_FULL_URL, id)
 }
 
@@ -670,11 +670,11 @@ func alertsUrl() string {
 	return ALERTS_URL
 }
 
-func alertsIdUrl(id string) string {
+func alertsIDUrl(id string) string {
 	return fmt.Sprintf(ALERTS_ID_URL, id)
 }
 
-func alertsIdSampleEventUrl(id string) string {
+func alertsIDSampleEventUrl(id string) string {
 	return fmt.Sprintf(ALERTS_ID_SAMPLE_URL, id)
 }
 
@@ -714,6 +714,6 @@ func mfaGenerateRecoveryCodesUrl() string {
 	return MFA_RECOVERY_GENERATE_PATH
 }
 
-func userPreferenceUrl(id string) string {
+func userPreferenceIDUrl(id string) string {
 	return fmt.Sprintf(USER_PREFERENCES_ID_URL, id)
 }

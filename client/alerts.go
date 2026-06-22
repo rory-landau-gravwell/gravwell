@@ -41,7 +41,7 @@ func (c *Client) ListAllAlerts(opts *types.QueryOptions) (result types.AlertList
 
 // GetAlert returns the definition for a specific alert.
 func (c *Client) GetAlert(id string) (result types.Alert, err error) {
-	err = c.getStaticURL(alertsIdUrl(id), &result)
+	err = c.getStaticURL(alertsIDUrl(id), &result)
 	return
 }
 
@@ -52,32 +52,32 @@ func (c *Client) GetAlertEx(id string, opts *types.QueryOptions) (result types.A
 	if opts == nil {
 		opts = &types.QueryOptions{}
 	}
-	err = c.getStaticURL(alertsIdUrl(id), &result, ezParam("include_deleted", opts.IncludeDeleted))
+	err = c.getStaticURL(alertsIDUrl(id), &result, ezParam("include_deleted", opts.IncludeDeleted))
 	return
 }
 
 // UpdateAlert modifies an alert. Make sure to have ID set, as this is used to resolve
 // the appropriate alert to modify.
 func (c *Client) UpdateAlert(def types.Alert) (result types.Alert, err error) {
-	err = c.methodStaticPushURL(http.MethodPut, alertsIdUrl(def.ID), def, &result, nil, nil)
+	err = c.methodStaticPushURL(http.MethodPut, alertsIDUrl(def.ID), def, &result, nil, nil)
 	return
 }
 
 // DeleteAlert marks an alert as deleted.
 func (c *Client) DeleteAlert(id string) (err error) {
-	err = c.deleteStaticURL(alertsIdUrl(id), nil)
+	err = c.deleteStaticURL(alertsIDUrl(id), nil)
 	return
 }
 
 // PurgeAlert deletes an alert completely from the database
 func (c *Client) PurgeAlert(id string) (err error) {
-	err = c.deleteStaticURL(alertsIdUrl(id), nil, ezParam("purge", "true"))
+	err = c.deleteStaticURL(alertsIDUrl(id), nil, ezParam("purge", "true"))
 	return
 }
 
 // GetAlertSampleEvent asks the webserver to generate a sample event for the given alert.
 func (c *Client) GetAlertSampleEvent(id string) (result types.Event, err error) {
-	err = c.getStaticURL(alertsIdSampleEventUrl(id), &result)
+	err = c.getStaticURL(alertsIDSampleEventUrl(id), &result)
 	return
 }
 

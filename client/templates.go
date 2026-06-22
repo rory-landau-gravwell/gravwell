@@ -36,7 +36,7 @@ func (c *Client) ListAllTemplates(opts *types.QueryOptions) (ret types.TemplateL
 // GetTemplate returns a particular template.
 func (c *Client) GetTemplate(id string) (types.Template, error) {
 	var template types.Template
-	err := c.getStaticURL(templateUrl(id), &template)
+	err := c.getStaticURL(templateIDUrl(id), &template)
 	return template, err
 }
 
@@ -48,18 +48,18 @@ func (c *Client) GetTemplateEx(id string, opts *types.QueryOptions) (types.Templ
 	if opts == nil {
 		opts = &types.QueryOptions{}
 	}
-	err := c.getStaticURL(templateUrl(id), &template, ezParam("include_deleted", opts.IncludeDeleted))
+	err := c.getStaticURL(templateIDUrl(id), &template, ezParam("include_deleted", opts.IncludeDeleted))
 	return template, err
 }
 
 // DeleteTemplate deletes a template by marking it deleted in the database.
 func (c *Client) DeleteTemplate(id string) error {
-	return c.deleteStaticURL(templateUrl(id), nil)
+	return c.deleteStaticURL(templateIDUrl(id), nil)
 }
 
 // PurgeTemplate deletes a template entirely, removing it from the database.
 func (c *Client) PurgeTemplate(id string) error {
-	return c.deleteStaticURL(templateUrl(id), nil, ezParam("purge", "true"))
+	return c.deleteStaticURL(templateIDUrl(id), nil, ezParam("purge", "true"))
 }
 
 // CreateTemplate creates a new template, returning the newly-created template.
@@ -70,7 +70,7 @@ func (c *Client) CreateTemplate(t types.Template) (result types.Template, err er
 
 // UpdateTemplate modifies an existing template.
 func (c *Client) UpdateTemplate(t types.Template) (result types.Template, err error) {
-	err = c.methodStaticPushURL(http.MethodPut, templateUrl(t.ID), t, &result, nil, nil)
+	err = c.methodStaticPushURL(http.MethodPut, templateIDUrl(t.ID), t, &result, nil, nil)
 	return
 }
 

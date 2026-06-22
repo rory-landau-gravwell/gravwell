@@ -36,7 +36,7 @@ func (c *Client) ListAllPlaybooks(opts *types.QueryOptions) (ret types.PlaybookL
 // GetPlaybook returns a particular playbook.
 func (c *Client) GetPlaybook(id string) (types.Playbook, error) {
 	var pb types.Playbook
-	err := c.getStaticURL(playbookUrl(id), &pb)
+	err := c.getStaticURL(playbookIDUrl(id), &pb)
 	return pb, err
 }
 
@@ -48,18 +48,18 @@ func (c *Client) GetPlaybookEx(id string, opts *types.QueryOptions) (types.Playb
 	if opts == nil {
 		opts = &types.QueryOptions{}
 	}
-	err := c.getStaticURL(playbookUrl(id), &pb, ezParam("include_deleted", opts.IncludeDeleted))
+	err := c.getStaticURL(playbookIDUrl(id), &pb, ezParam("include_deleted", opts.IncludeDeleted))
 	return pb, err
 }
 
 // DeletePlaybook deletes a playbook by marking it deleted in the database.
 func (c *Client) DeletePlaybook(id string) error {
-	return c.deleteStaticURL(playbookUrl(id), nil)
+	return c.deleteStaticURL(playbookIDUrl(id), nil)
 }
 
 // PurgePlaybook deletes a playbook entirely, removing it from the database.
 func (c *Client) PurgePlaybook(id string) error {
-	return c.deleteStaticURL(playbookUrl(id), nil, ezParam("purge", "true"))
+	return c.deleteStaticURL(playbookIDUrl(id), nil, ezParam("purge", "true"))
 }
 
 // CreatePlaybook creates a new playbook, returning the newly-created playbook.
@@ -70,7 +70,7 @@ func (c *Client) CreatePlaybook(pb types.Playbook) (result types.Playbook, err e
 
 // UpdatePlaybook modifies an existing playbook.
 func (c *Client) UpdatePlaybook(pb types.Playbook) (result types.Playbook, err error) {
-	err = c.methodStaticPushURL(http.MethodPut, playbookUrl(pb.ID), pb, &result, nil, nil)
+	err = c.methodStaticPushURL(http.MethodPut, playbookIDUrl(pb.ID), pb, &result, nil, nil)
 	return
 }
 

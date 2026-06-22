@@ -36,7 +36,7 @@ func (c *Client) ListAllUserPreferences(opts *types.QueryOptions) (ret types.Use
 // GetUserPreference returns a particular user preference.
 func (c *Client) GetUserPreference(id string) (types.UserPreference, error) {
 	var pref types.UserPreference
-	err := c.getStaticURL(userPreferenceUrl(id), &pref)
+	err := c.getStaticURL(userPreferenceIDUrl(id), &pref)
 	return pref, err
 }
 
@@ -48,7 +48,7 @@ func (c *Client) GetUserPreferenceEx(id string, opts *types.QueryOptions) (types
 	if opts == nil {
 		opts = &types.QueryOptions{}
 	}
-	err := c.getStaticURL(userPreferenceUrl(id), &pref, ezParam("include_deleted", opts.IncludeDeleted))
+	err := c.getStaticURL(userPreferenceIDUrl(id), &pref, ezParam("include_deleted", opts.IncludeDeleted))
 	return pref, err
 }
 
@@ -76,12 +76,12 @@ func (c *Client) GetUserPreferenceByName(name string) (types.UserPreference, err
 
 // DeleteUserPreference deletes a user preference by marking it deleted in the database.
 func (c *Client) DeleteUserPreference(id string) error {
-	return c.deleteStaticURL(userPreferenceUrl(id), nil)
+	return c.deleteStaticURL(userPreferenceIDUrl(id), nil)
 }
 
 // PurgeUserPreference deletes a user preference entirely, removing it from the database.
 func (c *Client) PurgeUserPreference(id string) error {
-	return c.deleteStaticURL(userPreferenceUrl(id), nil, ezParam("purge", "true"))
+	return c.deleteStaticURL(userPreferenceIDUrl(id), nil, ezParam("purge", "true"))
 }
 
 // CreateUserPreference creates a new user preference, returning the newly-created user preference.
@@ -92,7 +92,7 @@ func (c *Client) CreateUserPreference(p types.UserPreference) (result types.User
 
 // UpdateUserPreference modifies an existing user preference.
 func (c *Client) UpdateUserPreference(p types.UserPreference) (result types.UserPreference, err error) {
-	err = c.methodStaticPushURL(http.MethodPut, userPreferenceUrl(p.ID), p, &result, nil, nil)
+	err = c.methodStaticPushURL(http.MethodPut, userPreferenceIDUrl(p.ID), p, &result, nil, nil)
 	return
 }
 
