@@ -375,6 +375,17 @@ func (c *Client) GetExtraction(id string) (d types.AX, err error) {
 	return
 }
 
+// GetExtractionEx returns a particular extraction.
+// If the QueryOptions arg is not nil, applicable parameters (currently only IncludeDeleted) will be applied to the query.
+func (c *Client) GetExtractionEx(id string, opts *types.QueryOptions) (d types.AX, err error) {
+	var ax types.AX
+	if opts == nil {
+		opts = &types.QueryOptions{}
+	}
+	err = c.getStaticURL(extractionIdUrl(id), &ax, ezParam("include_deleted", opts.IncludeDeleted))
+	return ax, err
+}
+
 // FindExtraction returns the most appropriate extraction for a given tag
 func (c *Client) FindExtraction(tag string) (d types.AX, err error) {
 	err = c.getStaticURL(extractionFindUrl(tag), &d)
