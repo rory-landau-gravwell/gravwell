@@ -19,204 +19,204 @@ const (
 	PASS_FIELD string = "Pass"
 
 	// API paths
-	LOGIN_URL                        = `/api/login`
-	LOGOUT_URL                       = `/api/logout`
-	MFA_URL                          = `/api/mfa`
-	MFA_CLEAR_ALL_URL                = `/api/mfa/clear`
-	MFA_LOGIN_URL                    = `/api/login/mfa`
-	MFA_TOTP_SETUP_URL               = `/api/mfa/totp/setup`
-	MFA_TOTP_CLEAR_URL               = `/api/mfa/totp/clear`
-	MFA_RECOVERY_GENERATE_PATH       = "/api/mfa/recoverycodes/generate"
-	TEMP_TOKEN_URL                   = `/api/login/tmptoken`
-	REFRESH_TOKEN_URL                = `/api/login/refreshtoken`
-	USER_INFO_URL                    = `/api/info/whoami`
-	DESC_URL                         = `/api/stats/sysDesc`
-	STATE_URL                        = `/api/stats/ping`
-	STATS_URL                        = `/api/stats/sysStats`
-	IDX_URL                          = `/api/stats/idxStats`
-	INGESTER_URL                     = `/api/stats/igstStats`
-	INGESTER_TAIL_URL                = `/api/stats/igstTailStats`
-	WELLS_URL                        = `/api/stats/wellStats`
-	QUEUE_URL                        = `/api/stats/search/queue`
-	STORAGE_URL                      = `/api/stats/storage/indexers`
-	STORAGE_INDEXER_URL              = `/api/stats/storage/indexer/%s/wells`
-	CALENDAR_URL                     = `/api/stats/storage/calendar`
-	CALENDAR_INDEXER_URL             = `/api/stats/storage/indexer/%s/calendar`
-	ADD_USER_URL                     = `/api/users`
-	USERS_URL                        = `/api/users`
-	USERS_LIST_URL                   = `/api/users/list`
-	USERS_INFO_URL                   = `/api/users/%d`
-	USERS_LOCK_URL                   = `/api/users/%d/lock`
-	USERS_LOCKED_URL                 = `/api/users/%d/locked`
-	USERS_PREFS_URL                  = `/api/users/%d/preferences`
-	USERS_ADMIN_URL                  = `/api/users/%d/admin`
-	USERS_ADMIN_SU_PATH              = `/api/users/su/%d`
-	USER_SESSIONS_URL                = `/api/users/%d/sessions`
-	CHANGE_PASS_URL                  = `/api/users/%d/pwd`
-	USERS_GROUP_URL                  = `/api/users/%d/group`
-	USERS_GROUP_ID_URL               = `/api/users/%d/group/%d`
-	USERS_MFA_CLEAR_URL              = `/api/users/%d/mfa/clear`
-	WS_STAT_URL                      = `/api/ws/stats`
-	WS_SEARCH_URL                    = `/api/ws/search`
-	WS_ATTACH_URL                    = `/api/ws/attach/%s`
-	PARSE_URL                        = `/api/parse`
-	API_VERSION_URL                  = `/api/version`
-	GROUP_ID_URL                     = `/api/groups/%d`
-	GROUP_MEMBERS_URL                = `/api/groups/%d/members`
-	GROUP_URL                        = `/api/groups`
-	GROUP_LIST_URL                   = `/api/groups/list`
-	SEARCH_PARS_URL                  = `/api/parse`
-	SEARCH_CTRL_LIST_URL             = `/api/searchctrl`
-	SEARCH_CTRL_LIST_DETAILS_URL     = `/api/searchctrl/details`
-	SEARCH_CTRL_LIST_ALL_URL         = `/api/searchctrl/all`
-	SEARCH_PARSE_URL                 = `/api/parse`
-	SEARCH_CTRL_URL                  = `/api/searchctrl/%s`
-	SEARCH_CTRL_ATTACH_URL           = `/api/searchctrl/%s/attach`
-	SEARCH_CTRL_DETAILS              = `/api/searchctrl/%s/details`
-	SEARCH_CTRL_BACKGROUND_URL       = `/api/searchctrl/%s/background`
-	SEARCH_CTRL_GROUP_URL            = `/api/searchctrl/%s/group`
-	SEARCH_CTRL_GROUPS_URL           = `/api/searchctrl/%s/groups`
-	SEARCH_CTRL_GLOBAL_URL           = `/api/searchctrl/%s/global`
-	SEARCH_CTRL_SAVE_URL             = `/api/searchctrl/%s/save`
-	SEARCH_CTRL_STOP_URL             = `/api/searchctrl/%s/stop`
-	SEARCH_CTRL_DOWNLOAD_URL         = `/api/searchctrl/%s/download`
-	SEARCH_CTRL_PING_URL             = `/api/searchctrl/%s/ping`
-	SEARCH_CTRL_DETACH_URL           = `/api/searchctrl/%s/detach`
-	SEARCH_CTRL_MODULES              = `/api/searchctrl/%s/modules`
-	SEARCH_CTRL_STATS_URL            = `/api/searchctrl/%s/stats`
-	SEARCH_CTRL_STATS_METADATA_URL   = `/api/searchctrl/%s/stats/metadata`
-	SEARCH_CTRL_EXPLORE_URL          = `/api/searchctrl/%s/renderer/%s/explore`
-	SEARCH_CTRL_ENTRIES_URL          = `/api/searchctrl/%s/renderer/%s`
-	SEARCH_CTRL_IMPORT_URL           = `/api/searchctrl/import`
-	SEARCH_CTRL_LAUNCH_URL           = `/api/searchctrl/launch`
-	SEARCH_HISTORY_URL               = `/api/searchhistory`
-	SEARCH_HISTORY_LIST_URL          = `/api/searchhistory/list`
-	SEARCH_HISTORY_ID_URL            = `/api/searchhistory/%s`
-	NOTIFICATIONS_URL                = `/api/notifications`
-	NOTIFICATIONS_ID_URL             = `/api/notifications/%d`
-	NOTIFICATIONS_SELF_TARGETED_URL  = `/api/notifications/targeted/self`
-	LOGGING_PATH_URL                 = `/api/logging`
-	TEST_URL                         = `/api/test`
-	TEST_AUTH_URL                    = `/api/testauth`
-	DASHBOARD_ID_URL                 = `/api/dashboards/%v`
-	DASHBOARDS_URL                   = `/api/dashboards`
-	DASHBOARDS_LIST_URL              = `/api/dashboards/list`
-	MACROS_URL                       = `/api/macros`
-	MACROS_LIST_URL                  = `/api/macros/list`
-	MACROS_ID_URL                    = `/api/macros/%s`
-	LICENSE_INFO_URL                 = `/api/license`
-	LICENSE_SKU_URL                  = `/api/license/sku`
-	LICENSE_SERIAL_URL               = `/api/license/serial`
-	LICENSE_UPDATE_URL               = `/api/license/update`
-	RESOURCES_URL                    = "/api/resources"
-	RESOURCES_LIST_URL               = "/api/resources/list"
-	RESOURCES_ID_URL                 = "/api/resources/%s"
-	RESOURCES_ID_RAW_URL             = "/api/resources/%s/raw"
-	RESOURCES_ID_CLONE_URL           = "/api/resources/%s/clone"
-	RESOURCES_LOOKUP_URL             = "/api/resources/lookup/%s"
-	SCHEDULED_SEARCH_URL             = "/api/scheduledsearches"
-	SCHEDULED_SEARCH_LIST_URL        = "/api/scheduledsearches/list"
-	SCHEDULED_SEARCH_ID_URL          = "/api/scheduledsearches/%s"
-	SCHEDULED_SEARCH_RESULTS_ID_URL  = "/api/scheduledsearches/%s/results"
-	SCHEDULED_SEARCH_DEBUG_ID_URL    = "/api/scheduledsearches/%s/debug"
-	SCHEDULED_SEARCH_CANCEL_ID_URL   = "/api/scheduledsearches/%s/cancel"
-	SCHEDULED_SEARCH_CHECKIN_URL     = "/api/scheduledsearches/checkin"
-	SCHEDULED_SCRIPT_URL             = "/api/scheduledscripts"
-	SCHEDULED_SCRIPT_LIST_URL        = "/api/scheduledscripts/list"
-	SCHEDULED_SCRIPT_ID_URL          = "/api/scheduledscripts/%s"
-	SCHEDULED_SCRIPT_RESULTS_ID_URL  = "/api/scheduledscripts/%s/results"
-	SCHEDULED_SCRIPT_DEBUG_ID_URL    = "/api/scheduledscripts/%s/debug"
-	SCHEDULED_SCRIPT_CANCEL_ID_URL   = "/api/scheduledscripts/%s/cancel"
-	SCHEDULED_SCRIPT_CHECKIN_URL     = "/api/scheduledscripts/checkin"
-	SCHEDULED_SCRIPT_PARSE           = "/api/scheduledscripts/parse"
-	FLOW_URL                         = "/api/flows"
-	FLOW_LIST_URL                    = "/api/flows/list"
-	FLOW_ID_URL                      = "/api/flows/%v"
-	FLOW_RESULTS_ID_URL              = "/api/flows/%s/results"
-	FLOW_DEBUG_ID_URL                = "/api/flows/%s/debug"
-	FLOW_CANCEL_ID_URL               = "/api/flows/%s/cancel"
-	FLOW_PARSE_URL                   = "/api/flows/parse"
-	MAIL_URL                         = "/api/mail"
-	MAIL_CONFIGURE_URL               = `/api/mail/configure`
-	JSON_INGEST_URL                  = "/api/ingest/json"
-	LINES_INGEST_URL                 = "/api/ingest/lines"
-	INTERNAL_INGEST_URL              = "/api/ingest/internal"
-	TEST_INGEST_URL                  = "/api/ingest/test"
-	TAGS_URL                         = "/api/tags"
-	INDEXER_MANAGE_ADD_URL           = "/api/indexer/manage/add"
-	KIT_URL                          = `/api/kits`
-	KIT_LIST_URL                     = `/api/kits/list`
-	KIT_ID_URL                       = `/api/kits/%s`
-	KIT_BUILD_URL                    = `/api/kits/build`
-	KIT_BUILD_ID_URL                 = `/api/kits/build/%s`
-	KIT_STATUS_URL                   = `/api/kits/status`
-	KIT_STATUS_ID_URL                = `/api/kits/status/%v`
-	KIT_REMOTE_LIST_URL              = `/api/kits/remote/list`
-	KIT_REMOTE_LIST_ALL_URL          = `/api/kits/remote/list/all`
-	KIT_BUILD_HISTORY_URL            = `/api/kits/build/history`
-	KIT_BUILD_HISTORY_LIST_URL       = `/api/kits/build/history/list`
-	KIT_BUILD_HISTORY_ID_URL         = `/api/kits/build/history/%s`
-	EXTRACTORS_URL                   = `/api/autoextractors`
-	EXTRACTORS_LIST_URL              = `/api/autoextractors/list`
-	EXTRACTORS_UPLOAD_URL            = `/api/autoextractors/upload`
-	EXTRACTORS_TEST_URL              = `/api/autoextractors/test`
-	EXTRACTORS_ID_URL                = `/api/autoextractors/%s`
-	EXTRACTORS_FIND_URL              = `/api/autoextractors/find/%s`
-	EXTRACTORS_ENGINES_URL           = `/api/autoextractors/engines`
-	EXPLORE_GENERATE_URL             = `/api/explore/generate`
-	TEMPLATES_URL                    = "/api/templates"
-	TEMPLATES_LIST_URL               = "/api/templates/list"
-	TEMPLATES_ID_URL                 = "/api/templates/%s"
-	TEMPLATES_ID_DETAILS_URL         = "/api/templates/%s/details"
-	ACTIONABLES_URL                  = "/api/actionables"
-	ACTIONABLES_LIST_URL             = "/api/actionables/list"
-	ACTIONABLES_ID_URL               = "/api/actionables/%s"
-	FILES_URL                        = "/api/files"
-	FILES_LIST_URL                   = "/api/files/list"
-	FILES_ID_URL                     = "/api/files/%s"
-	FILES_ID_RAW_URL                 = "/api/files/%s/raw"
-	LIBRARY_URL                      = "/api/library"
-	LIBRARY_ID_URL                   = "/api/library/%s"
-	LIBRARY_LIST_URL                 = "/api/library/list"
-	LIBS_URL                         = `/api/libs`
-	CAPABILITY_LIST_URL              = `/api/info/capabilities`
-	CAPABILITY_TEMPLATE_LIST_URL     = `/api/info/capabilities/templates`
-	CAPABILITY_CURRENT_USER_LIST_URL = `/api/info/capabilities/my`
-	CAPABILITY_CURRENT_USER_WHY_URL  = `/api/info/capabilities/why`
-	CAPABILITY_USER_URL              = `/api/users/%d/capabilities`
-	CAPABILITY_USER_WHY_URL          = `/api/users/%d/capabilities/why`
-	CAPABILITY_GROUP_URL             = `/api/groups/%d/capabilities`
-	GROUP_TAG_ACCESS_URL             = `/api/groups/%d/tags`
-	USER_TAG_ACCESS_URL              = `/api/users/%d/tags`
-	PLAYBOOKS_URL                    = `/api/playbooks`
-	PLAYBOOKS_LIST_URL               = `/api/playbooks/list`
-	PLAYBOOKS_ID_URL                 = `/api/playbooks/%s`
-	BACKUP_URL                       = `/api/backup`
-	DEPLOYMENT_URL                   = `/api/deployment`
-	TOKENS_URL                       = `/api/tokens`
-	TOKENS_LIST_URL                  = `/api/tokens/list`
-	TOKENS_ID_URL                    = `/api/tokens/%s`
-	TOKENS_CAPABILITIES_URL          = `/api/tokens/capabilities`
-	SECRETS_URL                      = `/api/secrets`
-	SECRETS_LIST_URL                 = `/api/secrets/list`
-	SECRETS_ID_URL                   = `/api/secrets/%s`
-	SECRETS_ID_VALUE_URL             = `/api/secrets/%s/value`
-	SECRETS_ID_FULL_URL              = `/api/secrets/%s/full`
-	SETTINGS_URL                     = `/api/settings`
-	INGESTERS_TRACKING_URL           = `/api/ingesters/%s/tracking`
-	CBAC_DEFAULT_URL                 = `/api/cbac/default`
-	CBAC_DEFAULT_CAPABILITIES_URL    = `/api/cbac/default/capabilities`
-	CBAC_DEFAULT_TAGS_URL            = `/api/cbac/default/tags`
-	ALERTS_URL                       = `/api/alerts`
-	ALERTS_LIST_URL                  = `/api/alerts/list`
-	ALERTS_ID_URL                    = `/api/alerts/%s`
-	ALERTS_ID_SAMPLE_URL             = `/api/alerts/%s/sample`
-	ALERTS_VALIDATE_DISPATCHER_URL   = `/api/alerts/validate/dispatcher`
-	ALERTS_VALIDATE_CONSUMER_URL     = `/api/alerts/validate/consumer`
-	USER_PREFERENCES_URL             = `/api/userpreferences`
-	USER_PREFERENCES_LIST_URL        = `/api/userpreferences/list`
-	USER_PREFERENCES_ID_URL          = `/api/userpreferences/%s`
-	LIST_URL                         = `/api/list`
+	LOGIN_URL                         = `/api/login`
+	LOGOUT_URL                        = `/api/logout`
+	MFA_URL                           = `/api/mfa`
+	MFA_CLEAR_ALL_URL                 = `/api/mfa/clear`
+	MFA_LOGIN_URL                     = `/api/login/mfa`
+	MFA_TOTP_SETUP_URL                = `/api/mfa/totp/setup`
+	MFA_TOTP_CLEAR_URL                = `/api/mfa/totp/clear`
+	MFA_RECOVERY_GENERATE_PATH        = "/api/mfa/recoverycodes/generate"
+	TEMP_TOKEN_URL                    = `/api/login/tmptoken`
+	REFRESH_TOKEN_URL                 = `/api/login/refreshtoken`
+	USER_INFO_URL                     = `/api/info/whoami`
+	DESC_URL                          = `/api/stats/sysDesc`
+	STATE_URL                         = `/api/stats/ping`
+	STATS_URL                         = `/api/stats/sysStats`
+	IDX_URL                           = `/api/stats/idxStats`
+	INGESTER_URL                      = `/api/stats/igstStats`
+	INGESTER_TAIL_URL                 = `/api/stats/igstTailStats`
+	WELLS_URL                         = `/api/stats/wellStats`
+	QUEUE_URL                         = `/api/stats/search/queue`
+	STORAGE_URL                       = `/api/stats/storage/indexers`
+	STORAGE_INDEXER_URL               = `/api/stats/storage/indexer/%s/wells`
+	CALENDAR_URL                      = `/api/stats/storage/calendar`
+	CALENDAR_INDEXER_URL              = `/api/stats/storage/indexer/%s/calendar`
+	ADD_USER_URL                      = `/api/users`
+	USERS_URL                         = `/api/users`
+	USERS_LIST_URL                    = `/api/users/list`
+	USERS_INFO_URL                    = `/api/users/%d`
+	USERS_LOCK_URL                    = `/api/users/%d/lock`
+	USERS_LOCKED_URL                  = `/api/users/%d/locked`
+	USERS_PREFS_URL                   = `/api/users/%d/preferences`
+	USERS_ADMIN_URL                   = `/api/users/%d/admin`
+	USERS_ADMIN_SU_PATH               = `/api/users/su/%d`
+	USER_SESSIONS_URL                 = `/api/users/%d/sessions`
+	CHANGE_PASS_URL                   = `/api/users/%d/pwd`
+	USERS_GROUP_URL                   = `/api/users/%d/group`
+	USERS_GROUP_ID_URL                = `/api/users/%d/group/%d`
+	USERS_MFA_CLEAR_URL               = `/api/users/%d/mfa/clear`
+	WS_STAT_URL                       = `/api/ws/stats`
+	WS_SEARCH_URL                     = `/api/ws/search`
+	WS_ATTACH_URL                     = `/api/ws/attach/%s`
+	PARSE_URL                         = `/api/parse`
+	API_VERSION_URL                   = `/api/version`
+	GROUP_ID_URL                      = `/api/groups/%d`
+	GROUP_MEMBERS_URL                 = `/api/groups/%d/members`
+	GROUP_URL                         = `/api/groups`
+	GROUP_LIST_URL                    = `/api/groups/list`
+	SEARCH_PARS_URL                   = `/api/parse`
+	SEARCH_CTRL_LIST_URL              = `/api/searchctrl`
+	SEARCH_CTRL_LIST_DETAILS_URL      = `/api/searchctrl/details`
+	SEARCH_CTRL_LIST_ALL_URL          = `/api/searchctrl/all`
+	SEARCH_PARSE_URL                  = `/api/parse`
+	SEARCH_CTRL_ID_URL                = `/api/searchctrl/%s`
+	SEARCH_CTRL_ID_ATTACH_URL         = `/api/searchctrl/%s/attach`
+	SEARCH_CTRL_ID_DETAILS_URL        = `/api/searchctrl/%s/details`
+	SEARCH_CTRL_ID_BACKGROUND_URL     = `/api/searchctrl/%s/background`
+	SEARCH_CTRL_ID_GROUP_URL          = `/api/searchctrl/%s/group`
+	SEARCH_CTRL_ID_GROUPS_URL         = `/api/searchctrl/%s/groups`
+	SEARCH_CTRL_ID_GLOBAL_URL         = `/api/searchctrl/%s/global`
+	SEARCH_CTRL_ID_SAVE_URL           = `/api/searchctrl/%s/save`
+	SEARCH_CTRL_ID_STOP_URL           = `/api/searchctrl/%s/stop`
+	SEARCH_CTRL_ID_DOWNLOAD_URL       = `/api/searchctrl/%s/download`
+	SEARCH_CTRL_ID_PING_URL           = `/api/searchctrl/%s/ping`
+	SEARCH_CTRL_ID_DETACH_URL         = `/api/searchctrl/%s/detach`
+	SEARCH_CTRL_ID_MODULES_URL        = `/api/searchctrl/%s/modules`
+	SEARCH_CTRL_ID_STATS_URL          = `/api/searchctrl/%s/stats`
+	SEARCH_CTRL_ID_STATS_METADATA_URL = `/api/searchctrl/%s/stats/metadata`
+	SEARCH_CTRL_ID_EXPLORE_URL        = `/api/searchctrl/%s/renderer/%s/explore`
+	SEARCH_CTRL_ID_ENTRIES_URL        = `/api/searchctrl/%s/renderer/%s`
+	SEARCH_CTRL_IMPORT_URL            = `/api/searchctrl/import`
+	SEARCH_CTRL_LAUNCH_URL            = `/api/searchctrl/launch`
+	SEARCH_HISTORY_URL                = `/api/searchhistory`
+	SEARCH_HISTORY_LIST_URL           = `/api/searchhistory/list`
+	SEARCH_HISTORY_ID_URL             = `/api/searchhistory/%s`
+	NOTIFICATIONS_URL                 = `/api/notifications`
+	NOTIFICATIONS_ID_URL              = `/api/notifications/%d`
+	NOTIFICATIONS_SELF_TARGETED_URL   = `/api/notifications/targeted/self`
+	LOGGING_PATH_URL                  = `/api/logging`
+	TEST_URL                          = `/api/test`
+	TEST_AUTH_URL                     = `/api/testauth`
+	DASHBOARD_ID_URL                  = `/api/dashboards/%v`
+	DASHBOARDS_URL                    = `/api/dashboards`
+	DASHBOARDS_LIST_URL               = `/api/dashboards/list`
+	MACROS_URL                        = `/api/macros`
+	MACROS_LIST_URL                   = `/api/macros/list`
+	MACROS_ID_URL                     = `/api/macros/%s`
+	LICENSE_INFO_URL                  = `/api/license`
+	LICENSE_SKU_URL                   = `/api/license/sku`
+	LICENSE_SERIAL_URL                = `/api/license/serial`
+	LICENSE_UPDATE_URL                = `/api/license/update`
+	RESOURCES_URL                     = "/api/resources"
+	RESOURCES_LIST_URL                = "/api/resources/list"
+	RESOURCES_ID_URL                  = "/api/resources/%s"
+	RESOURCES_ID_RAW_URL              = "/api/resources/%s/raw"
+	RESOURCES_ID_CLONE_URL            = "/api/resources/%s/clone"
+	RESOURCES_LOOKUP_URL              = "/api/resources/lookup/%s"
+	SCHEDULED_SEARCH_URL              = "/api/scheduledsearches"
+	SCHEDULED_SEARCH_LIST_URL         = "/api/scheduledsearches/list"
+	SCHEDULED_SEARCH_ID_URL           = "/api/scheduledsearches/%s"
+	SCHEDULED_SEARCH_ID_RESULTS_URL   = "/api/scheduledsearches/%s/results"
+	SCHEDULED_SEARCH_ID_DEBUG_URL     = "/api/scheduledsearches/%s/debug"
+	SCHEDULED_SEARCH_ID_CANCEL_URL    = "/api/scheduledsearches/%s/cancel"
+	SCHEDULED_SEARCH_CHECKIN_URL      = "/api/scheduledsearches/checkin"
+	SCHEDULED_SCRIPT_URL              = "/api/scheduledscripts"
+	SCHEDULED_SCRIPT_LIST_URL         = "/api/scheduledscripts/list"
+	SCHEDULED_SCRIPT_ID_URL           = "/api/scheduledscripts/%s"
+	SCHEDULED_SCRIPT_ID_RESULTS_URL   = "/api/scheduledscripts/%s/results"
+	SCHEDULED_SCRIPT_ID_DEBUG_URL     = "/api/scheduledscripts/%s/debug"
+	SCHEDULED_SCRIPT_ID_CANCEL_URL    = "/api/scheduledscripts/%s/cancel"
+	SCHEDULED_SCRIPT_CHECKIN_URL      = "/api/scheduledscripts/checkin"
+	SCHEDULED_SCRIPT_PARSE            = "/api/scheduledscripts/parse"
+	FLOW_URL                          = "/api/flows"
+	FLOW_LIST_URL                     = "/api/flows/list"
+	FLOW_ID_URL                       = "/api/flows/%s"
+	FLOW_ID_RESULTS_URL               = "/api/flows/%s/results"
+	FLOW_ID_DEBUG_URL                 = "/api/flows/%s/debug"
+	FLOW_ID_CANCEL_URL                = "/api/flows/%s/cancel"
+	FLOW_PARSE_URL                    = "/api/flows/parse"
+	MAIL_URL                          = "/api/mail"
+	MAIL_CONFIGURE_URL                = `/api/mail/configure`
+	JSON_INGEST_URL                   = "/api/ingest/json"
+	LINES_INGEST_URL                  = "/api/ingest/lines"
+	INTERNAL_INGEST_URL               = "/api/ingest/internal"
+	TEST_INGEST_URL                   = "/api/ingest/test"
+	TAGS_URL                          = "/api/tags"
+	INDEXER_MANAGE_ADD_URL            = "/api/indexer/manage/add"
+	KIT_URL                           = `/api/kits`
+	KIT_LIST_URL                      = `/api/kits/list`
+	KIT_ID_URL                        = `/api/kits/%s`
+	KIT_BUILD_URL                     = `/api/kits/build`
+	KIT_BUILD_ID_URL                  = `/api/kits/build/%s`
+	KIT_STATUS_URL                    = `/api/kits/status`
+	KIT_STATUS_ID_URL                 = `/api/kits/status/%v`
+	KIT_REMOTE_LIST_URL               = `/api/kits/remote/list`
+	KIT_REMOTE_LIST_ALL_URL           = `/api/kits/remote/list/all`
+	KIT_BUILD_HISTORY_URL             = `/api/kits/build/history`
+	KIT_BUILD_HISTORY_LIST_URL        = `/api/kits/build/history/list`
+	KIT_BUILD_HISTORY_ID_URL          = `/api/kits/build/history/%s`
+	EXTRACTORS_URL                    = `/api/autoextractors`
+	EXTRACTORS_LIST_URL               = `/api/autoextractors/list`
+	EXTRACTORS_UPLOAD_URL             = `/api/autoextractors/upload`
+	EXTRACTORS_TEST_URL               = `/api/autoextractors/test`
+	EXTRACTORS_ID_URL                 = `/api/autoextractors/%s`
+	EXTRACTORS_FIND_URL               = `/api/autoextractors/find/%s`
+	EXTRACTORS_ENGINES_URL            = `/api/autoextractors/engines`
+	EXPLORE_GENERATE_URL              = `/api/explore/generate`
+	TEMPLATES_URL                     = "/api/templates"
+	TEMPLATES_LIST_URL                = "/api/templates/list"
+	TEMPLATES_ID_URL                  = "/api/templates/%s"
+	TEMPLATES_ID_DETAILS_URL          = "/api/templates/%s/details"
+	ACTIONABLES_URL                   = "/api/actionables"
+	ACTIONABLES_LIST_URL              = "/api/actionables/list"
+	ACTIONABLES_ID_URL                = "/api/actionables/%s"
+	FILES_URL                         = "/api/files"
+	FILES_LIST_URL                    = "/api/files/list"
+	FILES_ID_URL                      = "/api/files/%s"
+	FILES_ID_RAW_URL                  = "/api/files/%s/raw"
+	LIBRARY_URL                       = "/api/library"
+	LIBRARY_ID_URL                    = "/api/library/%s"
+	LIBRARY_LIST_URL                  = "/api/library/list"
+	LIBS_URL                          = `/api/libs`
+	CAPABILITY_LIST_URL               = `/api/info/capabilities`
+	CAPABILITY_TEMPLATE_LIST_URL      = `/api/info/capabilities/templates`
+	CAPABILITY_CURRENT_USER_LIST_URL  = `/api/info/capabilities/my`
+	CAPABILITY_CURRENT_USER_WHY_URL   = `/api/info/capabilities/why`
+	CAPABILITY_USER_URL               = `/api/users/%d/capabilities`
+	CAPABILITY_USER_WHY_URL           = `/api/users/%d/capabilities/why`
+	CAPABILITY_GROUP_URL              = `/api/groups/%d/capabilities`
+	GROUP_TAG_ACCESS_URL              = `/api/groups/%d/tags`
+	USER_TAG_ACCESS_URL               = `/api/users/%d/tags`
+	PLAYBOOKS_URL                     = `/api/playbooks`
+	PLAYBOOKS_LIST_URL                = `/api/playbooks/list`
+	PLAYBOOKS_ID_URL                  = `/api/playbooks/%s`
+	BACKUP_URL                        = `/api/backup`
+	DEPLOYMENT_URL                    = `/api/deployment`
+	TOKENS_URL                        = `/api/tokens`
+	TOKENS_LIST_URL                   = `/api/tokens/list`
+	TOKENS_ID_URL                     = `/api/tokens/%s`
+	TOKENS_CAPABILITIES_URL           = `/api/tokens/capabilities`
+	SECRETS_URL                       = `/api/secrets`
+	SECRETS_LIST_URL                  = `/api/secrets/list`
+	SECRETS_ID_URL                    = `/api/secrets/%s`
+	SECRETS_ID_VALUE_URL              = `/api/secrets/%s/value`
+	SECRETS_ID_FULL_URL               = `/api/secrets/%s/full`
+	SETTINGS_URL                      = `/api/settings`
+	INGESTERS_ID_TRACKING_URL         = `/api/ingesters/%s/tracking`
+	CBAC_DEFAULT_URL                  = `/api/cbac/default`
+	CBAC_DEFAULT_CAPABILITIES_URL     = `/api/cbac/default/capabilities`
+	CBAC_DEFAULT_TAGS_URL             = `/api/cbac/default/tags`
+	ALERTS_URL                        = `/api/alerts`
+	ALERTS_LIST_URL                   = `/api/alerts/list`
+	ALERTS_ID_URL                     = `/api/alerts/%s`
+	ALERTS_ID_SAMPLE_URL              = `/api/alerts/%s/sample`
+	ALERTS_VALIDATE_DISPATCHER_URL    = `/api/alerts/validate/dispatcher`
+	ALERTS_VALIDATE_CONSUMER_URL      = `/api/alerts/validate/consumer`
+	USER_PREFERENCES_URL              = `/api/userpreferences`
+	USER_PREFERENCES_LIST_URL         = `/api/userpreferences/list`
+	USER_PREFERENCES_ID_URL           = `/api/userpreferences/%s`
+	LIST_URL                          = `/api/list`
 	// Special APIs for installing licenses
 	LICENSE_INIT_UPLOAD = `/license`
 	LICENSE_INIT_STATUS = `/license/status`
@@ -283,31 +283,31 @@ func usersUrl() string {
 }
 
 func searchCtrlBackgroundUrl(id string) string {
-	return fmt.Sprintf(SEARCH_CTRL_BACKGROUND_URL, id)
+	return fmt.Sprintf(SEARCH_CTRL_ID_BACKGROUND_URL, id)
 }
 
 func searchCtrlGroupUrl(id string) string {
-	return fmt.Sprintf(SEARCH_CTRL_GROUP_URL, id)
+	return fmt.Sprintf(SEARCH_CTRL_ID_GROUP_URL, id)
 }
 
 func searchCtrlGroupsUrl(id string) string {
-	return fmt.Sprintf(SEARCH_CTRL_GROUPS_URL, id)
+	return fmt.Sprintf(SEARCH_CTRL_ID_GROUPS_URL, id)
 }
 
 func searchCtrlGlobalUrl(id string) string {
-	return fmt.Sprintf(SEARCH_CTRL_GLOBAL_URL, id)
+	return fmt.Sprintf(SEARCH_CTRL_ID_GLOBAL_URL, id)
 }
 
 func searchCtrlSaveUrl(id string) string {
-	return fmt.Sprintf(SEARCH_CTRL_SAVE_URL, id)
+	return fmt.Sprintf(SEARCH_CTRL_ID_SAVE_URL, id)
 }
 
 func searchCtrlDownloadUrl(id string) string {
-	return fmt.Sprintf(SEARCH_CTRL_DOWNLOAD_URL, id)
+	return fmt.Sprintf(SEARCH_CTRL_ID_DOWNLOAD_URL, id)
 }
 
 func searchCtrlStopUrl(id string) string {
-	return fmt.Sprintf(SEARCH_CTRL_STOP_URL, id)
+	return fmt.Sprintf(SEARCH_CTRL_ID_STOP_URL, id)
 }
 
 func searchCtrlImportUrl() string {
@@ -319,11 +319,11 @@ func searchCtrlListDetailsUrl() string {
 }
 
 func searchCtrlIdUrl(id string) string {
-	return fmt.Sprintf(SEARCH_CTRL_URL, id)
+	return fmt.Sprintf(SEARCH_CTRL_ID_URL, id)
 }
 
 func searchCtrlDetailsUrl(id string) string {
-	return fmt.Sprintf(SEARCH_CTRL_DETAILS, id)
+	return fmt.Sprintf(SEARCH_CTRL_ID_DETAILS_URL, id)
 }
 
 func sessionsUrl(id int32) string {
@@ -391,15 +391,15 @@ func scheduledSearchIdUrl(id string) string {
 }
 
 func scheduledSearchResultsIdUrl(id string) string {
-	return fmt.Sprintf(SCHEDULED_SEARCH_RESULTS_ID_URL, id)
+	return fmt.Sprintf(SCHEDULED_SEARCH_ID_RESULTS_URL, id)
 }
 
 func scheduledSearchDebugIdUrl(id string) string {
-	return fmt.Sprintf(SCHEDULED_SEARCH_DEBUG_ID_URL, id)
+	return fmt.Sprintf(SCHEDULED_SEARCH_ID_DEBUG_URL, id)
 }
 
 func scheduledSearchCancelIdUrl(id string) string {
-	return fmt.Sprintf(SCHEDULED_SEARCH_CANCEL_ID_URL, id)
+	return fmt.Sprintf(SCHEDULED_SEARCH_ID_CANCEL_URL, id)
 }
 
 func scheduledScriptUrl() string {
@@ -415,15 +415,15 @@ func scheduledScriptIdUrl(id string) string {
 }
 
 func scheduledScriptResultsIdUrl(id string) string {
-	return fmt.Sprintf(SCHEDULED_SCRIPT_RESULTS_ID_URL, id)
+	return fmt.Sprintf(SCHEDULED_SCRIPT_ID_RESULTS_URL, id)
 }
 
 func scheduledScriptDebugIdUrl(id string) string {
-	return fmt.Sprintf(SCHEDULED_SCRIPT_DEBUG_ID_URL, id)
+	return fmt.Sprintf(SCHEDULED_SCRIPT_ID_DEBUG_URL, id)
 }
 
 func scheduledScriptCancelIdUrl(id string) string {
-	return fmt.Sprintf(SCHEDULED_SCRIPT_CANCEL_ID_URL, id)
+	return fmt.Sprintf(SCHEDULED_SCRIPT_ID_CANCEL_URL, id)
 }
 
 func scheduledSearchCheckinUrl() string {
@@ -442,15 +442,15 @@ func flowIdUrl(id interface{}) string {
 }
 
 func flowResultsIdUrl(id string) string {
-	return fmt.Sprintf(FLOW_RESULTS_ID_URL, id)
+	return fmt.Sprintf(FLOW_ID_RESULTS_URL, id)
 }
 
 func flowDebugIdUrl(id string) string {
-	return fmt.Sprintf(FLOW_DEBUG_ID_URL, id)
+	return fmt.Sprintf(FLOW_ID_DEBUG_URL, id)
 }
 
 func flowCancelIdUrl(id string) string {
-	return fmt.Sprintf(FLOW_CANCEL_ID_URL, id)
+	return fmt.Sprintf(FLOW_ID_CANCEL_URL, id)
 }
 
 func loggingUrl() string {
@@ -633,31 +633,31 @@ func searchLaunchUrl() string {
 }
 
 func searchPingUrl(id string) string {
-	return fmt.Sprintf(SEARCH_CTRL_PING_URL, id)
+	return fmt.Sprintf(SEARCH_CTRL_ID_PING_URL, id)
 }
 
 func searchDetachUrl(id string) string {
-	return fmt.Sprintf(SEARCH_CTRL_DETACH_URL, id)
+	return fmt.Sprintf(SEARCH_CTRL_ID_DETACH_URL, id)
 }
 
 func searchStatsMetadataUrl(id string) string {
-	return fmt.Sprintf(SEARCH_CTRL_STATS_METADATA_URL, id)
+	return fmt.Sprintf(SEARCH_CTRL_ID_STATS_METADATA_URL, id)
 }
 
 func searchStatsUrl(id string) string {
-	return fmt.Sprintf(SEARCH_CTRL_STATS_URL, id)
+	return fmt.Sprintf(SEARCH_CTRL_ID_STATS_URL, id)
 }
 
 func searchStatsModules(id string) string {
-	return fmt.Sprintf(SEARCH_CTRL_MODULES, id)
+	return fmt.Sprintf(SEARCH_CTRL_ID_MODULES_URL, id)
 }
 
 func searchExploreUrl(id, rndr string) string {
-	return fmt.Sprintf(SEARCH_CTRL_EXPLORE_URL, id, rndr)
+	return fmt.Sprintf(SEARCH_CTRL_ID_EXPLORE_URL, id, rndr)
 }
 
 func searchEntriesUrl(id, rndr string) string {
-	return fmt.Sprintf(SEARCH_CTRL_ENTRIES_URL, id, rndr)
+	return fmt.Sprintf(SEARCH_CTRL_ID_ENTRIES_URL, id, rndr)
 }
 
 func searchParseUrl() string {
@@ -665,7 +665,7 @@ func searchParseUrl() string {
 }
 
 func searchAttachUrl(id string) string {
-	return fmt.Sprintf(SEARCH_CTRL_ATTACH_URL, id)
+	return fmt.Sprintf(SEARCH_CTRL_ID_ATTACH_URL, id)
 }
 
 func alertsUrl() string {
