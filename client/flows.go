@@ -15,20 +15,14 @@ import (
 )
 
 // ListFlows returns flows the user has access to.
-func (c *Client) ListFlows(opts *types.QueryOptions) (flows types.FlowListResponse, err error) {
-	if opts == nil {
-		opts = &types.QueryOptions{}
-	}
-	return c.post[types.QueryOptions, types.FlowListResponse](FLOW_LIST_URL, opts)
+func (c *Client) ListFlows(opts types.QueryOptions) (flows types.FlowListResponse, err error) {
+	return c.post[types.QueryOptions, types.FlowListResponse](FLOW_LIST_URL, &opts)
 }
 
 // ListAllFlows returns all flows on the system (for admins).
-func (c *Client) ListAllFlows(opts *types.QueryOptions) (flows types.FlowListResponse, err error) {
-	if opts == nil {
-		opts = &types.QueryOptions{}
-	}
+func (c *Client) ListAllFlows(opts types.QueryOptions) (flows types.FlowListResponse, err error) {
 	opts.AdminMode = true // we'll reject this if the user isn't actually an admin
-	return c.post[types.QueryOptions, types.FlowListResponse](FLOW_LIST_URL, opts)
+	return c.post[types.QueryOptions, types.FlowListResponse](FLOW_LIST_URL, &opts)
 }
 
 // GetFlow returns the flow with the given ID.
