@@ -57,7 +57,6 @@ type BaseListResponse struct {
 	CursorPrev       string
 	Offset           int
 	TotalCount       int
-	Type             string
 	AvailableFilters []AvailableFilter
 }
 
